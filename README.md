@@ -29,11 +29,30 @@ Create D&D 3.5e NPCs and adversaries using PC character sheets with a streamline
 
 ## Development
 
+### Quick Deploy to Foundry
 ```bash
 npm install
-npm run build
-npm run watch  # for development
+npm run deploy
 ```
+
+This builds and copies the module to your Foundry modules directory.
+
+### Active Development
+Run these in separate terminals for live updates:
+
+```bash
+npm run watch          # Terminal 1: Rebuilds on code changes
+npm run dev:foundry    # Terminal 2: Auto-deploys to Foundry
+```
+
+### Build & Package
+```bash
+npm run build          # Build once
+npm run deploy         # Deploy to Foundry
+.\scripts\pack.ps1     # Create distribution .zip
+```
+
+For more details, see [DEVELOPMENT.md](DEVELOPMENT.md).
 
 ## License
 

@@ -35,10 +35,23 @@ motwm-townie-maker/
 npm install
 ```
 
-### Development
+### Quick Deploy to Foundry
 ```bash
-npm run watch    # Watch mode - rebuilds on changes
+npm run deploy    # Build and copy to Foundry modules folder
 ```
+
+### Active Development (Recommended)
+**Terminal 1 - Watch TypeScript/CSS:**
+```bash
+npm run watch    # Rebuilds on src/ changes
+```
+
+**Terminal 2 - Auto-deploy to Foundry:**
+```bash
+npm run dev:foundry    # Watches and copies to Foundry on changes
+```
+
+This gives you live updates: edit source → auto-build → auto-deploy → reload in Foundry
 
 ### Build for Production
 ```bash
