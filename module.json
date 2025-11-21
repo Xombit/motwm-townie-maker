@@ -17,7 +17,7 @@
     "dist/main.js"
   ],
   "styles": [
-    "dist/styles.css"
+    "dist/style.css"
   ],
   "languages": [
     {

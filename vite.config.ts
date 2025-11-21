@@ -9,12 +9,13 @@ export default defineConfig({
     lib: {
       entry: resolve(__dirname, "src/main.ts"),
       formats: ["es"],
-      fileName: "main"
+      fileName: () => "main.js"
     },
     rollupOptions: {
       external: [],
       output: {
-        assetFileNames: "[name].[ext]"
+        assetFileNames: "[name].[ext]",
+        entryFileNames: "main.js"
       }
     }
   }
