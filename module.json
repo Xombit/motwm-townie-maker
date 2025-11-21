@@ -1,0 +1,43 @@
+{
+  "id": "motwm-townie-maker",
+  "title": "MOTWM Townie Maker",
+  "version": "0.1.0",
+  "compatibility": {
+    "minimum": "10",
+    "verified": "11",
+    "maximum": "11"
+  },
+  "description": "Quick NPC and Adversary creation tool - create D&D 3.5e NPCs using PC character sheets with streamlined workflow",
+  "authors": [
+    {
+      "name": "Xombit"
+    }
+  ],
+  "esmodules": [
+    "dist/main.js"
+  ],
+  "styles": [
+    "dist/styles.css"
+  ],
+  "languages": [
+    {
+      "lang": "en",
+      "name": "English",
+      "path": "lang/en.json"
+    }
+  ],
+  "relationships": {
+    "systems": [
+      {
+        "id": "D35E",
+        "type": "system",
+        "compatibility": {
+          "minimum": "2.1.3"
+        }
+      }
+    ]
+  },
+  "url": "https://github.com/Xombit/motwm-townie-maker",
+  "manifest": "https://github.com/Xombit/motwm-townie-maker/releases/latest/download/module.json",
+  "download": "https://github.com/Xombit/motwm-townie-maker/releases/latest/download/motwm-townie-maker.zip"
+}

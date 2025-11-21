@@ -1,0 +1,110 @@
+<div class="motwm-townie-maker">
+  <nav class="tabs" data-group="primary-tabs">
+    <a class="item" data-tab="template">
+      <i class="fas fa-images"></i> Templates
+    </a>
+    <a class="item" data-tab="details">
+      <i class="fas fa-edit"></i> Details
+    </a>
+    <a class="item" data-tab="abilities">
+      <i class="fas fa-dice-d20"></i> Abilities
+    </a>
+  </nav>
+
+  <div class="content">
+    <!-- Template Selection Tab -->
+    <div class="tab" data-tab="template">
+      <div class="section-header">Choose a Template</div>
+      <div class="template-grid">
+        {{#each templates}}
+        <div class="template-card {{#if (eq ../selectedTemplate.id this.id)}}selected{{/if}}"
+             data-action="select-template"
+             data-template-id="{{this.id}}">
+          <div class="icon"><i class="{{this.icon}}"></i></div>
+          <div class="name">{{this.name}}</div>
+          <div class="description">{{this.description}}</div>
+        </div>
+        {{/each}}
+      </div>
+    </div>
+
+    <!-- Details Tab -->
+    <div class="tab" data-tab="details">
+      <div class="section-header">NPC Details</div>
+      
+      <div class="form-group">
+        <label for="npc-name">Name *</label>
+        <input type="text" id="npc-name" data-field="name" value="{{formData.name}}" placeholder="Enter NPC name">
+      </div>
+
+      <div class="form-group">
+        <label for="npc-race">Race</label>
+        <input type="text" id="npc-race" data-field="race" value="{{formData.race}}" placeholder="e.g., Human, Elf, Dwarf">
+      </div>
+
+      <div class="form-group">
+        <label for="npc-alignment">Alignment</label>
+        <select id="npc-alignment" data-field="alignment">
+          <option value="">-- Select Alignment --</option>
+          <option value="Lawful Good" {{#if (eq formData.alignment "Lawful Good")}}selected{{/if}}>Lawful Good</option>
+          <option value="Neutral Good" {{#if (eq formData.alignment "Neutral Good")}}selected{{/if}}>Neutral Good</option>
+          <option value="Chaotic Good" {{#if (eq formData.alignment "Chaotic Good")}}selected{{/if}}>Chaotic Good</option>
+          <option value="Lawful Neutral" {{#if (eq formData.alignment "Lawful Neutral")}}selected{{/if}}>Lawful Neutral</option>
+          <option value="Neutral" {{#if (eq formData.alignment "Neutral")}}selected{{/if}}>Neutral</option>
+          <option value="Chaotic Neutral" {{#if (eq formData.alignment "Chaotic Neutral")}}selected{{/if}}>Chaotic Neutral</option>
+          <option value="Lawful Evil" {{#if (eq formData.alignment "Lawful Evil")}}selected{{/if}}>Lawful Evil</option>
+          <option value="Neutral Evil" {{#if (eq formData.alignment "Neutral Evil")}}selected{{/if}}>Neutral Evil</option>
+          <option value="Chaotic Evil" {{#if (eq formData.alignment "Chaotic Evil")}}selected{{/if}}>Chaotic Evil</option>
+        </select>
+      </div>
+
+      <div class="form-group">
+        <label for="npc-personality">Personality (Optional)</label>
+        <textarea id="npc-personality" data-field="personality" rows="3" placeholder="Brief personality description">{{formData.personality}}</textarea>
+      </div>
+
+      <div class="form-group">
+        <label for="npc-background">Background (Optional)</label>
+        <textarea id="npc-background" data-field="background" rows="3" placeholder="Brief background or history">{{formData.background}}</textarea>
+      </div>
+    </div>
+
+    <!-- Abilities Tab -->
+    <div class="tab" data-tab="abilities">
+      <div class="section-header">Ability Scores</div>
+      
+      <div class="button-group">
+        <button data-action="apply-standard-array">
+          <i class="fas fa-list-ol"></i> Standard Array
+        </button>
+        <button data-action="roll-abilities">
+          <i class="fas fa-dice"></i> Roll 4d6 Drop Lowest
+        </button>
+      </div>
+
+      <div class="abilities-grid">
+        {{#each abilities}}
+        <div class="ability-input">
+          <label for="ability-{{this.key}}">{{this.label}}</label>
+          <input type="number" 
+                 id="ability-{{this.key}}" 
+                 data-ability="{{this.key}}" 
+                 value="{{this.value}}" 
+                 min="3" 
+                 max="25">
+        </div>
+        {{/each}}
+      </div>
+    </div>
+  </div>
+
+  <!-- Action Buttons -->
+  <footer class="button-group" style="padding: 12px 16px; border-top: 1px solid var(--color-border-light-2, #2c2f3a);">
+    <button class="primary" data-action="create-npc">
+      <i class="fas fa-user-plus"></i> Create NPC
+    </button>
+    <button data-action="cancel">
+      <i class="fas fa-times"></i> Cancel
+    </button>
+  </footer>
+</div>

@@ -1,0 +1,16 @@
+{
+  "name": "motwm-townie-maker",
+  "version": "0.1.0",
+  "description": "MOTWM Townie Maker - Quick NPC and Adversary creation tool for Foundry VTT D35E",
+  "scripts": {
+    "build": "vite build",
+    "watch": "vite build --watch",
+    "dev": "vite build --watch"
+  },
+  "author": "Xombit",
+  "license": "MIT",
+  "devDependencies": {
+    "typescript": "^5.6.3",
+    "vite": "^5.4.8"
+  }
+}

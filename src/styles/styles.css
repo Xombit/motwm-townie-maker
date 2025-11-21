@@ -1,0 +1,187 @@
+/* MOTWM Townie Maker Styles */
+
+.motwm-townie-maker-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 8px;
+  margin-left: 4px;
+  background: var(--color-cool-5, #1a2230);
+  border: 1px solid var(--color-border-light-2, #2c2f3a);
+  border-radius: 4px;
+  color: var(--color-text-light-primary, #f2f5ff);
+  cursor: pointer;
+  font-size: 12px;
+  transition: filter 0.12s ease;
+}
+
+.motwm-townie-maker-btn:hover {
+  filter: brightness(1.15);
+}
+
+.motwm-townie-maker {
+  color: var(--color-text-light-primary, #e6e6e6);
+}
+
+.motwm-townie-maker .window-content {
+  padding: 0;
+  overflow: hidden;
+}
+
+.motwm-townie-maker .tabs {
+  border-bottom: 1px solid var(--color-border-light-2, #2c2f3a);
+  background: var(--color-warm-2, #0b0e14);
+  padding: 8px 16px;
+  display: flex;
+  gap: 12px;
+}
+
+.motwm-townie-maker .tabs .item {
+  padding: 6px 12px;
+  cursor: pointer;
+  border-radius: 4px;
+  transition: background-color 0.1s ease;
+}
+
+.motwm-townie-maker .tabs .item:hover {
+  background: rgba(255, 255, 255, 0.05);
+}
+
+.motwm-townie-maker .tabs .item.active {
+  background: var(--color-cool-5, #1a2230);
+  border-bottom: 2px solid var(--color-text-light-highlight, #00e5d0);
+}
+
+.motwm-townie-maker .content {
+  padding: 16px;
+  overflow-y: auto;
+  max-height: 500px;
+}
+
+.motwm-townie-maker .template-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+  gap: 12px;
+  margin-bottom: 16px;
+}
+
+.motwm-townie-maker .template-card {
+  border: 1px solid var(--color-border-light-2, #2c2f3a);
+  border-radius: 8px;
+  padding: 12px;
+  cursor: pointer;
+  transition: all 0.12s ease;
+  background: color-mix(in oklab, var(--color-warm-2, #0b0e14), #ffffff 2%);
+}
+
+.motwm-townie-maker .template-card:hover {
+  background: color-mix(in oklab, var(--color-warm-2, #0b0e14), #ffffff 5%);
+  border-color: color-mix(in oklab, var(--color-border-light-2, #2c2f3a), #ffffff 20%);
+}
+
+.motwm-townie-maker .template-card.selected {
+  background: color-mix(in oklab, var(--color-cool-5, #1a2230), #ffffff 8%);
+  border-color: var(--color-text-light-highlight, #00e5d0);
+}
+
+.motwm-townie-maker .template-card .icon {
+  font-size: 32px;
+  text-align: center;
+  margin-bottom: 8px;
+  opacity: 0.8;
+}
+
+.motwm-townie-maker .template-card .name {
+  font-weight: 600;
+  text-align: center;
+  margin-bottom: 4px;
+}
+
+.motwm-townie-maker .template-card .description {
+  font-size: 11px;
+  text-align: center;
+  opacity: 0.75;
+}
+
+.motwm-townie-maker .form-group {
+  margin-bottom: 16px;
+}
+
+.motwm-townie-maker .form-group label {
+  display: block;
+  margin-bottom: 4px;
+  font-weight: 600;
+  font-size: 13px;
+}
+
+.motwm-townie-maker .form-group input,
+.motwm-townie-maker .form-group select,
+.motwm-townie-maker .form-group textarea {
+  width: 100%;
+  padding: 6px 10px;
+  background: var(--color-cool-5, #1a2230);
+  border: 1px solid var(--color-border-light-2, #2c2f3a);
+  border-radius: 4px;
+  color: var(--color-text-light-primary, #f2f5ff);
+}
+
+.motwm-townie-maker .form-group input[type="number"] {
+  width: 80px;
+}
+
+.motwm-townie-maker .abilities-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 12px;
+  margin-bottom: 16px;
+}
+
+.motwm-townie-maker .ability-input {
+  display: flex;
+  flex-direction: column;
+}
+
+.motwm-townie-maker .ability-input label {
+  font-size: 11px;
+  font-weight: 600;
+  margin-bottom: 4px;
+}
+
+.motwm-townie-maker .ability-input input {
+  text-align: center;
+  font-size: 16px;
+  font-weight: 600;
+}
+
+.motwm-townie-maker .button-group {
+  display: flex;
+  gap: 8px;
+  margin-top: 16px;
+}
+
+.motwm-townie-maker button {
+  padding: 8px 16px;
+  border-radius: 6px;
+  border: 1px solid var(--color-border-light-2, #2c2f3a);
+  background: var(--color-cool-5, #1a2230);
+  color: var(--color-text-light-primary, #f2f5ff);
+  cursor: pointer;
+  transition: filter 0.12s ease;
+}
+
+.motwm-townie-maker button:hover {
+  filter: brightness(1.1);
+}
+
+.motwm-townie-maker button.primary {
+  background: #1f2d52;
+  border-color: #2a3c72;
+}
+
+.motwm-townie-maker .section-header {
+  font-size: 16px;
+  font-weight: 700;
+  margin-bottom: 12px;
+  padding-bottom: 8px;
+  border-bottom: 1px solid var(--color-border-light-2, #2c2f3a);
+}
