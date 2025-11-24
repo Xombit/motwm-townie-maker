@@ -18,6 +18,13 @@ export const TOWNIE_TEMPLATES: TownieTemplate[] = [
     alignment: "Lawful Neutral",
     abilities: { str: 14, dex: 12, con: 13, int: 10, wis: 11, cha: 8 },
     primaryAbility: "str",
+    skills: [
+      { name: "clm", ranks: 2 },  // Climb
+      { name: "int", ranks: 2 },  // Intimidate
+      { name: "jmp", ranks: 2 },  // Jump
+      { name: "rid", ranks: 2 },  // Ride - for mounted guards
+      // Total: 8 ranks (Fighter gets 2+Int(0) = 2 per level, x4 at 1st = 8)
+    ],
     feats: [
       "Power Attack", 
       "Cleave", 
@@ -130,6 +137,12 @@ export const TOWNIE_TEMPLATES: TownieTemplate[] = [
     alignment: "Neutral Good",
     abilities: { str: 10, dex: 12, con: 12, int: 11, wis: 13, cha: 15 },
     primaryAbility: "cha",
+    skills: [
+      { name: "pro1:Innkeeper", ranks: 4 },
+      { name: "dip", ranks: 2 },  // Diplomacy
+      { name: "sen", ranks: 2 },  // Sense Motive
+      // Total: 8 ranks (Commoner gets 2+Int(0) = 2 per level, x4 at 1st = 8)
+    ],
     feats: [
       { name: "Skill Focus (undefined)", displayName: "Skill Focus (Profession)", config: { skill: "pro1:Innkeeper" } },
       "Persuasive", 
@@ -151,6 +164,12 @@ export const TOWNIE_TEMPLATES: TownieTemplate[] = [
     alignment: "Neutral Good",
     abilities: { str: 13, dex: 10, con: 14, int: 8, wis: 12, cha: 9 },
     primaryAbility: "con",
+    skills: [
+      { name: "pro1:Farmer", ranks: 2 },
+      { name: "han", ranks: 1 },  // Handle Animal
+      { name: "sur", ranks: 1 },  // Survival
+      // Total: 4 ranks (Commoner gets 2+Int(-1) = 1 per level, x4 at 1st = 4)
+    ],
     feats: [
       "Endurance", 
       "Toughness", 
@@ -172,6 +191,13 @@ export const TOWNIE_TEMPLATES: TownieTemplate[] = [
     alignment: "Chaotic Neutral",
     abilities: { str: 8, dex: 14, con: 10, int: 10, wis: 11, cha: 12 },
     primaryAbility: "dex",
+    skills: [
+      { name: "hid", ranks: 2 },  // Hide
+      { name: "mov", ranks: 2 },  // Move Silently
+      { name: "slt", ranks: 2 },  // Sleight of Hand
+      { name: "blf", ranks: 2 },  // Bluff
+      // Total: 8 ranks (Commoner gets 2+Int(0) = 2 per level, x4 at 1st = 8)
+    ],
     feats: [
       { name: "Skill Focus (undefined)", displayName: "Skill Focus (Sleight of Hand)", config: { skill: "slt" } },
       "Dodge", 
@@ -193,6 +219,12 @@ export const TOWNIE_TEMPLATES: TownieTemplate[] = [
     alignment: "Chaotic Neutral",
     abilities: { str: 8, dex: 10, con: 10, int: 11, wis: 14, cha: 15 },
     primaryAbility: "cha",
+    skills: [
+      { name: "kar", ranks: 4 },  // Knowledge (Arcana) - divination magic
+      { name: "coc", ranks: 2 },  // Concentration
+      { name: "sen", ranks: 2 },  // Sense Motive - reading people
+      // Total: 8 ranks (Adept gets 2+Int(0) = 2 per level, x4 at 1st = 8)
+    ],
     feats: [
       { name: "Spell Focus (No Spell School Selected)", displayName: "Spell Focus (Divination)", config: { spellSchool: "div" } },
       "Alertness", 
@@ -214,6 +246,12 @@ export const TOWNIE_TEMPLATES: TownieTemplate[] = [
     alignment: "Neutral Evil",
     abilities: { str: 10, dex: 10, con: 11, int: 10, wis: 14, cha: 12 },
     primaryAbility: "wis",
+    skills: [
+      { name: "kre", ranks: 4 },  // Knowledge (Religion) - dark worship
+      { name: "coc", ranks: 2 },  // Concentration
+      { name: "kar", ranks: 2 },  // Knowledge (Arcana) - dark magic
+      // Total: 8 ranks (Adept gets 2+Int(0) = 2 per level, x4 at 1st = 8)
+    ],
     feats: [
       { name: "Spell Focus (No Spell School Selected)", displayName: "Spell Focus (Necromancy)", config: { spellSchool: "nec" } },
       "Iron Will", 
@@ -294,6 +332,12 @@ export const TOWNIE_TEMPLATES: TownieTemplate[] = [
     alignment: "Neutral Good",
     abilities: { str: 10, dex: 10, con: 11, int: 10, wis: 14, cha: 12 },
     primaryAbility: "wis",
+    skills: [
+      { name: "hea", ranks: 4 },  // Heal - primary healing skill
+      { name: "coc", ranks: 2 },  // Concentration
+      { name: "sur", ranks: 2 },  // Survival - finding herbs
+      // Total: 8 ranks (Adept gets 2+Int(0) = 2 per level, x4 at 1st = 8)
+    ],
     feats: [
       { name: "Skill Focus (undefined)", displayName: "Skill Focus (Heal)", config: { skill: "hea" } },
       "Iron Will", 
@@ -352,6 +396,15 @@ export const TOWNIE_TEMPLATES: TownieTemplate[] = [
     alignment: "Lawful Neutral",
     abilities: { str: 10, dex: 10, con: 11, int: 13, wis: 10, cha: 15 },
     primaryAbility: "cha",
+    skills: [
+      { name: "dip", ranks: 4 },  // Diplomacy
+      { name: "kno", ranks: 4 },  // Knowledge (Nobility)
+      { name: "rid", ranks: 4 },  // Ride
+      { name: "sen", ranks: 4 },  // Sense Motive - politics
+      { name: "apr", ranks: 2 },  // Appraise - wealth assessment
+      { name: "gif", ranks: 2 },  // Gather Information
+      // Total: 20 ranks (Aristocrat gets 4+Int(1) = 5 per level, x4 at 1st = 20)
+    ],
     feats: [
       { name: "Skill Focus (undefined)", displayName: "Skill Focus (Diplomacy)", config: { skill: "dip" } },
       "Persuasive", 
@@ -373,6 +426,11 @@ export const TOWNIE_TEMPLATES: TownieTemplate[] = [
     alignment: "Chaotic Neutral",
     abilities: { str: 13, dex: 14, con: 12, int: 8, wis: 10, cha: 9 },
     primaryAbility: "dex",
+    skills: [
+      { name: "hid", ranks: 2 },  // Hide
+      { name: "mov", ranks: 2 },  // Move Silently
+      // Total: 4 ranks (Warrior gets 2+Int(-1) = 1 per level, x4 at 1st = 4)
+    ],
     feats: [
       "Point Blank Shot", 
       "Rapid Shot", 
@@ -394,6 +452,16 @@ export const TOWNIE_TEMPLATES: TownieTemplate[] = [
     alignment: "Neutral Good",
     abilities: { str: 13, dex: 15, con: 11, int: 10, wis: 14, cha: 8 },
     primaryAbility: "dex",
+    skills: [
+      { name: "sur", ranks: 4 },  // Survival - tracking and wilderness
+      { name: "spt", ranks: 4 },  // Spot
+      { name: "lis", ranks: 4 },  // Listen
+      { name: "hid", ranks: 4 },  // Hide
+      { name: "mov", ranks: 4 },  // Move Silently
+      { name: "sea", ranks: 2 },  // Search
+      { name: "kna", ranks: 2 },  // Knowledge (Nature)
+      // Total: 24 ranks (Ranger gets 6+Int(0) = 6 per level, x4 at 1st = 24)
+    ],
     feats: [
       "Track", 
       "Point Blank Shot", 
@@ -415,6 +483,13 @@ export const TOWNIE_TEMPLATES: TownieTemplate[] = [
     alignment: "Chaotic Neutral",
     abilities: { str: 16, dex: 14, con: 15, int: 8, wis: 10, cha: 8 },
     primaryAbility: "str",
+    skills: [
+      { name: "clm", ranks: 4 },  // Climb
+      { name: "jmp", ranks: 4 },  // Jump
+      { name: "int", ranks: 2 },  // Intimidate
+      { name: "sur", ranks: 2 },  // Survival
+      // Total: 12 ranks (Barbarian gets 4+Int(-1) = 3 per level, x4 at 1st = 12)
+    ],
     feats: [
       "Power Attack", 
       "Cleave", 
@@ -469,6 +544,14 @@ export const TOWNIE_TEMPLATES: TownieTemplate[] = [
     alignment: "True Neutral",
     abilities: { str: 10, dex: 10, con: 13, int: 10, wis: 16, cha: 12 },
     primaryAbility: "wis",
+    skills: [
+      { name: "coc", ranks: 4 },  // Concentration
+      { name: "kna", ranks: 4 },  // Knowledge (Nature)
+      { name: "sur", ranks: 4 },  // Survival
+      { name: "han", ranks: 2 },  // Handle Animal
+      { name: "spt", ranks: 2 },  // Spot
+      // Total: 16 ranks (Druid gets 4+Int(0) = 4 per level, x4 at 1st = 16)
+    ],
     feats: [
       "Natural Spell", 
       "Augment Summoning", 
@@ -490,6 +573,14 @@ export const TOWNIE_TEMPLATES: TownieTemplate[] = [
     alignment: "Lawful Neutral",
     abilities: { str: 12, dex: 16, con: 12, int: 10, wis: 14, cha: 8 },
     primaryAbility: "dex",
+    skills: [
+      { name: "tmb", ranks: 4 },  // Tumble
+      { name: "bal", ranks: 4 },  // Balance
+      { name: "jmp", ranks: 4 },  // Jump
+      { name: "mov", ranks: 2 },  // Move Silently
+      { name: "hid", ranks: 2 },  // Hide
+      // Total: 16 ranks (Monk gets 4+Int(0) = 4 per level, x4 at 1st = 16)
+    ],
     feats: ["Improved Unarmed Strike", "Dodge", "Improved Grapple", "Deflect Arrows", "Mobility", "Spring Attack", "Improved Initiative", "Lightning Reflexes"]
   },
   {
@@ -529,6 +620,12 @@ export const TOWNIE_TEMPLATES: TownieTemplate[] = [
     alignment: "Chaotic Neutral",
     abilities: { str: 8, dex: 12, con: 13, int: 10, wis: 10, cha: 16 },
     primaryAbility: "cha",
+    skills: [
+      { name: "coc", ranks: 4 },  // Concentration
+      { name: "blf", ranks: 2 },  // Bluff - natural charisma
+      { name: "kar", ranks: 2 },  // Knowledge (Arcana)
+      // Total: 8 ranks (Sorcerer gets 2+Int(0) = 2 per level, x4 at 1st = 8)
+    ],
     feats: [
       { name: "Spell Focus (No Spell School Selected)", displayName: "Spell Focus (Evocation)", config: { spellSchool: "evo" } },
       "Combat Casting", 
