@@ -39,7 +39,27 @@
 
       <div class="form-group">
         <label for="npc-race">Race</label>
-        <input type="text" id="npc-race" data-field="race" value="{{formData.race}}" placeholder="e.g., Human, Elf, Dwarf">
+        <select id="npc-race" data-field="race">
+          <option value="">-- Select Race --</option>
+          {{#each races}}
+          <option value="{{this.name}}" {{#if (eq ../formData.race this.name)}}selected{{/if}}>{{this.name}}</option>
+          {{/each}}
+        </select>
+      </div>
+
+      <div class="form-group">
+        <label for="npc-class">Class</label>
+        <select id="npc-class" data-field="className">
+          <option value="">-- Select Class --</option>
+          {{#each classes}}
+          <option value="{{this.name}}" {{#if (eq ../formData.className this.name)}}selected{{/if}}>{{this.name}}</option>
+          {{/each}}
+        </select>
+      </div>
+
+      <div class="form-group">
+        <label for="npc-level">Level (1-20)</label>
+        <input type="number" id="npc-level" data-field="classLevel" value="{{formData.classLevel}}" min="1" max="20" placeholder="1">
       </div>
 
       <div class="form-group">

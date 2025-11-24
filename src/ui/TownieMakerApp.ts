@@ -5,6 +5,8 @@ import { TOWNIE_TEMPLATES } from "../data/templates";
 export class TownieMakerApp extends Application {
   private selectedTemplate: TownieTemplate | null = null;
   private formData: Partial<TownieFormData> = {};
+  private availableRaces: Array<{ id: string; name: string }> = [];
+  private availableClasses: Array<{ id: string; name: string }> = [];
 
   static get defaultOptions() {
     return mergeObject(super.defaultOptions, {
@@ -19,7 +21,18 @@ export class TownieMakerApp extends Application {
     });
   }
 
-  getData(): any {
+  async getData(): Promise<any> {
+    // Load available races if not already loaded
+    if (this.availableRaces.length === 0) {
+      this.availableRaces = await D35EAdapter.getRaces();
+      console.log("Available races:", this.availableRaces.map(r => r.name));
+    }
+    
+    // Load available classes if not already loaded
+    if (this.availableClasses.length === 0) {
+      this.availableClasses = await D35EAdapter.getClasses();
+    }
+
     const settings = {
       defaultActorType: game.settings.get("motwm-townie-maker", "defaultActorType"),
       autoRollHP: game.settings.get("motwm-townie-maker", "autoRollHP"),
@@ -42,7 +55,9 @@ export class TownieMakerApp extends Application {
       selectedTemplate: this.selectedTemplate,
       formData: this.formData,
       abilities,
-      settings
+      settings,
+      races: this.availableRaces,
+      classes: this.availableClasses
     };
   }
 
@@ -58,7 +73,13 @@ export class TownieMakerApp extends Application {
     // Form inputs
     html.on("change", "[data-field]", (ev) => {
       const field = $(ev.currentTarget).data("field");
-      const value = $(ev.currentTarget).val();
+      let value: any = $(ev.currentTarget).val();
+      
+      // Parse numeric fields
+      if (field === "classLevel") {
+        value = parseInt(value as string) || 1;
+      }
+      
       this.updateFormData(field, value);
     });
 
@@ -98,6 +119,13 @@ export class TownieMakerApp extends Application {
       this.formData.race = this.selectedTemplate.race || "";
       this.formData.classes = this.selectedTemplate.classes || [];
       this.formData.alignment = this.selectedTemplate.alignment || "";
+      
+      // Set first class name and level from template
+      if (this.selectedTemplate.classes && this.selectedTemplate.classes.length > 0) {
+        this.formData.className = this.selectedTemplate.classes[0].name;
+        // Ensure level is always a number
+        this.formData.classLevel = parseInt(this.selectedTemplate.classes[0].level as any) || 1;
+      }
       
       // Apply ability score modifiers
       if (this.selectedTemplate.abilities) {
@@ -157,6 +185,23 @@ export class TownieMakerApp extends Application {
     this.render(false);
   }
 
+  private getPrimaryAbilityFromScores(
+    scores: { str: number; dex: number; con: number; int: number; wis: number; cha: number }
+  ): "str" | "dex" | "con" | "int" | "wis" | "cha" {
+    // Find the ability with the highest score
+    let highest: "str" | "dex" | "con" | "int" | "wis" | "cha" = "str";
+    let highestValue = scores.str;
+    
+    for (const [key, value] of Object.entries(scores)) {
+      if (value > highestValue) {
+        highest = key as "str" | "dex" | "con" | "int" | "wis" | "cha";
+        highestValue = value;
+      }
+    }
+    
+    return highest;
+  }
+
   private async createNPC(): Promise<void> {
     const name = this.formData.name;
     if (!name) {
@@ -185,16 +230,44 @@ export class TownieMakerApp extends Application {
       // Set ability scores
       await D35EAdapter.setAbilityScores(actor, abilities);
 
-      // Add classes if specified
-      if (this.formData.classes && this.formData.classes.length > 0) {
-        for (const cls of this.formData.classes) {
-          await D35EAdapter.addClass(actor, cls.name, cls.level);
-        }
+      // Add race if specified
+      if (this.formData.race) {
+        await D35EAdapter.addRace(actor, this.formData.race);
       }
 
-      // Roll HP if enabled
+      // Add class if specified (use className/classLevel or fall back to classes array)
+      const className = this.formData.className || (this.formData.classes?.[0]?.name);
+      const classLevel = parseInt(this.formData.classLevel as any) || parseInt(this.formData.classes?.[0]?.level as any) || 1;
+      
+      if (className) {
+        await D35EAdapter.addClass(actor, className, classLevel);
+      }
+
+      // Roll HP if enabled (MUST be before addSkills to create levelUpData)
       if (autoRollHP) {
-        await D35EAdapter.rollHP(actor);
+        // Get primary ability from template or default based on highest ability score
+        const primaryAbility = this.selectedTemplate?.primaryAbility || this.getPrimaryAbilityFromScores(abilities);
+        await D35EAdapter.rollHP(actor, classLevel, primaryAbility);
+      }
+
+      // Add skills from template if available (MUST be after rollHP creates levelUpData)
+      if (this.selectedTemplate?.skills && this.selectedTemplate.skills.length > 0) {
+        await D35EAdapter.addSkills(actor, classLevel, this.selectedTemplate.skills);
+      }
+
+      // Add feats from template if available
+      if (this.selectedTemplate?.feats && this.selectedTemplate.feats.length > 0) {
+        // Check if race is Human (for bonus feat)
+        const isHuman = this.formData.race === "Human";
+        await D35EAdapter.addFeats(actor, classLevel, this.selectedTemplate.feats, isHuman);
+      }
+
+      // Set biography with personality and background
+      if (this.formData.personality || this.formData.background) {
+        await D35EAdapter.setBiography(actor, {
+          personality: this.formData.personality,
+          background: this.formData.background
+        });
       }
 
       ui.notifications?.info(`Created ${name}!`);

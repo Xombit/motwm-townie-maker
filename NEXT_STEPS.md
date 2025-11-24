@@ -1,65 +1,105 @@
 # Project Setup Complete! 🎉
 
-## What We've Created
+## Current Status: Phase 1 - Core Implementation Complete! ✅
 
-**MOTWM Townie Maker** - A Foundry VTT module for quick NPC and adversary creation using D35E character sheets.
-
-### Location
-```
-e:\src\motwm-townie-maker\
-```
-
-### Project Status
-✅ **Initial setup complete** - The project structure is ready and building successfully!
-
-## What's Included
-
-### Core Features (Framework)
-- ✅ 10 pre-made NPC templates (Guard, Merchant, Wizard, etc.)
-- ✅ Guided 3-tab interface (Templates → Details → Abilities)
+### ✅ What's Working
+- ✅ Project structure and build system
+- ✅ UI framework with 3-tab interface
+- ✅ 10 NPC templates
 - ✅ Ability score generation (Standard Array + Roll 4d6)
-- ✅ Module settings system
-- ✅ Folder organization for created NPCs
-- ✅ Build system with Vite + TypeScript
+- ✅ Basic actor creation with name and ability scores
+- ✅ Debug tools for compendium inspection
+- ✅ **Research complete - D35E structure documented**
+- ✅ **`addRace()` implemented**
+- ✅ **`addClass()` implemented**
+- ✅ **`rollHP()` implemented**
 
-### Files Created
-- **Source Code**: `src/` - All TypeScript source files
-- **Templates**: Templates for 10 common NPC archetypes
-- **UI**: Handlebars template with tabbed interface
-- **Styles**: Custom CSS matching Foundry's look
-- **Build System**: Vite configuration for bundling
-- **Scripts**: PowerShell pack script for distribution
+### 🧪 Currently Testing
+**First Real NPC Creation!**
+
+The core functionality is now implemented. Time to test!
+
+### 📋 Complete Actor Requirements
+
+A fully functional D&D 3.5e character needs:
+
+#### Core Identity
+- ✅ Name
+- ⏳ Race (item from compendium)
+- ⏳ Class(es) with levels
+- ⏳ Alignment
+- ⏳ Size (from race)
+- ⏳ Age, height, weight
+- ⏳ Gender/appearance
+
+#### Ability Scores
+- ✅ Base scores (STR, DEX, CON, INT, WIS, CHA)
+- ⏳ Racial modifiers
+- ⏳ Level-based increases
+
+#### Combat Stats
+- ⏳ Hit Points (rolled/max per class)
+- ⏳ Armor Class (base 10 + DEX)
+- ⏳ Base Attack Bonus (from class)
+- ⏳ Saving Throws (Fort, Ref, Will)
+- ⏳ Initiative
+
+#### Class Features
+- ⏳ Class features per level
+- ⏳ Bonus feats
+- ⏳ Special abilities
+- ⏳ Spellcasting (if applicable)
+
+#### Skills
+- ⏳ Skill ranks allocation
+- ⏳ Class skills vs cross-class
+- ⏳ Max ranks limit
+
+#### Feats
+- ⏳ Starting feat(s)
+- ⏳ Bonus feats from class/race
+
+#### Equipment
+- ⏳ Armor
+- ⏳ Weapons
+- ⏳ Gear/items
+- ⏳ Starting gold
+
+#### Spells (if caster)
+- ⏳ Known spells
+- ⏳ Prepared spells
+- ⏳ Spell slots per level
+
+---
 
 ## Next Steps
 
-### 1. Complete D35E Integration
-The `src/d35e-adapter.ts` file has stub implementations that need to be filled in:
-- `addClass()` - Add a class with levels to an actor
-- `rollHP()` - Roll hit points for the character
-- `getRaces()` - Fetch available races from compendiums
-- `getClasses()` - Fetch available classes from compendiums
+### Phase 1: Discovery (CURRENT)
+1. ✅ Add debug tools for compendium inspection
+2. ⏳ Run debug tools in Foundry to see D35E structure
+3. ⏳ Document compendium names and item structures
+4. ⏳ Understand how D35E actors store data
 
-**Tip**: Reference your XP calculator's `d35e-adapter.ts` for patterns on working with the D35E system!
+### Phase 2: Core Implementation
+1. ⏳ Implement `addClass()` to add class items to actors
+2. ⏳ Implement `addRace()` to add race items to actors
+3. ⏳ Implement `rollHP()` for hit point calculation
+4. ⏳ Apply racial ability modifiers
+5. ⏳ Calculate derived stats (AC, saves, BAB)
 
-### 2. Test in Foundry
-1. Build the module: `npm run build`
-2. Symlink or copy to Foundry's modules folder
-3. Enable in Foundry and test the UI
-4. Open Actor Directory → Click "Townie Maker" button
+### Phase 3: Features & Content
+1. ⏳ Add class features automatically
+2. ⏳ Add starting feats
+3. ⏳ Implement skill point allocation
+4. ⏳ Add starting equipment from templates
+5. ⏳ Handle spellcasting for caster classes
 
-### 3. Enhance Templates
-Add more templates in `src/data/templates.ts`:
-- Specific professions (Blacksmith, Innkeeper, etc.)
-- Combat roles (Archer, Cavalry, etc.)
-- Monster templates
-- Boss/adversary templates
-
-### 4. Add Advanced Features
-- **Batch Creation**: Create multiple similar NPCs at once
-- **Equipment**: Auto-equip items based on template
-- **Skills**: Distribute skill ranks intelligently
-- **Feats**: Suggest/assign feats based on class
-- **Spells**: Spell selection for caster templates
+### Phase 4: Enhancement
+1. ⏳ Batch NPC creation
+2. ⏳ Custom template saving
+3. ⏳ Random name generation
+4. ⏳ Portrait/token integration
+5. ⏳ Import/export templates
 
 ## Development Commands
 
