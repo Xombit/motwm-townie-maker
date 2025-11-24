@@ -24,6 +24,7 @@ export const TOWNIE_TEMPLATES: TownieTemplate[] = [
       { name: "jmp", ranks: 2 },  // Jump
       { name: "rid", ranks: 2 },  // Ride - for mounted guards
       // Total: 8 ranks (Fighter gets 2+Int(0) = 2 per level, x4 at 1st = 8)
+      // Equal distribution ensures balanced growth
     ],
     feats: [
       "Power Attack", 
@@ -397,13 +398,14 @@ export const TOWNIE_TEMPLATES: TownieTemplate[] = [
     abilities: { str: 10, dex: 10, con: 11, int: 13, wis: 10, cha: 15 },
     primaryAbility: "cha",
     skills: [
-      { name: "dip", ranks: 4 },  // Diplomacy
-      { name: "kno", ranks: 4 },  // Knowledge (Nobility)
-      { name: "rid", ranks: 4 },  // Ride
-      { name: "sen", ranks: 4 },  // Sense Motive - politics
-      { name: "apr", ranks: 2 },  // Appraise - wealth assessment
-      { name: "gif", ranks: 2 },  // Gather Information
+      { name: "dip", ranks: 4 },  // Diplomacy - primary social skill
+      { name: "kno", ranks: 3 },  // Knowledge (Nobility)
+      { name: "rid", ranks: 3 },  // Ride
+      { name: "sen", ranks: 3 },  // Sense Motive - politics
+      { name: "apr", ranks: 4 },  // Appraise - wealth assessment
+      { name: "gif", ranks: 3 },  // Gather Information
       // Total: 20 ranks (Aristocrat gets 4+Int(1) = 5 per level, x4 at 1st = 20)
+      // Balanced social and political skills
     ],
     feats: [
       { name: "Skill Focus (undefined)", displayName: "Skill Focus (Diplomacy)", config: { skill: "dip" } },
@@ -453,14 +455,15 @@ export const TOWNIE_TEMPLATES: TownieTemplate[] = [
     abilities: { str: 13, dex: 15, con: 11, int: 10, wis: 14, cha: 8 },
     primaryAbility: "dex",
     skills: [
-      { name: "sur", ranks: 4 },  // Survival - tracking and wilderness
-      { name: "spt", ranks: 4 },  // Spot
-      { name: "lis", ranks: 4 },  // Listen
+      { name: "sur", ranks: 4 },  // Survival - primary tracking skill
+      { name: "spt", ranks: 3 },  // Spot
+      { name: "lis", ranks: 3 },  // Listen
       { name: "hid", ranks: 4 },  // Hide
       { name: "mov", ranks: 4 },  // Move Silently
-      { name: "sea", ranks: 2 },  // Search
-      { name: "kna", ranks: 2 },  // Knowledge (Nature)
+      { name: "sea", ranks: 3 },  // Search
+      { name: "kna", ranks: 3 },  // Knowledge (Nature)
       // Total: 24 ranks (Ranger gets 6+Int(0) = 6 per level, x4 at 1st = 24)
+      // Balanced distribution with emphasis on core ranger skills
     ],
     feats: [
       "Track", 
@@ -484,11 +487,12 @@ export const TOWNIE_TEMPLATES: TownieTemplate[] = [
     abilities: { str: 16, dex: 14, con: 15, int: 8, wis: 10, cha: 8 },
     primaryAbility: "str",
     skills: [
-      { name: "clm", ranks: 4 },  // Climb
-      { name: "jmp", ranks: 4 },  // Jump
-      { name: "int", ranks: 2 },  // Intimidate
-      { name: "sur", ranks: 2 },  // Survival
+      { name: "clm", ranks: 3 },  // Climb
+      { name: "jmp", ranks: 3 },  // Jump
+      { name: "int", ranks: 3 },  // Intimidate
+      { name: "sur", ranks: 3 },  // Survival
       // Total: 12 ranks (Barbarian gets 4+Int(-1) = 3 per level, x4 at 1st = 12)
+      // Even distribution ensures all skills grow together
     ],
     feats: [
       "Power Attack", 
@@ -545,12 +549,13 @@ export const TOWNIE_TEMPLATES: TownieTemplate[] = [
     abilities: { str: 10, dex: 10, con: 13, int: 10, wis: 16, cha: 12 },
     primaryAbility: "wis",
     skills: [
-      { name: "coc", ranks: 4 },  // Concentration
-      { name: "kna", ranks: 4 },  // Knowledge (Nature)
-      { name: "sur", ranks: 4 },  // Survival
-      { name: "han", ranks: 2 },  // Handle Animal
-      { name: "spt", ranks: 2 },  // Spot
+      { name: "coc", ranks: 3 },  // Concentration
+      { name: "kna", ranks: 4 },  // Knowledge (Nature) - primary skill
+      { name: "sur", ranks: 3 },  // Survival
+      { name: "han", ranks: 3 },  // Handle Animal
+      { name: "spt", ranks: 3 },  // Spot
       // Total: 16 ranks (Druid gets 4+Int(0) = 4 per level, x4 at 1st = 16)
+      // Balanced distribution with emphasis on nature knowledge
     ],
     feats: [
       "Natural Spell", 
@@ -574,12 +579,13 @@ export const TOWNIE_TEMPLATES: TownieTemplate[] = [
     abilities: { str: 12, dex: 16, con: 12, int: 10, wis: 14, cha: 8 },
     primaryAbility: "dex",
     skills: [
-      { name: "tmb", ranks: 4 },  // Tumble
-      { name: "bal", ranks: 4 },  // Balance
-      { name: "jmp", ranks: 4 },  // Jump
-      { name: "mov", ranks: 2 },  // Move Silently
-      { name: "hid", ranks: 2 },  // Hide
+      { name: "tmb", ranks: 3 },  // Tumble
+      { name: "bal", ranks: 3 },  // Balance
+      { name: "jmp", ranks: 3 },  // Jump
+      { name: "mov", ranks: 4 },  // Move Silently
+      { name: "hid", ranks: 3 },  // Hide
       // Total: 16 ranks (Monk gets 4+Int(0) = 4 per level, x4 at 1st = 16)
+      // Balanced acrobatic and stealth skills
     ],
     feats: ["Improved Unarmed Strike", "Dodge", "Improved Grapple", "Deflect Arrows", "Mobility", "Spring Attack", "Improved Initiative", "Lightning Reflexes"]
   },
