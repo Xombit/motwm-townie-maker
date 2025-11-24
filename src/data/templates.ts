@@ -19,12 +19,12 @@ export const TOWNIE_TEMPLATES: TownieTemplate[] = [
     abilities: { str: 14, dex: 12, con: 13, int: 10, wis: 11, cha: 8 },
     primaryAbility: "str",
     skills: [
-      { name: "clm", ranks: 2 },  // Climb
-      { name: "int", ranks: 2 },  // Intimidate
-      { name: "jmp", ranks: 2 },  // Jump
-      { name: "rid", ranks: 2 },  // Ride - for mounted guards
+      { name: "clm", ranks: 2, priority: "medium" },  // Climb
+      { name: "int", ranks: 2, priority: "medium" },  // Intimidate
+      { name: "jmp", ranks: 2, priority: "medium" },  // Jump
+      { name: "rid", ranks: 2, priority: "medium" },  // Ride - for mounted guards
       // Total: 8 ranks (Fighter gets 2+Int(0) = 2 per level, x4 at 1st = 8)
-      // Equal distribution ensures balanced growth
+      // All equal priority
     ],
     feats: [
       "Power Attack", 
@@ -48,15 +48,16 @@ export const TOWNIE_TEMPLATES: TownieTemplate[] = [
     abilities: { str: 10, dex: 10, con: 12, int: 13, wis: 12, cha: 14 },
     primaryAbility: "cha",
     skills: [
-      { name: "apr", ranks: 4 },  // Appraise
-      { name: "dip", ranks: 4 },  // Diplomacy
-      { name: "blf", ranks: 4 },  // Bluff
-      { name: "sen", ranks: 4 },  // Sense Motive - detecting lies
-      { name: "pro1:Merchant", ranks: 4 },
-      { name: "gif", ranks: 4 },  // Gather Information
-      { name: "klo", ranks: 2 },  // Knowledge (Local) - knowing the market
-      { name: "lis", ranks: 2 },  // Listen
+      { name: "apr", ranks: 5, priority: "high" },  // Appraise - PRIMARY
+      { name: "dip", ranks: 5, priority: "high" },  // Diplomacy - PRIMARY
+      { name: "blf", ranks: 4, priority: "medium" },  // Bluff
+      { name: "sen", ranks: 4, priority: "medium" },  // Sense Motive - detecting lies
+      { name: "pro1:Merchant", ranks: 4, priority: "medium" },
+      { name: "gif", ranks: 3, priority: "low" },  // Gather Information
+      { name: "klo", ranks: 2, priority: "low" },  // Knowledge (Local) - knowing the market
+      { name: "lis", ranks: 1, priority: "low" },  // Listen
       // Total: 28 ranks (Expert gets 6+Int(1) = 7 per level, x4 at 1st = 28)
+      // High: core merchant skills, Medium: social, Low: utility
     ],
     feats: [
       { name: "Skill Focus (undefined)", displayName: "Skill Focus (Appraise)", config: { skill: "apr" } },
@@ -80,10 +81,9 @@ export const TOWNIE_TEMPLATES: TownieTemplate[] = [
     abilities: { str: 12, dex: 10, con: 13, int: 10, wis: 13, cha: 14 },
     primaryAbility: "cha",
     skills: [
-      { name: "pro1:Innkeeper", ranks: 4 },
-      { name: "dip", ranks: 4 },  // Diplomacy
+      { name: "pro1:Innkeeper", ranks: 5, priority: "high" },  // Primary profession
+      { name: "dip", ranks: 3, priority: "medium" },  // Diplomacy - social skills
       // Total: 8 ranks (Commoner gets 2+Int(0) = 2 per level, x4 at 1st = 8)
-      // With 18 Int: 2+4 = 6, x4 = 24 ranks available
     ],
     feats: [
       { name: "Skill Focus (undefined)", displayName: "Skill Focus (Profession)", config: { skill: "pro1:Innkeeper" } },
@@ -107,14 +107,14 @@ export const TOWNIE_TEMPLATES: TownieTemplate[] = [
     abilities: { str: 15, dex: 10, con: 14, int: 12, wis: 11, cha: 8 },
     primaryAbility: "str",
     skills: [
-      { name: "crf1:Weaponsmithing", ranks: 4 },
-      { name: "crf2:Armorsmithing", ranks: 4 },
-      { name: "apr", ranks: 4 },  // Appraise - for valuing goods
-      { name: "pro1:Blacksmith", ranks: 4 },
-      { name: "clm", ranks: 2 },  // Climb
-      { name: "han", ranks: 2 },  // Handle Animal - for working with horses
-      { name: "int", ranks: 2 },  // Intimidate
-      { name: "kar", ranks: 2 },  // Knowledge (Arcana) - for magical items
+      { name: "crf1:Weaponsmithing", ranks: 6, priority: "high" },  // Primary craft
+      { name: "crf2:Armorsmithing", ranks: 5, priority: "high" },  // Secondary craft
+      { name: "apr", ranks: 4, priority: "medium" },  // Appraise - valuing goods
+      { name: "pro1:Blacksmith", ranks: 4, priority: "medium" },  // Profession
+      { name: "clm", ranks: 2, priority: "low" },  // Climb
+      { name: "han", ranks: 2, priority: "low" },  // Handle Animal
+      { name: "int", ranks: 3, priority: "low" },  // Intimidate
+      { name: "kar", ranks: 2, priority: "low" },  // Knowledge (Arcana)
       // Total: 28 ranks (Expert gets 6+Int(1) = 7 per level, x4 at 1st = 28)
     ],
     feats: [
@@ -139,9 +139,9 @@ export const TOWNIE_TEMPLATES: TownieTemplate[] = [
     abilities: { str: 10, dex: 12, con: 12, int: 11, wis: 13, cha: 15 },
     primaryAbility: "cha",
     skills: [
-      { name: "pro1:Innkeeper", ranks: 4 },
-      { name: "dip", ranks: 2 },  // Diplomacy
-      { name: "sen", ranks: 2 },  // Sense Motive
+      { name: "pro1:Innkeeper", ranks: 5, priority: "high" },  // Primary profession
+      { name: "dip", ranks: 2, priority: "medium" },  // Diplomacy
+      { name: "sen", ranks: 1, priority: "low" },  // Sense Motive
       // Total: 8 ranks (Commoner gets 2+Int(0) = 2 per level, x4 at 1st = 8)
     ],
     feats: [
@@ -166,10 +166,11 @@ export const TOWNIE_TEMPLATES: TownieTemplate[] = [
     abilities: { str: 13, dex: 10, con: 14, int: 8, wis: 12, cha: 9 },
     primaryAbility: "con",
     skills: [
-      { name: "pro1:Farmer", ranks: 2 },
-      { name: "han", ranks: 1 },  // Handle Animal
-      { name: "sur", ranks: 1 },  // Survival
+      { name: "pro1:Farmer", ranks: 2, priority: "medium" },  // Simple profession
+      { name: "han", ranks: 1, priority: "medium" },  // Handle Animal
+      { name: "sur", ranks: 1, priority: "medium" },  // Survival
       // Total: 4 ranks (Commoner gets 2+Int(-1) = 1 per level, x4 at 1st = 4)
+      // All equal medium - no prime skills for simple farmer
     ],
     feats: [
       "Endurance", 
@@ -193,11 +194,12 @@ export const TOWNIE_TEMPLATES: TownieTemplate[] = [
     abilities: { str: 8, dex: 14, con: 10, int: 10, wis: 11, cha: 12 },
     primaryAbility: "dex",
     skills: [
-      { name: "hid", ranks: 2 },  // Hide
-      { name: "mov", ranks: 2 },  // Move Silently
-      { name: "slt", ranks: 2 },  // Sleight of Hand
-      { name: "blf", ranks: 2 },  // Bluff
+      { name: "hid", ranks: 3, priority: "high" },  // Hide - survival skill
+      { name: "mov", ranks: 2, priority: "high" },  // Move Silently - survival skill
+      { name: "slt", ranks: 2, priority: "medium" },  // Sleight of Hand - pickpocketing
+      { name: "blf", ranks: 1, priority: "low" },  // Bluff
       // Total: 8 ranks (Commoner gets 2+Int(0) = 2 per level, x4 at 1st = 8)
+      // High: stealth for survival, Medium: thievery, Low: social
     ],
     feats: [
       { name: "Skill Focus (undefined)", displayName: "Skill Focus (Sleight of Hand)", config: { skill: "slt" } },
@@ -217,14 +219,14 @@ export const TOWNIE_TEMPLATES: TownieTemplate[] = [
     icon: "fas fa-crystal-ball",
     race: "Half-Elf",
     classes: [{ name: "Adept (NPC)", level: 1 }],
-    alignment: "Chaotic Neutral",
     abilities: { str: 8, dex: 10, con: 10, int: 11, wis: 14, cha: 15 },
     primaryAbility: "cha",
     skills: [
-      { name: "kar", ranks: 4 },  // Knowledge (Arcana) - divination magic
-      { name: "coc", ranks: 2 },  // Concentration
-      { name: "sen", ranks: 2 },  // Sense Motive - reading people
+      { name: "kar", ranks: 4, priority: "high" },  // Knowledge (Arcana) - divination magic
+      { name: "coc", ranks: 2, priority: "medium" },  // Concentration - spellcasting
+      { name: "sen", ranks: 2, priority: "medium" },  // Sense Motive - reading people
       // Total: 8 ranks (Adept gets 2+Int(0) = 2 per level, x4 at 1st = 8)
+      // High: magical knowledge, Medium: casting + insight
     ],
     feats: [
       { name: "Spell Focus (No Spell School Selected)", displayName: "Spell Focus (Divination)", config: { spellSchool: "div" } },
@@ -248,10 +250,11 @@ export const TOWNIE_TEMPLATES: TownieTemplate[] = [
     abilities: { str: 10, dex: 10, con: 11, int: 10, wis: 14, cha: 12 },
     primaryAbility: "wis",
     skills: [
-      { name: "kre", ranks: 4 },  // Knowledge (Religion) - dark worship
-      { name: "coc", ranks: 2 },  // Concentration
-      { name: "kar", ranks: 2 },  // Knowledge (Arcana) - dark magic
+      { name: "kre", ranks: 4, priority: "high" },  // Knowledge (Religion) - dark worship
+      { name: "coc", ranks: 2, priority: "medium" },  // Concentration - spellcasting
+      { name: "kar", ranks: 2, priority: "low" },  // Knowledge (Arcana) - dark magic lore
       // Total: 8 ranks (Adept gets 2+Int(0) = 2 per level, x4 at 1st = 8)
+      // High: religious knowledge, Medium: casting, Low: arcane lore
     ],
     feats: [
       { name: "Spell Focus (No Spell School Selected)", displayName: "Spell Focus (Necromancy)", config: { spellSchool: "nec" } },
@@ -275,15 +278,14 @@ export const TOWNIE_TEMPLATES: TownieTemplate[] = [
     abilities: { str: 8, dex: 12, con: 10, int: 16, wis: 13, cha: 10 },
     primaryAbility: "int",
     skills: [
-      { name: "spl", ranks: 4 },  // Spellcraft
-      { name: "kar", ranks: 4 },  // Knowledge (Arcana)
-      { name: "khi", ranks: 2 },  // Knowledge (History)
-      { name: "kpl", ranks: 2 },  // Knowledge (Planes)
-      { name: "kre", ranks: 2 },  // Knowledge (Religion)
-      { name: "coc", ranks: 4 },  // Concentration
-      { name: "kdu", ranks: 2 },  // Knowledge (Dungeoneering)
+      { name: "spl", ranks: 6, priority: "high" },  // Spellcraft - PRIMARY
+      { name: "coc", ranks: 5, priority: "high" },  // Concentration - PRIMARY
+      { name: "kar", ranks: 4, priority: "medium" },  // Knowledge (Arcana)
+      { name: "kpl", ranks: 2, priority: "low" },  // Knowledge (Planes)
+      { name: "khi", ranks: 2, priority: "low" },  // Knowledge (History)
+      { name: "kre", ranks: 1, priority: "low" },  // Knowledge (Religion)
       // Total: 20 ranks (Wizard gets 2+Int(3) = 5 per level, x4 at 1st = 20)
-      // With 18 Int: 2+4 = 6, x4 = 24 ranks available
+      // High priority skills get points every level, medium most levels, low fills gaps
     ],
     feats: [
       { name: "Spell Focus (No Spell School Selected)", displayName: "Spell Focus (Evocation)", config: { spellSchool: "evo" } },
@@ -307,10 +309,10 @@ export const TOWNIE_TEMPLATES: TownieTemplate[] = [
     abilities: { str: 12, dex: 8, con: 12, int: 10, wis: 15, cha: 13 },
     primaryAbility: "wis",
     skills: [
-      { name: "coc", ranks: 4 },  // Concentration
-      { name: "kre", ranks: 4 },  // Knowledge (Religion)
+      { name: "coc", ranks: 4, priority: "high" },  // Concentration - PRIMARY
+      { name: "kre", ranks: 4, priority: "high" },  // Knowledge (Religion) - PRIMARY
       // Total: 8 ranks (Cleric gets 2+Int(0) = 2 per level, x4 at 1st = 8)
-      // With 18 Int: 2+4 = 6, x4 = 24 ranks available
+      // Both skills are equally important, grow together
     ],
     feats: [
       "Combat Casting", 
@@ -330,14 +332,14 @@ export const TOWNIE_TEMPLATES: TownieTemplate[] = [
     icon: "fas fa-hand-holding-medical",
     race: "Human",
     classes: [{ name: "Adept (NPC)", level: 1 }],
-    alignment: "Neutral Good",
     abilities: { str: 10, dex: 10, con: 11, int: 10, wis: 14, cha: 12 },
     primaryAbility: "wis",
     skills: [
-      { name: "hea", ranks: 4 },  // Heal - primary healing skill
-      { name: "coc", ranks: 2 },  // Concentration
-      { name: "sur", ranks: 2 },  // Survival - finding herbs
+      { name: "hea", ranks: 4, priority: "high" },  // Heal - primary healing skill
+      { name: "coc", ranks: 2, priority: "medium" },  // Concentration - spellcasting
+      { name: "sur", ranks: 2, priority: "low" },  // Survival - finding herbs
       // Total: 8 ranks (Adept gets 2+Int(0) = 2 per level, x4 at 1st = 8)
+      // High: healing focus, Medium: casting, Low: herbalism utility
     ],
     feats: [
       { name: "Skill Focus (undefined)", displayName: "Skill Focus (Heal)", config: { skill: "hea" } },
@@ -361,20 +363,19 @@ export const TOWNIE_TEMPLATES: TownieTemplate[] = [
     abilities: { str: 8, dex: 16, con: 10, int: 12, wis: 10, cha: 13 },
     primaryAbility: "dex",
     skills: [
-      { name: "hid", ranks: 4 },  // Hide
-      { name: "mov", ranks: 4 },  // Move Silently
-      { name: "slt", ranks: 4 },  // Sleight of Hand
-      { name: "opl", ranks: 4 },  // Open Lock
-      { name: "dev", ranks: 4 },  // Disable Device
-      { name: "sea", ranks: 4 },  // Search
-      { name: "spt", ranks: 2 },  // Spot
-      { name: "lis", ranks: 2 },  // Listen
-      { name: "clm", ranks: 2 },  // Climb
-      { name: "tmb", ranks: 2 },  // Tumble
-      { name: "esc", ranks: 2 },  // Escape Artist
-      { name: "blf", ranks: 2 },  // Bluff
+      { name: "hid", ranks: 5, priority: "high" },  // Hide - PRIMARY
+      { name: "mov", ranks: 5, priority: "high" },  // Move Silently - PRIMARY
+      { name: "opl", ranks: 4, priority: "high" },  // Open Lock
+      { name: "dev", ranks: 4, priority: "medium" },  // Disable Device
+      { name: "slt", ranks: 4, priority: "medium" },  // Sleight of Hand
+      { name: "sea", ranks: 4, priority: "medium" },  // Search
+      { name: "spt", ranks: 3, priority: "low" },  // Spot
+      { name: "lis", ranks: 3, priority: "low" },  // Listen
+      { name: "tmb", ranks: 2, priority: "low" },  // Tumble
+      { name: "clm", ranks: 1, priority: "low" },  // Climb
+      { name: "esc", ranks: 1, priority: "low" },  // Escape Artist
       // Total: 36 ranks (Rogue gets 8+Int(1) = 9 per level, x4 at 1st = 36)
-      // With 18 Int: 8+4 = 12, x4 = 48 ranks available
+      // High: stealth and lockpicking, Medium: core skills, Low: utility
     ],
     feats: [
       "Dodge", 
@@ -398,14 +399,14 @@ export const TOWNIE_TEMPLATES: TownieTemplate[] = [
     abilities: { str: 10, dex: 10, con: 11, int: 13, wis: 10, cha: 15 },
     primaryAbility: "cha",
     skills: [
-      { name: "dip", ranks: 4 },  // Diplomacy - primary social skill
-      { name: "kno", ranks: 3 },  // Knowledge (Nobility)
-      { name: "rid", ranks: 3 },  // Ride
-      { name: "sen", ranks: 3 },  // Sense Motive - politics
-      { name: "apr", ranks: 4 },  // Appraise - wealth assessment
-      { name: "gif", ranks: 3 },  // Gather Information
+      { name: "dip", ranks: 5, priority: "high" },  // Diplomacy - primary social skill
+      { name: "kno", ranks: 4, priority: "high" },  // Knowledge (Nobility) - important
+      { name: "sen", ranks: 4, priority: "medium" },  // Sense Motive - politics
+      { name: "apr", ranks: 3, priority: "medium" },  // Appraise - wealth assessment
+      { name: "rid", ranks: 2, priority: "low" },  // Ride
+      { name: "gif", ranks: 2, priority: "low" },  // Gather Information
       // Total: 20 ranks (Aristocrat gets 4+Int(1) = 5 per level, x4 at 1st = 20)
-      // Balanced social and political skills
+      // High: diplomacy + nobility, Medium: insight + appraisal, Low: utility
     ],
     feats: [
       { name: "Skill Focus (undefined)", displayName: "Skill Focus (Diplomacy)", config: { skill: "dip" } },
@@ -429,9 +430,10 @@ export const TOWNIE_TEMPLATES: TownieTemplate[] = [
     abilities: { str: 13, dex: 14, con: 12, int: 8, wis: 10, cha: 9 },
     primaryAbility: "dex",
     skills: [
-      { name: "hid", ranks: 2 },  // Hide
-      { name: "mov", ranks: 2 },  // Move Silently
+      { name: "hid", ranks: 2, priority: "high" },  // Hide - ambush stealth
+      { name: "mov", ranks: 2, priority: "high" },  // Move Silently - ambush stealth
       // Total: 4 ranks (Warrior gets 2+Int(-1) = 1 per level, x4 at 1st = 4)
+      // High: stealth for ambushing travelers
     ],
     feats: [
       "Point Blank Shot", 
@@ -455,15 +457,15 @@ export const TOWNIE_TEMPLATES: TownieTemplate[] = [
     abilities: { str: 13, dex: 15, con: 11, int: 10, wis: 14, cha: 8 },
     primaryAbility: "dex",
     skills: [
-      { name: "sur", ranks: 4 },  // Survival - primary tracking skill
-      { name: "spt", ranks: 3 },  // Spot
-      { name: "lis", ranks: 3 },  // Listen
-      { name: "hid", ranks: 4 },  // Hide
-      { name: "mov", ranks: 4 },  // Move Silently
-      { name: "sea", ranks: 3 },  // Search
-      { name: "kna", ranks: 3 },  // Knowledge (Nature)
+      { name: "sur", ranks: 5, priority: "high" },  // Survival - PRIMARY tracking skill
+      { name: "spt", ranks: 4, priority: "high" },  // Spot
+      { name: "lis", ranks: 4, priority: "high" },  // Listen
+      { name: "hid", ranks: 4, priority: "medium" },  // Hide
+      { name: "mov", ranks: 3, priority: "medium" },  // Move Silently
+      { name: "sea", ranks: 2, priority: "low" },  // Search
+      { name: "kna", ranks: 2, priority: "low" },  // Knowledge (Nature)
       // Total: 24 ranks (Ranger gets 6+Int(0) = 6 per level, x4 at 1st = 24)
-      // Balanced distribution with emphasis on core ranger skills
+      // High priority: Survival, Spot, Listen grow every level
     ],
     feats: [
       "Track", 
@@ -487,12 +489,12 @@ export const TOWNIE_TEMPLATES: TownieTemplate[] = [
     abilities: { str: 16, dex: 14, con: 15, int: 8, wis: 10, cha: 8 },
     primaryAbility: "str",
     skills: [
-      { name: "clm", ranks: 3 },  // Climb
-      { name: "jmp", ranks: 3 },  // Jump
-      { name: "int", ranks: 3 },  // Intimidate
-      { name: "sur", ranks: 3 },  // Survival
+      { name: "clm", ranks: 3, priority: "medium" },  // Climb
+      { name: "jmp", ranks: 3, priority: "medium" },  // Jump
+      { name: "int", ranks: 3, priority: "medium" },  // Intimidate
+      { name: "sur", ranks: 3, priority: "medium" },  // Survival
       // Total: 12 ranks (Barbarian gets 4+Int(-1) = 3 per level, x4 at 1st = 12)
-      // Even distribution ensures all skills grow together
+      // All medium priority - even distribution, no prime skills
     ],
     feats: [
       "Power Attack", 
@@ -516,16 +518,16 @@ export const TOWNIE_TEMPLATES: TownieTemplate[] = [
     abilities: { str: 10, dex: 14, con: 10, int: 12, wis: 10, cha: 16 },
     primaryAbility: "cha",
     skills: [
-      { name: "prf1:Sing", ranks: 4 },
-      { name: "prf2:String instruments", ranks: 4 },
-      { name: "dip", ranks: 4 },  // Diplomacy
-      { name: "blf", ranks: 4 },  // Bluff
-      { name: "sen", ranks: 4 },  // Sense Motive
-      { name: "gif", ranks: 4 },  // Gather Information
-      { name: "klo", ranks: 2 },  // Knowledge (Local)
-      { name: "khi", ranks: 2 },  // Knowledge (History)
+      { name: "prf1:Sing", ranks: 6, priority: "high" },  // PRIMARY performance
+      { name: "prf2:String instruments", ranks: 5, priority: "high" },  // Secondary performance
+      { name: "dip", ranks: 4, priority: "medium" },  // Diplomacy
+      { name: "blf", ranks: 4, priority: "medium" },  // Bluff
+      { name: "sen", ranks: 3, priority: "medium" },  // Sense Motive
+      { name: "gif", ranks: 3, priority: "low" },  // Gather Information
+      { name: "klo", ranks: 2, priority: "low" },  // Knowledge (Local)
+      { name: "khi", ranks: 1, priority: "low" },  // Knowledge (History)
       // Total: 28 ranks (Bard gets 6+Int(1) = 7 per level, x4 at 1st = 28)
-      // With 18 Int: 6+4 = 10, x4 = 40 ranks available
+      // High: Perform skills, Medium: social, Low: knowledge
     ],
     feats: [
       "Dodge", 
@@ -549,13 +551,13 @@ export const TOWNIE_TEMPLATES: TownieTemplate[] = [
     abilities: { str: 10, dex: 10, con: 13, int: 10, wis: 16, cha: 12 },
     primaryAbility: "wis",
     skills: [
-      { name: "coc", ranks: 3 },  // Concentration
-      { name: "kna", ranks: 4 },  // Knowledge (Nature) - primary skill
-      { name: "sur", ranks: 3 },  // Survival
-      { name: "han", ranks: 3 },  // Handle Animal
-      { name: "spt", ranks: 3 },  // Spot
+      { name: "coc", ranks: 4, priority: "high" },  // Concentration - spellcasting
+      { name: "kna", ranks: 5, priority: "high" },  // Knowledge (Nature) - primary skill
+      { name: "sur", ranks: 3, priority: "medium" },  // Survival - wilderness
+      { name: "han", ranks: 2, priority: "low" },  // Handle Animal - animal companion
+      { name: "spt", ranks: 2, priority: "low" },  // Spot - awareness
       // Total: 16 ranks (Druid gets 4+Int(0) = 4 per level, x4 at 1st = 16)
-      // Balanced distribution with emphasis on nature knowledge
+      // High: nature magic, Medium: wilderness survival, Low: utility
     ],
     feats: [
       "Natural Spell", 
@@ -579,13 +581,13 @@ export const TOWNIE_TEMPLATES: TownieTemplate[] = [
     abilities: { str: 12, dex: 16, con: 12, int: 10, wis: 14, cha: 8 },
     primaryAbility: "dex",
     skills: [
-      { name: "tmb", ranks: 3 },  // Tumble
-      { name: "bal", ranks: 3 },  // Balance
-      { name: "jmp", ranks: 3 },  // Jump
-      { name: "mov", ranks: 4 },  // Move Silently
-      { name: "hid", ranks: 3 },  // Hide
+      { name: "tmb", ranks: 5, priority: "high" },  // Tumble - primary acrobatic skill
+      { name: "bal", ranks: 4, priority: "high" },  // Balance - acrobatic skill
+      { name: "jmp", ranks: 3, priority: "medium" },  // Jump - mobility
+      { name: "mov", ranks: 2, priority: "low" },  // Move Silently - stealth
+      { name: "hid", ranks: 2, priority: "low" },  // Hide - stealth
       // Total: 16 ranks (Monk gets 4+Int(0) = 4 per level, x4 at 1st = 16)
-      // Balanced acrobatic and stealth skills
+      // High: acrobatics, Medium: mobility, Low: stealth
     ],
     feats: ["Improved Unarmed Strike", "Dodge", "Improved Grapple", "Deflect Arrows", "Mobility", "Spring Attack", "Improved Initiative", "Lightning Reflexes"]
   },
@@ -600,10 +602,11 @@ export const TOWNIE_TEMPLATES: TownieTemplate[] = [
     abilities: { str: 15, dex: 10, con: 13, int: 10, wis: 12, cha: 14 },
     primaryAbility: "str",
     skills: [
-      { name: "rid", ranks: 4 },  // Ride - for their mount
-      { name: "kre", ranks: 2 },  // Knowledge (Religion)
-      { name: "dip", ranks: 2 },  // Diplomacy
+      { name: "rid", ranks: 5, priority: "high" },  // Ride - for their mount (signature ability)
+      { name: "kre", ranks: 2, priority: "medium" },  // Knowledge (Religion) - divine connection
+      { name: "dip", ranks: 1, priority: "low" },  // Diplomacy - social skill
       // Total: 8 ranks (Paladin gets 2+Int(0) = 2 per level, x4 at 1st = 8)
+      // High: mounted combat, Medium: religion, Low: diplomacy
     ],
     feats: [
       "Power Attack", 
@@ -623,14 +626,14 @@ export const TOWNIE_TEMPLATES: TownieTemplate[] = [
     icon: "fas fa-dragon",
     race: "Human",
     classes: [{ name: "Sorcerer", level: 1 }],
-    alignment: "Chaotic Neutral",
     abilities: { str: 8, dex: 12, con: 13, int: 10, wis: 10, cha: 16 },
     primaryAbility: "cha",
     skills: [
-      { name: "coc", ranks: 4 },  // Concentration
-      { name: "blf", ranks: 2 },  // Bluff - natural charisma
-      { name: "kar", ranks: 2 },  // Knowledge (Arcana)
+      { name: "coc", ranks: 5, priority: "high" },  // Concentration - primary spellcasting
+      { name: "blf", ranks: 2, priority: "medium" },  // Bluff - natural charisma
+      { name: "kar", ranks: 1, priority: "low" },  // Knowledge (Arcana) - innate, not studied
       // Total: 8 ranks (Sorcerer gets 2+Int(0) = 2 per level, x4 at 1st = 8)
+      // High: casting, Medium: social, Low: knowledge (innate magic, not studied)
     ],
     feats: [
       { name: "Spell Focus (No Spell School Selected)", displayName: "Spell Focus (Evocation)", config: { spellSchool: "evo" } },

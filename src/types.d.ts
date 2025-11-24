@@ -34,7 +34,11 @@ export interface TownieTemplate {
   };
   
   // Common features
-  skills?: Array<{ name: string; ranks: number }>;
+  skills?: Array<{ 
+    name: string; 
+    ranks: number;
+    priority?: "high" | "medium" | "low";  // Distribution priority for leveling
+  }>;
   feats?: Array<string | FeatConfig>;
   equipment?: string[];
   
