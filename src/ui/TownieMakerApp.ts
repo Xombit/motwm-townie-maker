@@ -1,6 +1,7 @@
 import { TownieTemplate, TownieFormData } from "../types";
 import { D35EAdapter } from "../d35e-adapter";
 import { TOWNIE_TEMPLATES } from "../data/templates";
+import { generateCharacterName } from "../data/character-names";
 
 export class TownieMakerApp extends Application {
   private selectedTemplate: TownieTemplate | null = null;
@@ -100,6 +101,11 @@ export class TownieMakerApp extends Application {
       this.rollAbilityScores();
     });
 
+    // Randomize name button
+    html.on("click", "[data-action='randomize-name']", () => {
+      this.randomizeName();
+    });
+
     // Create NPC button
     html.on("click", "[data-action='create-npc']", () => {
       this.createNPC();
@@ -130,6 +136,11 @@ export class TownieMakerApp extends Application {
       // Apply ability score modifiers
       if (this.selectedTemplate.abilities) {
         this.formData.abilities = { ...this.selectedTemplate.abilities } as any;
+      }
+      
+      // Auto-generate name for non-blank templates
+      if (this.selectedTemplate.id !== 'blank' && this.formData.race && this.formData.className) {
+        this.generateAndSetName();
       }
     }
     
@@ -182,6 +193,39 @@ export class TownieMakerApp extends Application {
     };
     
     ui.notifications?.info("Ability scores rolled!");
+    this.render(false);
+  }
+
+  private generateAndSetName(): void {
+    if (!this.formData.race || !this.formData.className) {
+      return;
+    }
+    
+    // Default to male, but randomly select gender if not set
+    const gender: 'male' | 'female' = this.formData.gender || (Math.random() < 0.5 ? 'male' : 'female');
+    this.formData.gender = gender;
+    
+    const name = generateCharacterName(this.formData.race, this.formData.className, gender);
+    this.formData.name = name;
+  }
+
+  private randomizeName(): void {
+    if (!this.formData.race || !this.formData.className) {
+      ui.notifications?.warn("Please select a race and class first");
+      return;
+    }
+    
+    // Toggle gender or pick randomly
+    if (!this.formData.gender) {
+      this.formData.gender = Math.random() < 0.5 ? 'male' : 'female';
+    } else {
+      // 50% chance to toggle gender, 50% chance to keep same
+      if (Math.random() < 0.5) {
+        this.formData.gender = this.formData.gender === 'male' ? 'female' : 'male';
+      }
+    }
+    
+    this.generateAndSetName();
     this.render(false);
   }
 
@@ -261,6 +305,25 @@ export class TownieMakerApp extends Application {
         const isHuman = this.formData.race === "Human";
         await D35EAdapter.addFeats(actor, classLevel, this.selectedTemplate.feats, isHuman);
       }
+
+      // Add spells for caster classes (MUST be after class/level set, before equipment)
+      if (className) {
+        await D35EAdapter.addSpells(actor, className, classLevel, abilities);
+      }
+
+      // Add equipment from template if available
+      console.log("TownieMakerApp | About to call addEquipment...");
+      console.log("TownieMakerApp | selectedTemplate:", this.selectedTemplate?.name);
+      console.log("TownieMakerApp | has startingKit:", !!this.selectedTemplate?.startingKit);
+      if (this.selectedTemplate) {
+        await D35EAdapter.addEquipment(actor, this.selectedTemplate, classLevel);
+        
+        // IMPORTANT: Complete container moves AFTER character is fully created
+        // This must happen after all other updates to avoid D35E's actor.refresh() resetting containers
+        console.log("TownieMakerApp | Completing pending container moves...");
+        await D35EAdapter.completePendingContainerMoves(actor);
+      }
+      console.log("TownieMakerApp | Finished addEquipment");
 
       // Set biography with personality and background
       if (this.formData.personality || this.formData.background) {

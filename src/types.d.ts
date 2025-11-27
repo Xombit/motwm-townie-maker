@@ -11,6 +11,25 @@ export interface FeatConfig {
   };
 }
 
+// Equipment item definition - each item listed individually for user customization
+export interface EquipmentItem {
+  name: string;           // Item name (must match D35E compendium name)
+  cost: number;           // Cost in gold pieces
+  weight?: number;        // Weight in pounds (optional, for reference)
+  quantity?: number;      // How many of this item (default: 1)
+  type?: "weapon" | "armor" | "shield" | "gear" | "tool" | "ammo";  // Item category for compendium lookup
+}
+
+// Starting equipment kit - all items listed individually
+export interface StartingKit {
+  weapons?: EquipmentItem[];      // Weapons (swords, bows, etc.)
+  armor?: EquipmentItem;          // Single armor piece
+  shield?: EquipmentItem;         // Single shield
+  gear?: EquipmentItem[];         // Adventuring gear (backpack, rope, etc.)
+  tools?: EquipmentItem[];        // Class-specific tools (thieves' tools, holy symbol, spellbook, etc.)
+  ammo?: EquipmentItem[];         // Ammunition (arrows, bolts, sling bullets)
+}
+
 export interface TownieTemplate {
   id: string;
   name: string;
@@ -40,7 +59,7 @@ export interface TownieTemplate {
     priority?: "high" | "medium" | "low";  // Distribution priority for leveling
   }>;
   feats?: Array<string | FeatConfig>;
-  equipment?: string[];
+  startingKit?: StartingKit;  // Starting equipment kit (replaces equipment)
   
   // Optional flavor
   personality?: string;
@@ -50,6 +69,7 @@ export interface TownieTemplate {
 export interface TownieFormData {
   name: string;
   template?: string;
+  gender?: 'male' | 'female';  // Gender for name generation
   
   // Basic info
   race: string;

@@ -382,6 +382,25 @@ export class D35EAdapter {
   }
 
   /**
+   * Add spells to an actor (for caster classes)
+   * Configures spellbook and adds appropriate spells from compendium
+   */
+  static async addSpells(
+    actor: Actor,
+    className: string,
+    level: number,
+    abilities: { str: number; dex: number; con: number; int: number; wis: number; cha: number }
+  ): Promise<void> {
+    try {
+      const { configureSpellsForActor } = await import('./data/spell-configuration');
+      await configureSpellsForActor(actor, className, level, abilities);
+    } catch (error) {
+      console.error(`D35EAdapter | Failed to add spells:`, error);
+      throw error;
+    }
+  }
+
+  /**
    * Add a class to an actor
    */
   static async addClass(actor: Actor, className: string, level: number): Promise<void> {
@@ -595,7 +614,7 @@ export class D35EAdapter {
   static async addSkills(
     actor: Actor,
     level: number,
-    skillList: Array<{ name: string; ranks: number }>
+    skillList: Array<{ name: string; ranks: number; priority?: "high" | "medium" | "low" }>
   ): Promise<void> {
     try {
       if (!skillList || skillList.length === 0) {
@@ -625,9 +644,13 @@ export class D35EAdapter {
       
       console.log(`D35EAdapter | Skill points: Level 1 = ${skillPointsAtLevel1}, Levels 2+ = ${skillPointsPerLevel} each`);
 
-      // SIMPLIFIED APPROACH: Distribute points directly at each level
-      // No scaling, no rounding - just direct allocation
-      // Template's "ranks" field defines PRIORITY (higher = more important)
+      // PRIORITY-BASED SKILL DISTRIBUTION
+      // Priority determines how often a skill gets points:
+      // - High: Every level (4 ranks at L1, then 1 per level)
+      // - Medium: Every 2 levels (2 ranks at L1, then 1 every 2 levels starting L3)
+      // - Low: Every 4 levels (1 rank at L1, then 1 every 4 levels starting L5)
+      //
+      // Substitution rule: 1 High = 2 Medium = 4 Low = 1 Medium + 2 Low
       
       const distributionPlan: Map<number, Map<string, number>> = new Map();
       
@@ -636,51 +659,59 @@ export class D35EAdapter {
         distributionPlan.set(lvl, new Map());
       }
       
-      // Calculate total priority weight from template
-      const totalPriorityWeight = skillList.reduce((sum, s) => sum + s.ranks, 0);
+      // Group skills by priority
+      const highPrioritySkills = skillList.filter(s => s.priority === 'high');
+      const mediumPrioritySkills = skillList.filter(s => s.priority === 'medium');
+      const lowPrioritySkills = skillList.filter(s => s.priority === 'low');
       
-      console.log(`D35EAdapter | Distributing skill points across ${level} levels for ${skillList.length} skills`);
+      console.log(`D35EAdapter | ===== SKILL DISTRIBUTION DEBUG =====`);
+      console.log(`D35EAdapter | Priority groups: ${highPrioritySkills.length} high, ${mediumPrioritySkills.length} medium, ${lowPrioritySkills.length} low`);
+      console.log(`D35EAdapter | High priority:`, highPrioritySkills.map(s => s.name).join(', '));
+      console.log(`D35EAdapter | Medium priority:`, mediumPrioritySkills.map(s => s.name).join(', '));
+      console.log(`D35EAdapter | Low priority:`, lowPrioritySkills.map(s => s.name).join(', '));
       
-      // For each level, distribute that level's skill points proportionally
+      // Distribute points based on priority level
       for (let lvl = 1; lvl <= level; lvl++) {
-        const pointsThisLevel = lvl === 1 ? skillPointsAtLevel1 : skillPointsPerLevel;
-        let pointsRemaining = pointsThisLevel;
+        const levelPlan = distributionPlan.get(lvl)!;
         
-        // First pass: Distribute points proportionally based on template priority
-        const allocations: Array<{ skill: string; points: number; remainder: number }> = [];
-        
-        for (const skillEntry of skillList) {
-          const proportion = skillEntry.ranks / totalPriorityWeight;
-          const exactPoints = pointsThisLevel * proportion;
-          const basePoints = Math.floor(exactPoints);
-          const remainder = exactPoints - basePoints;
-          
-          allocations.push({
-            skill: skillEntry.name,
-            points: basePoints,
-            remainder: remainder
-          });
-          
-          pointsRemaining -= basePoints;
+        // High priority: every level
+        // Level 1: 4 ranks, Level 2+: 1 rank
+        for (const skill of highPrioritySkills) {
+          const points = lvl === 1 ? 4 : 1;
+          levelPlan.set(skill.name, points);
         }
         
-        // Second pass: Distribute remaining points to skills with highest remainders
-        allocations.sort((a, b) => b.remainder - a.remainder);
-        
-        for (let i = 0; i < pointsRemaining && i < allocations.length; i++) {
-          allocations[i].points++;
-        }
-        
-        // Store in distribution plan
-        for (const allocation of allocations) {
-          if (allocation.points > 0) {
-            distributionPlan.get(lvl)!.set(allocation.skill, allocation.points);
+        // Medium priority: every 2 levels (1, 3, 5, 7, 9, ...)
+        // Level 1: 2 ranks, Level 3+: 1 rank
+        if (lvl === 1 || (lvl >= 3 && lvl % 2 === 1)) {
+          for (const skill of mediumPrioritySkills) {
+            const points = lvl === 1 ? 2 : 1;
+            levelPlan.set(skill.name, points);
           }
         }
         
-        // Verify exact point spending
-        const totalSpent = allocations.reduce((sum, a) => sum + a.points, 0);
-        console.log(`D35EAdapter | Level ${lvl}: Allocated ${totalSpent}/${pointsThisLevel} skill points`);
+        // Low priority: every 4 levels (1, 5, 9, 13, ...)
+        // Level 1: 1 rank, Level 5+: 1 rank
+        if (lvl === 1 || (lvl >= 5 && (lvl - 1) % 4 === 0)) {
+          for (const skill of lowPrioritySkills) {
+            const points = 1;
+            levelPlan.set(skill.name, points);
+          }
+        }
+        
+        // Calculate total points spent at this level
+        const totalSpent = Array.from(levelPlan.values()).reduce((sum, p) => sum + p, 0);
+        const pointsThisLevel = lvl === 1 ? skillPointsAtLevel1 : skillPointsPerLevel;
+        
+        if (lvl === 1 || lvl === 2 || lvl === level) {
+          console.log(`D35EAdapter | Level ${lvl} allocation:`, Array.from(levelPlan.entries()).map(([s, p]) => `${s}:${p}`).join(', '));
+          console.log(`D35EAdapter | Level ${lvl}: Allocated ${totalSpent}/${pointsThisLevel} skill points`);
+        }
+        
+        // Warn if we're over budget
+        if (totalSpent > pointsThisLevel) {
+          console.warn(`D35EAdapter | Level ${lvl}: Over budget! Spent ${totalSpent}/${pointsThisLevel} points`);
+        }
       }
       
       // Verify we're not exceeding skill points per level (should always be exact now)
@@ -704,6 +735,12 @@ export class D35EAdapter {
           totalRanksBySkill.set(skillName, currentTotal + ranksThisLevel);
         }
       }
+      
+      console.log(`D35EAdapter | ===== FINAL SKILL TOTALS =====`);
+      for (const [skillName, totalRanks] of totalRanksBySkill.entries()) {
+        console.log(`D35EAdapter | ${skillName}: ${totalRanks} ranks`);
+      }
+      console.log(`D35EAdapter | =================================`);
       
       // Process each skill from the template
       for (const skillEntry of skillList) {
@@ -850,4 +887,563 @@ export class D35EAdapter {
       throw error;
     }
   }
+
+  /**
+   * Add equipment to an actor based on template starting kit and level
+   * NOW WITH MAGIC ITEM SUPPORT!
+   */
+  static async addEquipment(
+    actor: Actor,
+    template: any,  // TownieTemplate
+    level: number
+  ): Promise<void> {
+    try {
+      console.log(`\n=== EQUIPMENT SYSTEM ===`);
+      console.log(`Template: ${template.name}, Level: ${level}`);
+
+      // Import wealth data
+      const { getWealthForLevel, convertToCoins } = await import('./data/wealth');
+
+      // Step 1: Calculate total wealth
+      const className = template.classes?.[0]?.name || "Fighter";
+      const totalWealth = getWealthForLevel(level, className);
+      console.log(`Total Wealth: ${totalWealth} gp`);
+
+      // Step 2: Check if template has starting kit
+      const kit = template.startingKit;
+      if (!kit) {
+        console.log("No starting kit defined, adding coins only");
+        await this.addCoins(actor, totalWealth);
+        console.log("=== EQUIPMENT COMPLETE ===\n");
+        return;
+      }
+
+      // Step 3: Calculate mundane equipment cost
+      const mundaneCost = this.calculateKitCost(kit);
+      console.log(`Mundane Equipment Cost: ${mundaneCost} gp`);
+
+      // Step 4: Calculate magic item budget
+      const magicBudget = totalWealth - mundaneCost;
+      console.log(`Magic Item Budget: ${magicBudget} gp`);
+
+      // Step 5: Select magic items based on level, class, and budget
+      const { selectMagicItems, addWondrousItemsToActor } = await import('./data/magic-item-system');
+      const magicItems = await selectMagicItems(level, className, magicBudget);
+
+      // Step 6: Add mundane items (with enhancements if selected)
+      await this.addMundaneItems(actor, kit, magicItems);
+
+      // Step 6b: Add wondrous items (Big Six)
+      await addWondrousItemsToActor(actor, magicItems.wondrousItems);
+      
+      // Step 6b.5: Add custom Handy Haversack if selected
+      if (magicItems.hasHandyHaversack) {
+        const { CUSTOM_HANDY_HAVERSACK } = await import('./data/wondrous-items');
+        console.log('\n=== ADDING CUSTOM HANDY HAVERSACK ===');
+        console.log('Creating custom loot container (not from compendium)...');
+        
+        // Create the custom haversack directly
+        const haversackData = {
+          ...CUSTOM_HANDY_HAVERSACK,
+          system: {
+            ...CUSTOM_HANDY_HAVERSACK.system,
+            identified: true,
+            carried: true,
+            equipped: true
+          }
+        };
+        
+        await actor.createEmbeddedDocuments("Item", [haversackData]);
+        console.log('✓ Added Handy Haversack (Custom Container) - 2,000 gp');
+        console.log('  - 120 lbs capacity, 5 lbs constant weight');
+        console.log('  - Items always on top, move action retrieval');
+        console.log('=== CUSTOM HANDY HAVERSACK ADDED ===\n');
+      }
+      
+      // Step 6c: Add wands for casters
+      if (magicItems.wands && magicItems.wands.length > 0) {
+        const { addWandsToActor } = await import('./data/wand-creation');
+        await addWandsToActor(actor, magicItems.wands);
+      }
+      
+      // Step 6d: Add scrolls for casters
+      if (magicItems.scrolls && magicItems.scrolls.length > 0) {
+        const { createScrollsForActor } = await import('./data/scroll-creation');
+        await createScrollsForActor(actor, magicItems.scrolls);
+      }
+      
+      // Step 6e: Add potions for all characters
+      if (magicItems.potions && magicItems.potions.length > 0) {
+        const { createPotionsForActor } = await import('./data/potion-creation');
+        await createPotionsForActor(actor, magicItems.potions);
+      }
+
+      // Step 7: Calculate remaining wealth
+      const remainder = totalWealth - mundaneCost - magicItems.totalCost;
+      console.log(`Remaining Wealth: ${remainder} gp`);
+
+      // Step 8: Add remaining wealth as coins
+      await this.addCoins(actor, remainder);
+
+      console.log("=== EQUIPMENT COMPLETE ===\n");
+    } catch (error) {
+      console.error(`D35EAdapter | Failed to add equipment:`, error);
+      throw error;
+    }
+  }
+
+  /**
+   * Calculate total cost of a starting kit
+   */
+  private static calculateKitCost(kit: any): number {
+    let total = 0;
+
+    // Weapons
+    if (kit.weapons) {
+      kit.weapons.forEach((w: any) => {
+        total += w.cost * (w.quantity || 1);
+      });
+    }
+
+    // Armor
+    if (kit.armor) {
+      total += kit.armor.cost;
+    }
+
+    // Shield
+    if (kit.shield) {
+      total += kit.shield.cost;
+    }
+
+    // Ammunition
+    if (kit.ammo) {
+      kit.ammo.forEach((a: any) => {
+        total += a.cost * (a.quantity || 1);
+      });
+    }
+
+    // Gear
+    if (kit.gear) {
+      kit.gear.forEach((g: any) => {
+        total += g.cost * (g.quantity || 1);
+      });
+    }
+
+    // Tools
+    if (kit.tools) {
+      kit.tools.forEach((t: any) => {
+        total += t.cost * (t.quantity || 1);
+      });
+    }
+
+    return Math.round(total * 10) / 10; // Round to 1 decimal place
+  }
+
+  /**
+   * Add mundane items from starting kit to actor
+   * Now supports magic item enhancements!
+   */
+  private static async addMundaneItems(actor: any, kit: any, magicItems?: any): Promise<void> {
+    const itemsToAdd: any[] = [];
+    let backpackId: string | null = null;
+
+    console.log("D35EAdapter | Searching for items in compendiums...");
+
+    // Add weapons - first one equipped, others carried
+    // Apply magic enhancement to first and second weapons if selected
+    if (kit.weapons) {
+      for (let i = 0; i < kit.weapons.length; i++) {
+        const weapon = kit.weapons[i];
+        console.log(`D35EAdapter | Searching for weapon: "${weapon.name}"`);
+        const itemData = await this.findItemInCompendium("weapon", weapon.name);
+        if (itemData) {
+          console.log(`D35EAdapter | ✓ Found weapon: ${weapon.name}`);
+          
+          let weaponToAdd = {
+            ...itemData,
+            system: {
+              ...itemData.system,
+              quantity: weapon.quantity || 1,
+              equipped: i === 0 // Only equip first weapon
+            }
+          };
+
+          // Apply magic enhancement to primary weapon (index 0)
+          if (i === 0 && magicItems?.weaponEnhancement) {
+            console.log(`D35EAdapter | Applying primary weapon enhancement...`);
+            const { applyWeaponEnhancements } = await import('./data/magic-item-system');
+            weaponToAdd = await applyWeaponEnhancements(
+              weaponToAdd,
+              magicItems.weaponEnhancement.bonus,
+              magicItems.weaponEnhancement.abilities
+            );
+            // Keep it equipped
+            weaponToAdd.system.equipped = true;
+          }
+          
+          // Apply magic enhancement to secondary weapon (index 1)
+          if (i === 1 && magicItems?.secondaryWeaponEnhancement) {
+            console.log(`D35EAdapter | Applying secondary weapon enhancement...`);
+            const { applyWeaponEnhancements } = await import('./data/magic-item-system');
+            weaponToAdd = await applyWeaponEnhancements(
+              weaponToAdd,
+              magicItems.secondaryWeaponEnhancement.bonus,
+              magicItems.secondaryWeaponEnhancement.abilities
+            );
+            // Secondary weapon not equipped by default
+          }
+          
+          itemsToAdd.push(weaponToAdd);
+          
+          if (i === 0) {
+            console.log(`D35EAdapter | → Equipped as primary weapon`);
+          } else if (i === 1) {
+            console.log(`D35EAdapter | → Carried as secondary weapon (enhanced)`);
+          } else {
+            console.log(`D35EAdapter | → Carried (not equipped)`);
+          }
+        } else {
+          console.warn(`D35EAdapter | ✗ Weapon not found: ${weapon.name}`);
+        }
+      }
+    }
+
+    // Add armor - always equipped
+    // Apply magic enhancement if selected
+    if (kit.armor) {
+      console.log(`D35EAdapter | Searching for armor: "${kit.armor.name}"`);
+      const itemData = await this.findItemInCompendium("equipment", kit.armor.name);
+      if (itemData) {
+        console.log(`D35EAdapter | ✓ Found armor: ${kit.armor.name}`);
+        
+        let armorToAdd = {
+          ...itemData,
+          system: {
+            ...itemData.system,
+            equipped: true
+          }
+        };
+
+        // Apply magic enhancement to armor
+        if (magicItems?.armorEnhancement) {
+          console.log(`D35EAdapter | Applying magic enhancement to armor...`);
+          const { applyArmorEnhancements } = await import('./data/magic-item-system');
+          armorToAdd = await applyArmorEnhancements(
+            armorToAdd,
+            magicItems.armorEnhancement.bonus,
+            magicItems.armorEnhancement.abilities
+          );
+          // Keep it equipped
+          armorToAdd.system.equipped = true;
+        }
+
+        itemsToAdd.push(armorToAdd);
+        console.log(`D35EAdapter | → Equipped`);
+      } else {
+        console.warn(`D35EAdapter | ✗ Armor not found: ${kit.armor.name}`);
+      }
+    }
+
+    // Add shield - always equipped (template designer decides if shield should be included)
+    // Apply magic enhancement if selected
+    if (kit.shield) {
+      console.log(`D35EAdapter | Searching for shield: "${kit.shield.name}"`);
+      const itemData = await this.findItemInCompendium("equipment", kit.shield.name);
+      if (itemData) {
+        console.log(`D35EAdapter | ✓ Found shield: ${kit.shield.name}`);
+        
+        let shieldToAdd = {
+          ...itemData,
+          system: {
+            ...itemData.system,
+            equipped: true
+          }
+        };
+
+        // Apply magic enhancement to shield (shields use armor enhancement mechanics)
+        if (magicItems?.shieldEnhancement) {
+          console.log(`D35EAdapter | Applying magic enhancement to shield...`);
+          const { applyArmorEnhancements } = await import('./data/magic-item-system');
+          shieldToAdd = await applyArmorEnhancements(
+            shieldToAdd,
+            magicItems.shieldEnhancement.bonus,
+            magicItems.shieldEnhancement.abilities
+          );
+          // Keep it equipped
+          shieldToAdd.system.equipped = true;
+        }
+
+        itemsToAdd.push(shieldToAdd);
+        console.log(`D35EAdapter | → Equipped`)
+      } else {
+        console.warn(`D35EAdapter | ✗ Shield not found: ${kit.shield.name}`);
+      }
+    }
+
+    // PHASE 1: Create backpack first (so we have its ID for other items)
+    console.log(`D35EAdapter | === PHASE 1: Creating backpack ===`);
+    if (kit.gear) {
+      const backpackItem = kit.gear.find((item: any) => 
+        item.name.toLowerCase().includes("backpack")
+      );
+      
+      if (backpackItem) {
+        console.log(`D35EAdapter | Searching for backpack: "${backpackItem.name}"`);
+        const itemData = await this.findItemInCompendium("loot", backpackItem.name);
+        if (itemData) {
+          console.log(`D35EAdapter | ✓ Found backpack: ${backpackItem.name}`);
+          try {
+            const created = await actor.createEmbeddedDocuments("Item", [{
+              ...itemData,
+              system: {
+                ...itemData.system,
+                quantity: backpackItem.quantity || 1,
+                equipped: false
+              }
+            }]);
+            backpackId = created[0].id;
+            console.log(`D35EAdapter | ✓ Created backpack with ID: ${backpackId}`);
+          } catch (error) {
+            console.error(`D35EAdapter | ✗ Failed to create backpack:`, error);
+          }
+        } else {
+          console.warn(`D35EAdapter | ✗ Backpack not found: ${backpackItem.name}`);
+        }
+      }
+    }
+
+    // PHASE 2: Create remaining items (gear goes in backpack if we have one)
+    console.log(`D35EAdapter | === PHASE 2: Creating remaining items ===`);
+
+    // Add ammunition (will move to backpack after creation)
+    if (kit.ammo) {
+      for (const ammo of kit.ammo) {
+        console.log(`D35EAdapter | Searching for ammo: "${ammo.name}"`);
+        const itemData = await this.findItemInCompendium("loot", ammo.name);
+        if (itemData) {
+          console.log(`D35EAdapter | ✓ Found ammo: ${ammo.name}`);
+          itemsToAdd.push({
+            ...itemData,
+            system: {
+              ...itemData.system,
+              quantity: ammo.quantity || 1,
+              equipped: false
+            }
+          });
+        } else {
+          console.warn(`D35EAdapter | ✗ Ammo not found: ${ammo.name}`);
+        }
+      }
+    }
+
+    // Add gear (excluding backpack, will move to backpack after creation)
+    if (kit.gear) {
+      for (const item of kit.gear) {
+        // Skip backpack - already created
+        if (item.name.toLowerCase().includes("backpack")) continue;
+        
+        console.log(`D35EAdapter | Searching for gear: "${item.name}"`);
+        const itemData = await this.findItemInCompendium("loot", item.name);
+        if (itemData) {
+          console.log(`D35EAdapter | ✓ Found gear: ${item.name}`);
+          itemsToAdd.push({
+            ...itemData,
+            system: {
+              ...itemData.system,
+              quantity: item.quantity || 1,
+              equipped: false
+            }
+          });
+        } else {
+          console.warn(`D35EAdapter | ✗ Gear not found: ${item.name}`);
+        }
+      }
+    }
+
+    // Add tools (will move to backpack after creation)
+    if (kit.tools) {
+      for (const tool of kit.tools) {
+        console.log(`D35EAdapter | Searching for tool: "${tool.name}"`);
+        const itemData = await this.findItemInCompendium("loot", tool.name);
+        if (itemData) {
+          console.log(`D35EAdapter | ✓ Found tool: ${tool.name}`);
+          itemsToAdd.push({
+            ...itemData,
+            system: {
+              ...itemData.system,
+              quantity: tool.quantity || 1,
+              equipped: false
+            }
+          });
+        } else {
+          console.warn(`D35EAdapter | ✗ Tool not found: ${tool.name}`);
+        }
+      }
+    }
+
+    // Create remaining items (weapons, armor, shield, gear, ammo, tools)
+    console.log(`D35EAdapter | Attempting to create ${itemsToAdd.length} remaining items...`);
+    if (itemsToAdd.length > 0) {
+      try {
+        const created = await actor.createEmbeddedDocuments("Item", itemsToAdd);
+        console.log(`D35EAdapter | ✓ Successfully added ${created.length} items to inventory`);
+        
+        // PHASE 3: Move gear/ammo/tools into backpack (post-creation update required)
+        // Note: We need to do this AFTER character creation is fully complete
+        // because D35E's actor.refresh() resets item containers during creation
+        if (backpackId) {
+          console.log(`D35EAdapter | === PHASE 3: Preparing container move (deferred) ===`);
+          const itemsToMove = created.filter((item: any) => 
+            item.type === "loot" && item.id !== backpackId
+          );
+          
+          if (itemsToMove.length > 0) {
+            console.log(`D35EAdapter | ${itemsToMove.length} items will be moved into backpack after character creation`);
+            
+            // Store the move data for later execution
+            // We'll return this info so the calling code can complete the move
+            // after the character is fully saved
+            (actor as any)._pendingContainerMoves = {
+              backpackId,
+              itemIds: itemsToMove.map((item: any) => item.id)
+            };
+          }
+        }
+      } catch (error) {
+        console.error(`D35EAdapter | ✗ Failed to create items:`, error);
+      }
+    } else {
+      console.warn(`D35EAdapter | No items found in compendiums - check item names`);
+    }
+  }
+
+  /**
+   * Find an item in D35E compendiums
+   */
+  private static async findItemInCompendium(
+    type: string,
+    name: string
+  ): Promise<any> {
+    // Try multiple possible compendium names
+    let packsToSearch: string[] = [];
+    
+    switch (type) {
+      case "weapon":
+        packsToSearch = ["D35E.weapons-and-ammo", "D35E.items"];
+        break;
+      case "equipment":
+        packsToSearch = ["D35E.armors-and-shields", "D35E.items"];
+        break;
+      case "loot":
+      case "gear":
+      case "tool":
+        packsToSearch = ["D35E.items", "D35E.armors-and-shields", "D35E.weapons-and-ammo"];
+        break;
+      case "ammo":
+        packsToSearch = ["D35E.weapons-and-ammo", "D35E.items"];
+        break;
+      default:
+        console.warn(`D35EAdapter | Unknown item type: ${type}`);
+        return null;
+    }
+
+    // Try each compendium pack until we find the item
+    for (const packName of packsToSearch) {
+      const pack = game.packs?.get(packName);
+      if (!pack) {
+        continue; // Try next pack
+      }
+
+      try {
+        const index = await pack.getIndex();
+        const entry = index.find((e: any) =>
+          e.name.toLowerCase() === name.toLowerCase()
+        );
+
+        if (entry) {
+          const doc = await pack.getDocument(entry._id);
+          const itemData = doc?.toObject();
+          if (itemData) {
+            console.log(`D35EAdapter | Found "${name}" in ${packName}`);
+            return itemData;
+          }
+        }
+      } catch (error) {
+        console.error(`D35EAdapter | Error searching ${packName} for ${name}:`, error);
+      }
+    }
+
+    // Item not found in any compendium
+    console.warn(`D35EAdapter | Item "${name}" not found in any compendium (searched: ${packsToSearch.join(", ")})`);
+    return null;
+  }
+
+  /**
+   * Add coins to actor
+   */
+  private static async addCoins(actor: Actor, amount: number): Promise<void> {
+    if (amount <= 0) {
+      console.log(`D35EAdapter | No coins to add (amount: ${amount})`);
+      return;
+    }
+
+    // Import conversion function
+    const { convertToCoins } = await import('./data/wealth');
+    const coins = convertToCoins(amount);
+
+    // Set currency on actor
+    await actor.update({
+      "system.currency.pp": coins.pp,
+      "system.currency.gp": coins.gp,
+      "system.currency.sp": coins.sp,
+      "system.currency.cp": coins.cp
+    });
+
+    console.log(`D35EAdapter | Added coins: ${coins.pp}pp ${coins.gp}gp ${coins.sp}sp ${coins.cp}cp`);
+  }
+
+  /**
+   * Complete pending container moves (must be called after character creation is fully complete)
+   */
+  static async completePendingContainerMoves(actor: any): Promise<void> {
+    const pending = (actor as any)._pendingContainerMoves;
+    if (!pending) {
+      console.log(`D35EAdapter | No pending container moves for ${actor.name}`);
+      return;
+    }
+
+    console.log(`D35EAdapter | === Completing pending container moves ===`);
+    console.log(`D35EAdapter | Moving ${pending.itemIds.length} items into backpack ${pending.backpackId}`);
+
+    // Build updates array
+    const updates = pending.itemIds.map((itemId: string) => {
+      const item = actor.items.get(itemId);
+      console.log(`D35EAdapter | → Moving "${item?.name}" (${itemId})`);
+      return {
+        _id: itemId,
+        "system.container": pending.backpackId,
+        "system.containerId": pending.backpackId  // CRITICAL: D35E requires BOTH fields
+      };
+    });
+
+    // Execute the batch update
+    await actor.updateEmbeddedDocuments("Item", updates);
+    console.log(`D35EAdapter | ✓ Completed moving ${updates.length} items into backpack`);
+
+    // CRITICAL: Wait for Foundry to commit changes to database
+    // updateEmbeddedDocuments is async but returns before DB commit completes
+    console.log(`D35EAdapter | → Waiting for database commit...`);
+    await new Promise(resolve => setTimeout(resolve, 250));
+    console.log(`D35EAdapter | ✓ Database commit complete`);
+
+    // Clean up the pending data
+    delete (actor as any)._pendingContainerMoves;
+
+    // Verify the move worked
+    const itemsInBackpack = actor.items.filter((i: any) => 
+      i.system?.container === pending.backpackId
+    );
+    console.log(`D35EAdapter | ✓ Final verification: ${itemsInBackpack.length} items in backpack`);
+  }
 }
+

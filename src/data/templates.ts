@@ -1,4 +1,32 @@
-﻿import { TownieTemplate } from "../types";
+import { TownieTemplate } from "../types";
+
+/**
+ * EQUIPMENT SCALING STRATEGY:
+ * 
+ * Current Implementation (Phase 1-4):
+ * - Each template has ONE starting kit that's applied at all levels
+ * - Kit cost is deducted from wealth-by-level, remainder becomes coins
+ * - Works well for levels 1-20 but doesn't scale equipment quality
+ * 
+ * Future Enhancement - Level-Based Equipment Tiers:
+ * Option 1: Multiple kits per template (basicKit, improvedKit, masterworkKit, magicKit)
+ *   - Level 1-4: basicKit (budget gear like Spear, Chain Shirt)
+ *   - Level 5-9: improvedKit (better gear like Longbow, Scale Mail)
+ *   - Level 10-14: masterworkKit (masterwork weapons/armor)
+ *   - Level 15-20: magicKit (magic items from Phase 5)
+ * 
+ * Option 2: Priority-based purchasing (like skills)
+ *   - Mark items as "essential", "desired", "luxury"
+ *   - Buy in priority order until budget exhausted
+ *   - Allows natural scaling as wealth increases
+ * 
+ * Option 3: Item alternatives by price point
+ *   - Define equivalent items at different price points
+ *   - e.g., "ranged_weapon": [{Spear: 2gp}, {Javelin: 1gp}, {Longbow: 75gp}]
+ *   - Algorithm picks best affordable option
+ * 
+ * Recommended: Option 1 (clearest, most predictable for users when templates become YAML)
+ */
 
 export const TOWNIE_TEMPLATES: TownieTemplate[] = [
   {
@@ -35,7 +63,23 @@ export const TOWNIE_TEMPLATES: TownieTemplate[] = [
       { name: "Greater Weapon Focus (No Weapon Selected)", displayName: "Greater Weapon Focus (Longsword)", config: { weaponGroup: "Longsword" } },
       { name: "Greater Weapon Specialization (No Weapon Selected)", displayName: "Greater Weapon Specialization (Longsword)", config: { weaponGroup: "Longsword" } },
       "Improved Sunder"
-    ]
+    ],
+    startingKit: {
+      weapons: [
+        { name: "Longsword", cost: 15, weight: 4, type: "weapon" },
+        { name: "Spear", cost: 2, weight: 6, type: "weapon" }
+      ],
+      armor: { name: "Scale Mail", cost: 50, weight: 30, type: "armor" },
+      shield: { name: "Heavy Steel Shield", cost: 20, weight: 15, type: "shield" },
+      gear: [
+        { name: "Backpack, Common", cost: 2, weight: 2, type: "gear" },
+        { name: "Bedroll", cost: 0.1, weight: 5, type: "gear" },
+        { name: "Waterskin", cost: 1, weight: 4, type: "gear" },
+        { name: "Rations, Trail", cost: 0.5, weight: 1, quantity: 7, type: "gear" },
+        { name: "Rope, hempen, 1m.", cost: 0.02, weight: 0.2, quantity: 50, type: "gear" },  // 50m = 50 qty
+        { name: "Flint and Steel", cost: 1, weight: 0, type: "gear" }
+      ]
+    }
   },
   {
     id: "merchant",
@@ -296,7 +340,28 @@ export const TOWNIE_TEMPLATES: TownieTemplate[] = [
       "Maximize Spell", 
       "Quicken Spell", 
       "Spell Penetration"
-    ]
+    ],
+    startingKit: {
+      weapons: [
+        { name: "Quarterstaff", cost: 0, weight: 4, type: "weapon" },
+        { name: "Light Crossbow", cost: 35, weight: 4, type: "weapon" }
+      ],
+      ammo: [
+        { name: "Crossbow Bolt", cost: 0.1, weight: 0.1, quantity: 20, type: "ammo" }
+      ],
+      gear: [
+        { name: "Backpack, Common", cost: 2, weight: 2, type: "gear" },
+        { name: "Bedroll", cost: 0.1, weight: 5, type: "gear" },
+        { name: "Waterskin", cost: 1, weight: 4, type: "gear" },
+        { name: "Rations, Trail", cost: 0.5, weight: 1, quantity: 7, type: "gear" },
+        { name: "Ink", cost: 8, weight: 0, type: "gear" },
+        { name: "Inkpen", cost: 0.1, weight: 0, type: "gear" }
+      ],
+      tools: [
+        { name: "Spellbook", cost: 15, weight: 3, type: "tool" },
+        { name: "Spell Component Pouch", cost: 5, weight: 2, type: "tool" }
+      ]
+    }
   },
   {
     id: "cleric-priest",
@@ -323,7 +388,24 @@ export const TOWNIE_TEMPLATES: TownieTemplate[] = [
       { name: "Greater Spell Focus (No Spell School Selected)", displayName: "Greater Spell Focus (Conjuration)", config: { spellSchool: "con" } },
       "Maximize Spell", 
       "Augment Summoning"
-    ]
+    ],
+    startingKit: {
+      weapons: [
+        { name: "Heavy Mace", cost: 12, weight: 8, type: "weapon" }
+      ],
+      armor: { name: "Scale Mail", cost: 50, weight: 30, type: "armor" },
+      shield: { name: "Heavy Wooden Shield", cost: 7, weight: 10, type: "shield" },
+      gear: [
+        { name: "Backpack, Common", cost: 2, weight: 2, type: "gear" },
+        { name: "Bedroll", cost: 0.1, weight: 5, type: "gear" },
+        { name: "Waterskin", cost: 1, weight: 4, type: "gear" },
+        { name: "Rations, Trail", cost: 0.5, weight: 1, quantity: 7, type: "gear" }
+      ],
+      tools: [
+        { name: "Wooden Holy Symbol", cost: 1, weight: 0, type: "tool" },
+        { name: "Spell Component Pouch", cost: 5, weight: 2, type: "tool" }
+      ]
+    }
   },
   {
     id: "adept-healer",
@@ -386,7 +468,29 @@ export const TOWNIE_TEMPLATES: TownieTemplate[] = [
       "Lightning Reflexes", 
       "Improved Evasion", 
       { name: "Skill Focus (undefined)", displayName: "Skill Focus (Hide)", config: { skill: "hid" } }
-    ]
+    ],
+    startingKit: {
+      weapons: [
+        { name: "Rapier", cost: 20, weight: 2, type: "weapon" },
+        { name: "Shortbow", cost: 30, weight: 2, type: "weapon" }
+      ],
+      armor: { name: "Studded Leather", cost: 25, weight: 20, type: "armor" },
+      ammo: [
+        { name: "Arrow", cost: 0.05, weight: 0.15, quantity: 40, type: "ammo" }
+      ],
+      gear: [
+        { name: "Backpack, Common", cost: 2, weight: 2, type: "gear" },
+        { name: "Bedroll", cost: 0.1, weight: 5, type: "gear" },
+        { name: "Waterskin", cost: 1, weight: 4, type: "gear" },
+        { name: "Rations, Trail", cost: 0.5, weight: 1, quantity: 7, type: "gear" },
+        { name: "Rope, Silk (50 ft.)", cost: 10, weight: 5, type: "gear" },
+        { name: "Grappling Hook", cost: 1, weight: 4, type: "gear" },
+        { name: "Caltrops", cost: 1, weight: 2, quantity: 2, type: "gear" }
+      ],
+      tools: [
+        { name: "Thieves' Tools", cost: 30, weight: 1, type: "tool" }
+      ]
+    }
   },
   {
     id: "noble",
@@ -476,7 +580,25 @@ export const TOWNIE_TEMPLATES: TownieTemplate[] = [
       { name: "Improved Critical (No Weapon Selected)", displayName: "Improved Critical (Longbow)", config: { weaponGroup: "Longbow" } },
       { name: "Greater Weapon Focus (No Weapon Selected)", displayName: "Greater Weapon Focus (Longbow)", config: { weaponGroup: "Longbow" } },
       "Precise Shot"
-    ]
+    ],
+    startingKit: {
+      weapons: [
+        { name: "Longsword", cost: 15, weight: 4, type: "weapon" },
+        { name: "Longbow", cost: 75, weight: 3, type: "weapon" }
+      ],
+      armor: { name: "Studded Leather", cost: 25, weight: 20, type: "armor" },
+      ammo: [
+        { name: "Arrow", cost: 0.05, weight: 0.15, quantity: 40, type: "ammo" }
+      ],
+      gear: [
+        { name: "Backpack, Common", cost: 2, weight: 2, type: "gear" },
+        { name: "Bedroll", cost: 0.1, weight: 5, type: "gear" },
+        { name: "Waterskin", cost: 1, weight: 4, type: "gear" },
+        { name: "Rations, Trail", cost: 0.5, weight: 1, quantity: 14, type: "gear" },
+        { name: "Rope, hempen, 1m.", cost: 0.02, weight: 0.2, quantity: 50, type: "gear" },
+        { name: "Flint and Steel", cost: 1, weight: 0, type: "gear" }
+      ]
+    }
   },
   {
     id: "barbarian-tribal",
@@ -505,7 +627,23 @@ export const TOWNIE_TEMPLATES: TownieTemplate[] = [
       { name: "Weapon Focus (No Weapon Selected)", displayName: "Weapon Focus (Greataxe)", config: { weaponGroup: "Greataxe" } },
       { name: "Improved Critical (No Weapon Selected)", displayName: "Improved Critical (Greataxe)", config: { weaponGroup: "Greataxe" } },
       "Improved Sunder"
-    ]
+    ],
+    startingKit: {
+      weapons: [
+        { name: "Greataxe", cost: 20, weight: 12, type: "weapon" },
+        { name: "Javelin", cost: 1, weight: 2, quantity: 4, type: "weapon" }
+      ],
+      armor: { name: "Hide Armor", cost: 15, weight: 25, type: "armor" },
+      gear: [
+        { name: "Backpack, Common", cost: 2, weight: 2, type: "gear" },
+        { name: "Bedroll", cost: 0.1, weight: 5, type: "gear" },
+        { name: "Waterskin", cost: 1, weight: 4, type: "gear" },
+        { name: "Rations, Trail", cost: 0.5, weight: 1, quantity: 7, type: "gear" },
+        { name: "Rope, hempen, 1m.", cost: 0.02, weight: 0.2, quantity: 50, type: "gear" },
+        { name: "Flint and Steel", cost: 1, weight: 0, type: "gear" },
+        { name: "Belt Pouch", cost: 1, weight: 0.5, type: "gear" }
+      ]
+    }
   },
   {
     id: "bard-minstrel",
@@ -538,7 +676,28 @@ export const TOWNIE_TEMPLATES: TownieTemplate[] = [
       "Weapon Finesse", 
       "Improved Initiative", 
       "Lightning Reflexes"
-    ]
+    ],
+    startingKit: {
+      weapons: [
+        { name: "Rapier", cost: 20, weight: 2, type: "weapon" },
+        { name: "Shortbow", cost: 30, weight: 2, type: "weapon" }
+      ],
+      armor: { name: "Studded Leather", cost: 25, weight: 20, type: "armor" },
+      ammo: [
+        { name: "Arrow", cost: 0.05, weight: 0.15, quantity: 20, type: "ammo" }
+      ],
+      gear: [
+        { name: "Backpack, Common", cost: 2, weight: 2, type: "gear" },
+        { name: "Bedroll", cost: 0.1, weight: 5, type: "gear" },
+        { name: "Waterskin", cost: 1, weight: 4, type: "gear" },
+        { name: "Rations, Trail", cost: 0.5, weight: 1, quantity: 7, type: "gear" },
+        { name: "Entertainer's Outfit", cost: 3, weight: 4, type: "gear" }
+      ],
+      tools: [
+        { name: "Musical Instrument, Common", cost: 5, weight: 3, type: "tool" },
+        { name: "Spell Component Pouch", cost: 5, weight: 2, type: "tool" }
+      ]
+    }
   },
   {
     id: "druid-hermit",
@@ -568,7 +727,27 @@ export const TOWNIE_TEMPLATES: TownieTemplate[] = [
       "Empower Spell", 
       "Quicken Spell", 
       "Spell Penetration"
-    ]
+    ],
+    startingKit: {
+      weapons: [
+        { name: "Scimitar", cost: 15, weight: 4, type: "weapon" },
+        { name: "Sling", cost: 0, weight: 0, type: "weapon" }
+      ],
+      armor: { name: "Hide Armor", cost: 15, weight: 25, type: "armor" },
+      ammo: [
+        { name: "Sling Bullet", cost: 0.01, weight: 0.5, quantity: 20, type: "ammo" }
+      ],
+      gear: [
+        { name: "Backpack, Common", cost: 2, weight: 2, type: "gear" },
+        { name: "Bedroll", cost: 0.1, weight: 5, type: "gear" },
+        { name: "Waterskin", cost: 1, weight: 4, type: "gear" },
+        { name: "Rations, Trail", cost: 0.5, weight: 1, quantity: 7, type: "gear" },
+        { name: "Traveler's Outfit", cost: 1, weight: 5, type: "gear" }
+      ],
+      tools: [
+        { name: "Holly and Mistletoe", cost: 0, weight: 0, type: "tool" }
+      ]
+    }
   },
   {
     id: "monk-disciple",
@@ -589,7 +768,21 @@ export const TOWNIE_TEMPLATES: TownieTemplate[] = [
       // Total: 16 ranks (Monk gets 4+Int(0) = 4 per level, x4 at 1st = 16)
       // High: acrobatics, Medium: mobility, Low: stealth
     ],
-    feats: ["Improved Unarmed Strike", "Dodge", "Improved Grapple", "Deflect Arrows", "Mobility", "Spring Attack", "Improved Initiative", "Lightning Reflexes"]
+    feats: ["Improved Unarmed Strike", "Dodge", "Improved Grapple", "Deflect Arrows", "Mobility", "Spring Attack", "Improved Initiative", "Lightning Reflexes"],
+    startingKit: {
+      weapons: [
+        { name: "Quarterstaff", cost: 0, weight: 4, type: "weapon" },
+        { name: "Shuriken", cost: 0.2, weight: 0.1, quantity: 10, type: "weapon" }
+      ],
+      gear: [
+        { name: "Backpack, Common", cost: 2, weight: 2, type: "gear" },
+        { name: "Bedroll", cost: 0.1, weight: 5, type: "gear" },
+        { name: "Waterskin", cost: 1, weight: 4, type: "gear" },
+        { name: "Rations, Trail", cost: 0.5, weight: 1, quantity: 7, type: "gear" },
+        { name: "Rope, hempen, 1m.", cost: 0.02, weight: 0.2, quantity: 50, type: "gear" },
+        { name: "Monk's Outfit", cost: 5, weight: 2, type: "gear" }
+      ]
+    }
   },
   {
     id: "paladin-knight",
@@ -617,7 +810,24 @@ export const TOWNIE_TEMPLATES: TownieTemplate[] = [
       { name: "Weapon Specialization (No Weapon Selected)", displayName: "Weapon Specialization (Longsword)", config: { weaponGroup: "Longsword" } },
       { name: "Improved Critical (No Weapon Selected)", displayName: "Improved Critical (Longsword)", config: { weaponGroup: "Longsword" } },
       "Ride-By Attack"
-    ]
+    ],
+    startingKit: {
+      weapons: [
+        { name: "Longsword", cost: 15, weight: 4, type: "weapon" },
+        { name: "Javelin", cost: 1, weight: 2, quantity: 3, type: "weapon" }
+      ],
+      armor: { name: "Scale Mail", cost: 50, weight: 30, type: "armor" },
+      shield: { name: "Heavy Steel Shield", cost: 20, weight: 15, type: "shield" },
+      gear: [
+        { name: "Backpack, Common", cost: 2, weight: 2, type: "gear" },
+        { name: "Bedroll", cost: 0.1, weight: 5, type: "gear" },
+        { name: "Waterskin", cost: 1, weight: 4, type: "gear" },
+        { name: "Rations, Trail", cost: 0.5, weight: 1, quantity: 7, type: "gear" }
+      ],
+      tools: [
+        { name: "Silver Holy Symbol", cost: 25, weight: 1, type: "tool" }
+      ]
+    }
   },
   {
     id: "sorcerer-bloodline",
@@ -644,7 +854,24 @@ export const TOWNIE_TEMPLATES: TownieTemplate[] = [
       "Quicken Spell", 
       "Maximize Spell", 
       "Spell Penetration"
-    ]
+    ],
+    startingKit: {
+      weapons: [
+        { name: "Light Crossbow", cost: 35, weight: 4, type: "weapon" }
+      ],
+      ammo: [
+        { name: "Crossbow Bolt", cost: 0.1, weight: 0.1, quantity: 20, type: "ammo" }
+      ],
+      gear: [
+        { name: "Backpack, Common", cost: 2, weight: 2, type: "gear" },
+        { name: "Bedroll", cost: 0.1, weight: 5, type: "gear" },
+        { name: "Waterskin", cost: 1, weight: 4, type: "gear" },
+        { name: "Rations, Trail", cost: 0.5, weight: 1, quantity: 7, type: "gear" },
+        { name: "Courtier's Outfit", cost: 30, weight: 6, type: "gear" }
+      ],
+      tools: [
+        { name: "Spell Component Pouch", cost: 5, weight: 2, type: "tool" }
+      ]
+    }
   }
 ];
-

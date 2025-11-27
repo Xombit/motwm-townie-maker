@@ -34,48 +34,65 @@
       
       <div class="form-group">
         <label for="npc-name">Name *</label>
-        <input type="text" id="npc-name" data-field="name" value="{{formData.name}}" placeholder="Enter NPC name">
+        <div style="display: flex; gap: 8px; align-items: stretch;">
+          <input type="text" id="npc-name" data-field="name" value="{{formData.name}}" placeholder="Enter NPC name" style="flex: 1; min-width: 0;">
+          <button data-action="randomize-name" title="Generate Random Name" style="width: 36px; height: 36px; padding: 0; flex-shrink: 0; display: flex; align-items: center; justify-content: center;">
+            <i class="fas fa-dice"></i>
+          </button>
+        </div>
       </div>
 
-      <div class="form-group">
-        <label for="npc-race">Race</label>
-        <select id="npc-race" data-field="race">
-          <option value="">-- Select Race --</option>
-          {{#each races}}
-          <option value="{{this.name}}" {{#if (eq ../formData.race this.name)}}selected{{/if}}>{{this.name}}</option>
-          {{/each}}
-        </select>
+      <div style="display: flex; gap: 12px;">
+        <div class="form-group" style="flex: 2; min-width: 0;">
+          <label for="npc-race">Race</label>
+          <select id="npc-race" data-field="race">
+            <option value="">-- Select Race --</option>
+            {{#each races}}
+            <option value="{{this.name}}" {{#if (eq ../formData.race this.name)}}selected{{/if}}>{{this.name}}</option>
+            {{/each}}
+          </select>
+        </div>
+
+        <div class="form-group" style="flex: 2; min-width: 0;">
+          <label for="npc-class">Class</label>
+          <select id="npc-class" data-field="className">
+            <option value="">-- Select Class --</option>
+            {{#each classes}}
+            <option value="{{this.name}}" {{#if (eq ../formData.className this.name)}}selected{{/if}}>{{this.name}}</option>
+            {{/each}}
+          </select>
+        </div>
+
+        <div class="form-group" style="flex: 1; min-width: 80px;">
+          <label for="npc-gender">Gender</label>
+          <select id="npc-gender" data-field="gender">
+            <option value="male" {{#if (eq formData.gender "male")}}selected{{/if}}>Male</option>
+            <option value="female" {{#if (eq formData.gender "female")}}selected{{/if}}>Female</option>
+          </select>
+        </div>
       </div>
 
-      <div class="form-group">
-        <label for="npc-class">Class</label>
-        <select id="npc-class" data-field="className">
-          <option value="">-- Select Class --</option>
-          {{#each classes}}
-          <option value="{{this.name}}" {{#if (eq ../formData.className this.name)}}selected{{/if}}>{{this.name}}</option>
-          {{/each}}
-        </select>
-      </div>
+      <div style="display: flex; gap: 12px;">
+        <div class="form-group" style="flex: 2; min-width: 0;">
+          <label for="npc-alignment">Alignment</label>
+          <select id="npc-alignment" data-field="alignment">
+            <option value="">-- Select Alignment --</option>
+            <option value="Lawful Good" {{#if (eq formData.alignment "Lawful Good")}}selected{{/if}}>Lawful Good</option>
+            <option value="Neutral Good" {{#if (eq formData.alignment "Neutral Good")}}selected{{/if}}>Neutral Good</option>
+            <option value="Chaotic Good" {{#if (eq formData.alignment "Chaotic Good")}}selected{{/if}}>Chaotic Good</option>
+            <option value="Lawful Neutral" {{#if (eq formData.alignment "Lawful Neutral")}}selected{{/if}}>Lawful Neutral</option>
+            <option value="Neutral" {{#if (eq formData.alignment "Neutral")}}selected{{/if}}>Neutral</option>
+            <option value="Chaotic Neutral" {{#if (eq formData.alignment "Chaotic Neutral")}}selected{{/if}}>Chaotic Neutral</option>
+            <option value="Lawful Evil" {{#if (eq formData.alignment "Lawful Evil")}}selected{{/if}}>Lawful Evil</option>
+            <option value="Neutral Evil" {{#if (eq formData.alignment "Neutral Evil")}}selected{{/if}}>Neutral Evil</option>
+            <option value="Chaotic Evil" {{#if (eq formData.alignment "Chaotic Evil")}}selected{{/if}}>Chaotic Evil</option>
+          </select>
+        </div>
 
-      <div class="form-group">
-        <label for="npc-level">Level (1-20)</label>
-        <input type="number" id="npc-level" data-field="classLevel" value="{{formData.classLevel}}" min="1" max="20" placeholder="1">
-      </div>
-
-      <div class="form-group">
-        <label for="npc-alignment">Alignment</label>
-        <select id="npc-alignment" data-field="alignment">
-          <option value="">-- Select Alignment --</option>
-          <option value="Lawful Good" {{#if (eq formData.alignment "Lawful Good")}}selected{{/if}}>Lawful Good</option>
-          <option value="Neutral Good" {{#if (eq formData.alignment "Neutral Good")}}selected{{/if}}>Neutral Good</option>
-          <option value="Chaotic Good" {{#if (eq formData.alignment "Chaotic Good")}}selected{{/if}}>Chaotic Good</option>
-          <option value="Lawful Neutral" {{#if (eq formData.alignment "Lawful Neutral")}}selected{{/if}}>Lawful Neutral</option>
-          <option value="Neutral" {{#if (eq formData.alignment "Neutral")}}selected{{/if}}>Neutral</option>
-          <option value="Chaotic Neutral" {{#if (eq formData.alignment "Chaotic Neutral")}}selected{{/if}}>Chaotic Neutral</option>
-          <option value="Lawful Evil" {{#if (eq formData.alignment "Lawful Evil")}}selected{{/if}}>Lawful Evil</option>
-          <option value="Neutral Evil" {{#if (eq formData.alignment "Neutral Evil")}}selected{{/if}}>Neutral Evil</option>
-          <option value="Chaotic Evil" {{#if (eq formData.alignment "Chaotic Evil")}}selected{{/if}}>Chaotic Evil</option>
-        </select>
+        <div class="form-group" style="flex: 1; min-width: 80px;">
+          <label for="npc-level">Level (1-20)</label>
+          <input type="number" id="npc-level" data-field="classLevel" value="{{formData.classLevel}}" min="1" max="20" placeholder="1">
+        </div>
       </div>
 
       <div class="form-group">

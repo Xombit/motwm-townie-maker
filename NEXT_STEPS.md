@@ -101,6 +101,19 @@ A fully functional D&D 3.5e character needs:
 4. ⏳ Portrait/token integration
 5. ⏳ Import/export templates
 
+### Phase 5: External Templates (Future)
+1. 📋 **Migrate templates to YAML** - User-editable `data/templates.yaml`
+   - Keep "Blank Character" hardcoded in TypeScript
+   - Load custom templates from YAML file
+   - Allow community template contributions
+   - Support hot-reload without module rebuild
+   - Bundle `js-yaml` (MIT license, ~5-8KB gzipped)
+   - **Development Strategy:** Build templates in TypeScript first for type safety and IntelliSense, migrate to YAML when feature-complete and stable
+2. 📋 Add gear/equipment system to templates
+3. 📋 Add spell selection system for casters
+4. 📋 Template validation and error handling
+5. 📋 Template import/export UI
+
 ## Development Commands
 
 ```bash
