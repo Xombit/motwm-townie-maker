@@ -215,25 +215,40 @@ export class D35EAdapter {
    * Add feats to an actor based on level
    * Feats are granted at level 1, 3, 6, 9, 12, 15, 18
    * Humans get +1 bonus feat at level 1
+   * 
+   * @param featList - Array of feat names (strings) or FeatAllocation objects with {feat, level, source}
    */
   static async addFeats(actor: Actor, level: number, featList: Array<string | any>, isHuman: boolean = false): Promise<void> {
     try {
-      // Calculate feat progression: Level 1, then every 3 levels (3, 6, 9, 12, 15, 18)
-      const featLevels: number[] = [1]; // Everyone gets a feat at level 1
-      for (let lvl = 3; lvl <= level; lvl += 3) {
-        featLevels.push(lvl);
+      // If featList contains allocation objects (with level and source), use them directly
+      // Otherwise, calculate feat progression for backward compatibility
+      let featsToAdd: Array<{feat: string | any, level: number, source?: string}>;
+      
+      if (featList.length > 0 && featList[0].level !== undefined) {
+        // Already have allocations with levels
+        featsToAdd = featList as Array<{feat: string | any, level: number, source?: string}>;
+      } else {
+        // Legacy mode: Calculate feat progression
+        const featLevels: number[] = [1]; // Everyone gets a feat at level 1
+        for (let lvl = 3; lvl <= level; lvl += 3) {
+          featLevels.push(lvl);
+        }
+        
+        // Humans get bonus feat at level 1
+        if (isHuman) {
+          featLevels.push(1); // Add another level 1 feat
+        }
+        
+        // Sort to ensure level 1 feats come first
+        featLevels.sort((a, b) => a - b);
+        
+        // Get only the feats they should have at this level and wrap in allocation objects
+        const featsSlice = featList.slice(0, featLevels.length);
+        featsToAdd = featsSlice.map((feat, index) => ({
+          feat,
+          level: featLevels[index]
+        }));
       }
-      
-      // Humans get bonus feat at level 1
-      if (isHuman) {
-        featLevels.push(1); // Add another level 1 feat
-      }
-      
-      // Sort to ensure level 1 feats come first
-      featLevels.sort((a, b) => a - b);
-      
-      // Get only the feats they should have at this level
-      const featsToAdd = featList.slice(0, featLevels.length);
       
       if (featsToAdd.length === 0) {
         return;
@@ -253,8 +268,12 @@ export class D35EAdapter {
       const featsToCreate: any[] = [];
 
       for (let i = 0; i < featsToAdd.length; i++) {
-        const featEntry = featsToAdd[i];
-        const featAddedAtLevel = featLevels[i]; // Level this specific feat was gained
+        const allocation = featsToAdd[i];
+        const featAddedAtLevel = allocation.level;
+        const source = allocation.source; // 'ranger-style', 'class', 'general', etc.
+        
+        // Extract feat info (could be string or object)
+        const featEntry = allocation.feat;
         
         // Handle both string and FeatConfig object formats
         const featConfig = typeof featEntry === 'string' 
@@ -303,7 +322,14 @@ export class D35EAdapter {
                 for (const [key, attr] of Object.entries(featData.system.customAttributes)) {
                   if ((attr as any).name === 'Weapon Name') {
                     (featData.system.customAttributes as any)[key].value = featConfig.config.weaponGroup;
-                    console.log(`D35EAdapter | Configured ${featName} with weapon: ${featConfig.config.weaponGroup}`);
+                    
+                    // Directly set the feat name (formulas don't resolve during creation)
+                    // Remove any existing parenthetical (e.g., "(No Weapon Selected)")
+                    const baseFeatName = featName.replace(/\s*\([^)]*\)\s*$/, '');
+                    featData.name = `${baseFeatName} (${featConfig.config.weaponGroup})`;
+                    featData.system.identifiedName = featData.name;
+                    
+                    console.log(`D35EAdapter | Configured ${featData.name}`);
                     break;
                   }
                 }
@@ -361,6 +387,21 @@ export class D35EAdapter {
             // Set the level at which this feat was added
             featData.system.addedLevel = featAddedAtLevel;
             
+            // Set classSource for class bonus feats
+            if (source === 'ranger-style') {
+              featData.system.classSource = 'ranger';
+              console.log(`D35EAdapter | Set classSource 'ranger' for combat style feat: ${featName}`);
+            } else if (source === 'fighter') {
+              featData.system.classSource = 'fighter';
+              console.log(`D35EAdapter | Set classSource 'fighter' for bonus feat: ${featName}`);
+            } else if (source === 'wizard') {
+              featData.system.classSource = 'wizard';
+              console.log(`D35EAdapter | Set classSource 'wizard' for bonus feat: ${featName}`);
+            } else if (source === 'monk') {
+              featData.system.classSource = 'monk';
+              console.log(`D35EAdapter | Set classSource 'monk' for bonus feat: ${featName}`);
+            }
+            
             featsToCreate.push(featData);
             found = true;
             break;
@@ -378,6 +419,126 @@ export class D35EAdapter {
       }
     } catch (error) {
       console.error(`D35EAdapter | Failed to add feats:`, error);
+    }
+  }
+
+  /**
+   * Add Ranger favored enemies to an actor
+   * 
+   * @param actor The actor to add favored enemies to
+   * @param level Ranger level
+   * @param enemyTypes Array of enemy types from template (in order of preference)
+   */
+  static async addFavoredEnemies(
+    actor: Actor,
+    level: number,
+    enemyTypes: string[]
+  ): Promise<void> {
+    try {
+      const { calculateFavoredEnemies } = await import('./data/favored-enemy');
+      
+      // Find existing favored enemy feats (added by the Ranger class)
+      const favoredEnemyFeats = actor.items.filter((item: any) => 
+        item.type === 'feat' && 
+        item.system?.uniqueId?.startsWith('rng-fav-Ranger-')
+      ).sort((a: any, b: any) => {
+        // Sort by the level they were gained (from uniqueId: rng-fav-Ranger-1, rng-fav-Ranger-5, etc.)
+        const aLevel = parseInt(a.system.uniqueId.split('-').pop() || '0');
+        const bLevel = parseInt(b.system.uniqueId.split('-').pop() || '0');
+        return aLevel - bLevel;
+      });
+
+      console.log(`D35EAdapter | Found ${favoredEnemyFeats.length} favored enemy feats to configure`);
+
+      // Calculate which favored enemies the ranger should have
+      const configs = calculateFavoredEnemies(level, enemyTypes);
+      
+      console.log(`D35EAdapter | Configuring ${configs.length} favored enemies for ${actor.name}:`);
+      configs.forEach(cfg => {
+        const bonus = cfg.level * 2;
+        console.log(`  - ${cfg.type}: +${bonus} (gained at level ${cfg.gainedAtLevel}, boost level ${cfg.level})`);
+      });
+
+      // Update each existing feat with the proper enemy type and boost level
+      const updates = [];
+      for (let i = 0; i < Math.min(configs.length, favoredEnemyFeats.length); i++) {
+        const feat = favoredEnemyFeats[i];
+        const config = configs[i];
+        const bonus = config.level * 2;
+        const newName = `Favored Enemy (${config.type}, +${bonus})`;
+        
+        updates.push({
+          _id: feat.id,
+          name: newName,
+          'system.customAttributes._o3zfw6g43.value': config.type,
+          'system.customAttributes._ar55qs0iq.value': config.level.toString()
+        });
+      }
+
+      if (updates.length > 0) {
+        await actor.updateEmbeddedDocuments('Item', updates);
+        console.log(`D35EAdapter | Successfully configured ${updates.length} favored enemies`);
+      }
+    } catch (error) {
+      console.error(`D35EAdapter | Failed to configure favored enemies:`, error);
+      throw error;
+    }
+  }
+
+  /**
+   * Add Rogue special abilities to an actor
+   * Rogues get special abilities at 10th, 13th, 16th, and 19th levels
+   */
+  static async addRogueSpecialAbilities(
+    actor: Actor,
+    level: number,
+    specialAbilities: string[]
+  ): Promise<void> {
+    try {
+      const { getRogueSpecialAbilityLevels } = await import('./data/feat-selection');
+      
+      const abilityLevels = getRogueSpecialAbilityLevels(level);
+      const abilitiesToAdd = specialAbilities.slice(0, abilityLevels.length);
+      
+      if (abilitiesToAdd.length === 0) {
+        return;
+      }
+
+      // Find the class-abilities compendium
+      const pack = game.packs?.get('D35E.class-abilities');
+      if (!pack) {
+        console.warn(`D35EAdapter | class-abilities compendium not found`);
+        return;
+      }
+
+      const abilitiesToCreate: any[] = [];
+
+      for (let i = 0; i < abilitiesToAdd.length; i++) {
+        const abilityName = abilitiesToAdd[i];
+        const addedAtLevel = abilityLevels[i];
+
+        // Search for the ability in the compendium
+        const content = await pack.getDocuments();
+        const abilityDoc = content.find((item: any) => item.name === abilityName);
+
+        if (abilityDoc) {
+          const abilityData = abilityDoc.toObject();
+          abilityData.system.addedLevel = addedAtLevel;
+          
+          abilitiesToCreate.push(abilityData);
+          console.log(`D35EAdapter | Adding Rogue special ability: ${abilityName} (level ${addedAtLevel})`);
+        } else {
+          console.warn(`D35EAdapter | Rogue special ability '${abilityName}' not found in class-abilities compendium`);
+        }
+      }
+
+      if (abilitiesToCreate.length > 0) {
+        await actor.createEmbeddedDocuments('Item', abilitiesToCreate);
+        console.log(`D35EAdapter | Added ${abilitiesToCreate.length} Rogue special abilities to ${actor.name}`);
+      }
+    } catch (error) {
+      console.error(`D35EAdapter | Failed to add Rogue special abilities:`, error);
+      throw error;
     }
   }
 
@@ -901,8 +1062,9 @@ export class D35EAdapter {
       console.log(`\n=== EQUIPMENT SYSTEM ===`);
       console.log(`Template: ${template.name}, Level: ${level}`);
 
-      // Import wealth data
+      // Import wealth data and equipment resolver
       const { getWealthForLevel, convertToCoins } = await import('./data/wealth');
+      const { calculateKitCost } = await import('./data/equipment-resolver');
 
       // Step 1: Calculate total wealth
       const className = template.classes?.[0]?.name || "Fighter";
@@ -918,8 +1080,8 @@ export class D35EAdapter {
         return;
       }
 
-      // Step 3: Calculate mundane equipment cost
-      const mundaneCost = this.calculateKitCost(kit);
+      // Step 3: Calculate mundane equipment cost (with equipment resolver for level scaling and randomization)
+      const mundaneCost = calculateKitCost(kit, level);
       console.log(`Mundane Equipment Cost: ${mundaneCost} gp`);
 
       // Step 4: Calculate magic item budget
@@ -931,7 +1093,7 @@ export class D35EAdapter {
       const magicItems = await selectMagicItems(level, className, magicBudget);
 
       // Step 6: Add mundane items (with enhancements if selected)
-      await this.addMundaneItems(actor, kit, magicItems);
+      await this.addMundaneItems(actor, kit, magicItems, level);
 
       // Step 6b: Add wondrous items (Big Six)
       await addWondrousItemsToActor(actor, magicItems.wondrousItems);
@@ -1043,17 +1205,30 @@ export class D35EAdapter {
    * Add mundane items from starting kit to actor
    * Now supports magic item enhancements!
    */
-  private static async addMundaneItems(actor: any, kit: any, magicItems?: any): Promise<void> {
+  private static async addMundaneItems(actor: any, kit: any, magicItems?: any, level: number = 1): Promise<void> {
     const itemsToAdd: any[] = [];
     let backpackId: string | null = null;
+
+    console.log("D35EAdapter | Resolving equipment options for level", level);
+    
+    // Import equipment resolver
+    const { resolveEquipmentArray, resolveEquipmentOption } = await import('./data/equipment-resolver');
+    
+    // Resolve all equipment options based on character level
+    const resolvedWeapons = kit.weapons ? resolveEquipmentArray(kit.weapons, level) : [];
+    const resolvedArmor = kit.armor ? resolveEquipmentOption(kit.armor, level) : null;
+    const resolvedShield = kit.shield ? resolveEquipmentOption(kit.shield, level) : null;
+    const resolvedGear = kit.gear ? resolveEquipmentArray(kit.gear, level) : [];
+    const resolvedTools = kit.tools ? resolveEquipmentArray(kit.tools, level) : [];
+    const resolvedAmmo = kit.ammo ? resolveEquipmentArray(kit.ammo, level) : [];
 
     console.log("D35EAdapter | Searching for items in compendiums...");
 
     // Add weapons - first one equipped, others carried
     // Apply magic enhancement to first and second weapons if selected
-    if (kit.weapons) {
-      for (let i = 0; i < kit.weapons.length; i++) {
-        const weapon = kit.weapons[i];
+    if (resolvedWeapons.length > 0) {
+      for (let i = 0; i < resolvedWeapons.length; i++) {
+        const weapon = resolvedWeapons[i];
         console.log(`D35EAdapter | Searching for weapon: "${weapon.name}"`);
         const itemData = await this.findItemInCompendium("weapon", weapon.name);
         if (itemData) {
@@ -1110,11 +1285,11 @@ export class D35EAdapter {
 
     // Add armor - always equipped
     // Apply magic enhancement if selected
-    if (kit.armor) {
-      console.log(`D35EAdapter | Searching for armor: "${kit.armor.name}"`);
-      const itemData = await this.findItemInCompendium("equipment", kit.armor.name);
+    if (resolvedArmor) {
+      console.log(`D35EAdapter | Searching for armor: "${resolvedArmor.name}"`);
+      const itemData = await this.findItemInCompendium("equipment", resolvedArmor.name);
       if (itemData) {
-        console.log(`D35EAdapter | ✓ Found armor: ${kit.armor.name}`);
+        console.log(`D35EAdapter | ✓ Found armor: ${resolvedArmor.name}`);
         
         let armorToAdd = {
           ...itemData,
@@ -1140,17 +1315,17 @@ export class D35EAdapter {
         itemsToAdd.push(armorToAdd);
         console.log(`D35EAdapter | → Equipped`);
       } else {
-        console.warn(`D35EAdapter | ✗ Armor not found: ${kit.armor.name}`);
+        console.warn(`D35EAdapter | ✗ Armor not found: ${resolvedArmor.name}`);
       }
     }
 
     // Add shield - always equipped (template designer decides if shield should be included)
     // Apply magic enhancement if selected
-    if (kit.shield) {
-      console.log(`D35EAdapter | Searching for shield: "${kit.shield.name}"`);
-      const itemData = await this.findItemInCompendium("equipment", kit.shield.name);
+    if (resolvedShield) {
+      console.log(`D35EAdapter | Searching for shield: "${resolvedShield.name}"`);
+      const itemData = await this.findItemInCompendium("equipment", resolvedShield.name);
       if (itemData) {
-        console.log(`D35EAdapter | ✓ Found shield: ${kit.shield.name}`);
+        console.log(`D35EAdapter | ✓ Found shield: ${resolvedShield.name}`);
         
         let shieldToAdd = {
           ...itemData,
@@ -1176,14 +1351,14 @@ export class D35EAdapter {
         itemsToAdd.push(shieldToAdd);
         console.log(`D35EAdapter | → Equipped`)
       } else {
-        console.warn(`D35EAdapter | ✗ Shield not found: ${kit.shield.name}`);
+        console.warn(`D35EAdapter | ✗ Shield not found: ${resolvedShield.name}`);
       }
     }
 
     // PHASE 1: Create backpack first (so we have its ID for other items)
     console.log(`D35EAdapter | === PHASE 1: Creating backpack ===`);
-    if (kit.gear) {
-      const backpackItem = kit.gear.find((item: any) => 
+    if (resolvedGear.length > 0) {
+      const backpackItem = resolvedGear.find((item: any) => 
         item.name.toLowerCase().includes("backpack")
       );
       
@@ -1216,8 +1391,8 @@ export class D35EAdapter {
     console.log(`D35EAdapter | === PHASE 2: Creating remaining items ===`);
 
     // Add ammunition (will move to backpack after creation)
-    if (kit.ammo) {
-      for (const ammo of kit.ammo) {
+    if (resolvedAmmo.length > 0) {
+      for (const ammo of resolvedAmmo) {
         console.log(`D35EAdapter | Searching for ammo: "${ammo.name}"`);
         const itemData = await this.findItemInCompendium("loot", ammo.name);
         if (itemData) {
@@ -1237,8 +1412,8 @@ export class D35EAdapter {
     }
 
     // Add gear (excluding backpack, will move to backpack after creation)
-    if (kit.gear) {
-      for (const item of kit.gear) {
+    if (resolvedGear.length > 0) {
+      for (const item of resolvedGear) {
         // Skip backpack - already created
         if (item.name.toLowerCase().includes("backpack")) continue;
         
@@ -1261,8 +1436,8 @@ export class D35EAdapter {
     }
 
     // Add tools (will move to backpack after creation)
-    if (kit.tools) {
-      for (const tool of kit.tools) {
+    if (resolvedTools.length > 0) {
+      for (const tool of resolvedTools) {
         console.log(`D35EAdapter | Searching for tool: "${tool.name}"`);
         const itemData = await this.findItemInCompendium("loot", tool.name);
         if (itemData) {
@@ -1445,5 +1620,296 @@ export class D35EAdapter {
     );
     console.log(`D35EAdapter | ✓ Final verification: ${itemsInBackpack.length} items in backpack`);
   }
-}
 
+  /**
+   * Generate attack and full-attack items for all equipped weapons
+   * Creates individual attack items and full-attack items with iterative attacks based on BAB
+   */
+  static async addAttacks(actor: Actor): Promise<void> {
+    console.log("D35EAdapter | Generating attacks for equipped weapons");
+
+    // Get character's BAB
+    const bab = (actor.system as any)?.attributes?.bab?.total || 0;
+    console.log(`D35EAdapter | Character BAB: ${bab}`);
+
+    // Calculate number of iterative attacks based on BAB
+    const numAttacks = Math.floor(bab / 5) + 1;
+    console.log(`D35EAdapter | Iterative attacks: ${numAttacks}`);
+
+    // Find all carried weapons (equipped or not)
+    const weapons = actor.items.filter((item: any) => 
+      item.type === "weapon" && item.system?.carried === true
+    );
+
+    console.log(`D35EAdapter | Found ${weapons.length} carried weapons`);
+
+    if (weapons.length === 0) {
+      console.log("D35EAdapter | No carried weapons found, skipping attack generation");
+      return;
+    }
+
+    const attacksToCreate: any[] = [];
+    const meleeWeapons: any[] = [];
+    const rangedWeapons: any[] = [];
+
+    // Throwable weapon types (can be used melee or ranged)
+    const throwableWeaponTypes = ['spear', 'javelin', 'dagger', 'handaxe', 'throwing axe', 'light hammer', 'trident', 'shortspear'];
+
+    // Process each weapon and categorize
+    for (const weapon of weapons) {
+      const weaponData = weapon.system as any;
+      const weaponName = weapon.name!;
+      const weaponId = weapon.id!;
+      const weaponImg = weapon.img!;
+      
+      // Check weapon properties to determine if it has multiple attack modes
+      const properties = weaponData.properties || {};
+      const baseWeaponType = (weaponData.baseWeaponType || '').toLowerCase();
+      const isThrown = properties.thr === true || throwableWeaponTypes.some(t => baseWeaponType.includes(t));
+      
+      console.log(`D35EAdapter | Processing weapon: ${weaponName} (${weaponId}), baseType: ${baseWeaponType}, isThrown: ${isThrown}`);
+
+      // Check for Speed enhancement
+      const enhancements = weaponData.enhancements?.items || [];
+      const hasSpeedEnhancement = enhancements.some((enh: any) => 
+        enh.name?.toLowerCase().includes('speed') || enh.system?.properties?.spd === true
+      );
+      
+      if (hasSpeedEnhancement) {
+        console.log(`D35EAdapter | ${weaponName} has Speed enhancement`);
+      }
+
+      // If weapon is throwable (like spear), create both melee and ranged attack items
+      if (isThrown) {
+        // Create melee attack
+        const meleeAttackItem = {
+          name: weaponName,
+          type: "attack",
+          img: weaponImg,
+          system: {
+            activation: { cost: 1, type: "attack" },
+            duration: { value: null, units: "inst" },
+            target: { value: "" },
+            range: { value: null, units: "" },
+            actionType: "mwak",
+            attackBonus: "",
+            critConfirmBonus: "",
+            damage: weaponData.damage || { parts: [], alternativeParts: [] },
+            attackParts: [],
+            formula: "",
+            ability: weaponData.ability || { attack: "str", damage: "str", damageMult: 1 },
+            save: weaponData.save || { dc: 0, description: "", ability: "", type: "" },
+            description: weaponData.description || { value: "", chat: "", unidentified: "" }
+          }
+        };
+        attacksToCreate.push(meleeAttackItem);
+        
+        // Throwable weapons always go to melee weapons for full-attack
+        // (Returning doesn't help with iterative attacks since it returns at end of turn)
+        meleeWeapons.push({ id: weaponId, name: weaponName, img: weaponImg, hasSpeed: hasSpeedEnhancement });
+        console.log(`D35EAdapter | Created melee attack for ${weaponName}`);
+
+        // Create thrown attack
+        const rangedAttackItem = {
+          name: `${weaponName} (Thrown)`,
+          type: "attack",
+          img: weaponImg,
+          system: {
+            activation: { cost: 1, type: "attack" },
+            duration: { value: null, units: "inst" },
+            target: { value: "" },
+            range: weaponData.range || { value: null, units: "" },
+            actionType: "rwak",
+            attackBonus: "",
+            critConfirmBonus: "",
+            damage: weaponData.damage || { parts: [], alternativeParts: [] },
+            attackParts: [],
+            formula: "",
+            ability: weaponData.ability || { attack: "str", damage: "str", damageMult: 1 },
+            save: weaponData.save || { dc: 0, description: "", ability: "", type: "" },
+            description: weaponData.description || { value: "", chat: "", unidentified: "" }
+          }
+        };
+        attacksToCreate.push(rangedAttackItem);
+        console.log(`D35EAdapter | Created thrown attack for ${weaponName}`);
+      } else {
+        // Single attack mode weapon
+        const actionType = weaponData.actionType || "mwak";
+        const isRanged = actionType === "rwak";
+        const isMelee = actionType === "mwak";
+
+        const attackItem = {
+          name: weaponName,
+          type: "attack",
+          img: weaponImg,
+          system: {
+            activation: { cost: 1, type: "attack" },
+            duration: { value: null, units: "inst" },
+            target: { value: "" },
+            range: weaponData.range || { value: null, units: "" },
+            actionType: actionType,
+            attackBonus: "",
+            critConfirmBonus: "",
+            damage: weaponData.damage || { parts: [], alternativeParts: [] },
+            attackParts: [],
+            formula: "",
+            ability: weaponData.ability || { attack: isRanged ? "dex" : "str", damage: "str", damageMult: 1 },
+            save: weaponData.save || { dc: 0, description: "", ability: "", type: "" },
+            description: weaponData.description || { value: "", chat: "", unidentified: "" }
+          }
+        };
+
+        attacksToCreate.push(attackItem);
+        console.log(`D35EAdapter | Created ${isRanged ? 'ranged' : 'melee'} attack for ${weaponName}`);
+
+        // Categorize for full-attack creation (skip thrown weapons for full-attack)
+        if (isMelee) {
+          meleeWeapons.push({ id: weaponId, name: weaponName, img: weaponImg, hasSpeed: hasSpeedEnhancement });
+        } else if (isRanged) {
+          // Check if weapon can make multiple attacks
+          const weaponNameLower = weaponName.toLowerCase();
+          const canFullAttack = !(weaponNameLower.includes("heavy crossbow") && !weaponNameLower.includes("repeating"));
+          
+          if (canFullAttack) {
+            rangedWeapons.push({ id: weaponId, name: weaponName, img: weaponImg, hasSpeed: hasSpeedEnhancement });
+          } else {
+            console.log(`D35EAdapter | ${weaponName} cannot full attack (heavy crossbow reload)`);
+          }
+        }
+      }
+    }
+
+    // Create Full Attack (Melee) if there are melee weapons and BAB allows iterative attacks
+    if (meleeWeapons.length > 0 && numAttacks > 1) {
+      const primaryMelee = meleeWeapons[0]; // Use first melee weapon as primary
+      const attacks: any = {};
+      
+      // Speed enhancement gives an extra attack at full BAB
+      let totalAttacks = numAttacks;
+      if (primaryMelee.hasSpeed) {
+        totalAttacks = numAttacks + 1;
+        console.log(`D35EAdapter | ${primaryMelee.name} has Speed enhancement, adding extra attack at full BAB`);
+      }
+      
+      for (let i = 0; i < Math.min(totalAttacks, 5); i++) {
+        attacks[`attack${i + 1}`] = {
+          _id: i + 1,
+          name: primaryMelee.name,
+          img: primaryMelee.img,
+          primary: i === 0,
+          isWeapon: true,
+          attackMode: "primary",
+          id: primaryMelee.id,
+          count: 1
+        };
+      }
+
+      // Fill remaining attack slots with empties
+      for (let i = totalAttacks; i < 5; i++) {
+        attacks[`attack${i + 1}`] = {
+          _id: i + 1,
+          name: "",
+          img: "",
+          primary: false,
+          isWeapon: false,
+          attackMode: "primary",
+          id: "",
+          count: 0
+        };
+      }
+
+      const fullAttackMelee = {
+        name: "Full Attack (Melee)",
+        type: "full-attack",
+        img: "systems/D35E/icons/attack/full-attack.png",
+        system: {
+          attacks: attacks,
+          attackType: "full",
+          description: {
+            value: "<p>This is one of the creature's full attacks.</p>",
+            chat: "",
+            unidentified: ""
+          },
+          damage: { parts: [], alternativeParts: [] },
+          attackParts: [],
+          conditionals: [],
+          contextNotes: [],
+          specialActions: []
+        }
+      };
+
+      attacksToCreate.push(fullAttackMelee);
+      console.log(`D35EAdapter | Created Full Attack (Melee) with ${totalAttacks} attacks using ${primaryMelee.name}${primaryMelee.hasSpeed ? ' (Speed)' : ''}`);
+    }
+
+    // Create Full Attack (Ranged) if there are ranged weapons and BAB allows iterative attacks
+    if (rangedWeapons.length > 0 && numAttacks > 1) {
+      const primaryRanged = rangedWeapons[0]; // Use first ranged weapon as primary
+      const attacks: any = {};
+      
+      // Speed enhancement gives an extra attack at full BAB
+      let totalAttacks = numAttacks;
+      if (primaryRanged.hasSpeed) {
+        totalAttacks = numAttacks + 1;
+        console.log(`D35EAdapter | ${primaryRanged.name} has Speed enhancement, adding extra attack at full BAB`);
+      }
+      
+      for (let i = 0; i < Math.min(totalAttacks, 5); i++) {
+        attacks[`attack${i + 1}`] = {
+          _id: i + 1,
+          name: primaryRanged.name,
+          img: primaryRanged.img,
+          primary: i === 0,
+          isWeapon: true,
+          attackMode: "primary",
+          id: primaryRanged.id,
+          count: 1
+        };
+      }
+
+      // Fill remaining attack slots with empties
+      for (let i = totalAttacks; i < 5; i++) {
+        attacks[`attack${i + 1}`] = {
+          _id: i + 1,
+          name: "",
+          img: "",
+          primary: false,
+          isWeapon: false,
+          attackMode: "primary",
+          id: "",
+          count: 0
+        };
+      }
+
+      const fullAttackRanged = {
+        name: "Full Attack (Ranged)",
+        type: "full-attack",
+        img: "systems/D35E/icons/attack/full-attack.png",
+        system: {
+          attacks: attacks,
+          attackType: "full",
+          description: {
+            value: "<p>This is one of the creature's full attacks.</p>",
+            chat: "",
+            unidentified: ""
+          },
+          damage: { parts: [], alternativeParts: [] },
+          attackParts: [],
+          conditionals: [],
+          contextNotes: [],
+          specialActions: []
+        }
+      };
+
+      attacksToCreate.push(fullAttackRanged);
+      console.log(`D35EAdapter | Created Full Attack (Ranged) with ${totalAttacks} attacks using ${primaryRanged.name}${primaryRanged.hasSpeed ? ' (Speed)' : ''}`);
+    }
+
+    // Create all attack items
+    if (attacksToCreate.length > 0) {
+      console.log(`D35EAdapter | Creating ${attacksToCreate.length} attack items`);
+      await actor.createEmbeddedDocuments("Item", attacksToCreate);
+      console.log(`D35EAdapter | ✓ Successfully created all attack items`);
+    }
+  }
+}

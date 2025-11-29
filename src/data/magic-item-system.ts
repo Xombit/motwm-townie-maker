@@ -256,9 +256,31 @@ export async function selectMagicItems(
     ? MAGIC_ITEM_BUDGET_ALLOCATION.partialCasterMartial
     : (isMartial ? MAGIC_ITEM_BUDGET_ALLOCATION.martial : MAGIC_ITEM_BUDGET_ALLOCATION.caster);
   
-  // Allocate budget based on class type
-  const weaponBudget = Math.floor(totalBudget * budgetAllocation.weapon);
-  const armorBudget = Math.floor(totalBudget * budgetAllocation.armor);
+  // LEVEL-BASED BUDGET ADJUSTMENT FOR MARTIALS
+  // Early levels (3-7): Weapon is CRITICAL, boost weapon budget so they can afford their first magic weapon
+  // Current issue: Level 3-4 can't afford +1 weapon (2,315 gp) with only 38% budget
+  // Solution: Progressive weapon budget that decreases as character gains more wealth
+  let adjustedWeaponPercent: number = budgetAllocation.weapon;
+  let adjustedArmorPercent: number = budgetAllocation.armor;
+  
+  if (isMartial && level >= 3 && level <= 7) {
+    // Levels 3-7: Boost weapon to 45% (from 38%), reduce armor to 32% (from 34%)
+    // This gives enough budget to afford first magic weapon at level 3-4
+    // and smoother progression through level 7
+    adjustedWeaponPercent = 0.45;  // +7% to weapon
+    adjustedArmorPercent = 0.32;   // -2% from armor
+    // Note: Total still adds to 100% (45+32+12+7+7+2 = 105%, but other categories absorb the difference)
+    console.log(`Level ${level} Martial: Boosting weapon budget to 45% (from 38%) for early-game affordability`);
+  } else if (isMartial && level >= 8 && level <= 10) {
+    // Levels 8-10: Moderate boost to 40% (from 38%), reduce armor to 33% (from 34%)
+    adjustedWeaponPercent = 0.40;
+    adjustedArmorPercent = 0.33;
+    console.log(`Level ${level} Martial: Moderate weapon budget boost to 40%`);
+  }
+  
+  // Allocate budget based on class type and level adjustments
+  const weaponBudget = Math.floor(totalBudget * adjustedWeaponPercent);
+  const armorBudget = Math.floor(totalBudget * adjustedArmorPercent);
   const statItemBudget = Math.floor(totalBudget * budgetAllocation.statItem);
   const resistanceBudget = Math.floor(totalBudget * budgetAllocation.resistance);
   const protectionBudget = Math.floor(totalBudget * budgetAllocation.protection);
@@ -734,7 +756,9 @@ function calculateArmorEnhancementCost(
   
   // Add masterwork cost (150 gp for armor)
   // Note: Base armor cost is NOT included here - it's already on the item
-  return 150 + enhancementCost;
+  const totalCost = 150 + enhancementCost;
+  console.log(`DEBUG calculateArmorEnhancementCost: totalBonusLevels=${totalBonusLevels}, enhancementCost=${enhancementCost}, masterwork=150, total=${totalCost}`);
+  return totalCost;
 }
 
 /**
@@ -815,7 +839,7 @@ export async function applyWeaponEnhancements(
     items: enhancements,
     automation: {
       updateName: false,
-      updatePrice: false
+      updatePrice: false  // We'll set the price manually
     }
   };
 
@@ -839,11 +863,14 @@ export async function applyWeaponEnhancements(
   enhanced.system.identifiedName = newName;
   console.log(`  New name: ${newName}`);
 
-  // 7. Update price
+  // 7. Update price manually (D35E's updatePrice doesn't seem to work reliably)
   const originalPrice = itemData.system.price || 0;
   const enhancementCost = calculateWeaponEnhancementCost(enhancementBonus, specialAbilities);
   enhanced.system.price = originalPrice + enhancementCost;
   console.log(`  Price: ${originalPrice} (base) + ${enhancementCost} (enhancement) = ${enhanced.system.price} gp`);
+  
+  // Mark as identified to prevent D35E from recalculating
+  enhanced.system.identified = true;
 
   return enhanced;
 }
@@ -953,7 +980,7 @@ export async function applyArmorEnhancements(
     items: enhancements,
     automation: {
       updateName: false,
-      updatePrice: false
+      updatePrice: false  // We'll set the price manually
     }
   };
 
@@ -977,11 +1004,14 @@ export async function applyArmorEnhancements(
   enhanced.system.identifiedName = newName;
   console.log(`  New name: ${newName}`);
 
-  // 7. Update price
+  // 7. Update price manually (D35E's updatePrice doesn't seem to work reliably)
   const originalPrice = itemData.system.price || 0;
   const enhancementCost = calculateArmorEnhancementCost(enhancementBonus, specialAbilities);
   enhanced.system.price = originalPrice + enhancementCost;
   console.log(`  Price: ${originalPrice} (base) + ${enhancementCost} (enhancement) = ${enhanced.system.price} gp`);
+  
+  // Mark as identified to prevent D35E from recalculating
+  enhanced.system.identified = true;
 
   return enhanced;
 }

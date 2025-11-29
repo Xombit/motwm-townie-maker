@@ -325,7 +325,18 @@ export function generateCharacterName(
   characterClass: string,
   gender: 'male' | 'female'
 ): string {
-  const raceLower = race.toLowerCase();
+  // Normalize race name: "Elf, High" -> "elf", "Half-Orc" -> "half-orc"
+  let raceLower = race.toLowerCase();
+  
+  // Handle special case: "Elf, High" or "Elf, Wood" -> "elf"
+  if (raceLower.startsWith('elf,')) {
+    raceLower = 'elf';
+  }
+  // Handle "Halfling, Lightfoot" -> "halfling"
+  else if (raceLower.startsWith('halfling,')) {
+    raceLower = 'halfling';
+  }
+  
   const classLower = characterClass.toLowerCase();
   
   const racePool = RACE_NAMES[raceLower];

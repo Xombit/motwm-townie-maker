@@ -309,12 +309,28 @@ export function selectPotions(
   const classLower = characterClass.toLowerCase();
   let priorities = POTION_PRIORITIES_BY_CLASS[classLower] || POTION_PRIORITIES_BY_CLASS.fighter;
   
-  // For high-level martials, upgrade healing potion priorities
+  // CRITICAL: Healing potions MUST be top priority for ALL characters
+  // Clone priorities to avoid mutating original
+  priorities = [...priorities];
+  
+  // Define healing potion IDs
+  const healingPotionIds = ['cure-light-wounds', 'cure-moderate-wounds', 'cure-serious-wounds'];
+  
+  // For ALL classes, boost ALL healing potions to top priority (10-9-8 range)
+  // This ensures healing is ALWAYS purchased before utility potions
+  for (const priority of priorities) {
+    if (healingPotionIds.includes(priority.potionId)) {
+      // All healing potions get priority 8+ to ensure they're bought first
+      if (priority.priority < 8) {
+        priority.priority = 8;
+      }
+    }
+  }
+  
+  // For high-level martials, upgrade to BETTER healing potions
   // Note: Potions max at 3rd level spells, so Cure Serious is the best available
   const martialClasses = ['fighter', 'barbarian', 'paladin', 'ranger', 'rogue', 'monk'];
   if (martialClasses.includes(classLower) && level >= 8) {
-    priorities = [...priorities]; // Clone to avoid mutating original
-    
     // Replace CLW priority with better healing potions based on level
     const clwIndex = priorities.findIndex(p => p.potionId === 'cure-light-wounds');
     if (clwIndex !== -1) {

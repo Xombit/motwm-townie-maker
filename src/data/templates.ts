@@ -55,21 +55,43 @@ export const TOWNIE_TEMPLATES: TownieTemplate[] = [
       // All equal priority
     ],
     feats: [
-      "Power Attack", 
-      "Cleave", 
-      { name: "Weapon Focus (No Weapon Selected)", displayName: "Weapon Focus (Longsword)", config: { weaponGroup: "Longsword" } },
-      { name: "Weapon Specialization (No Weapon Selected)", displayName: "Weapon Specialization (Longsword)", config: { weaponGroup: "Longsword" } },
-      { name: "Improved Critical (No Weapon Selected)", displayName: "Improved Critical (Longsword)", config: { weaponGroup: "Longsword" } },
-      { name: "Greater Weapon Focus (No Weapon Selected)", displayName: "Greater Weapon Focus (Longsword)", config: { weaponGroup: "Longsword" } },
-      { name: "Greater Weapon Specialization (No Weapon Selected)", displayName: "Greater Weapon Specialization (Longsword)", config: { weaponGroup: "Longsword" } },
-      "Improved Sunder"
+      // Fighter Bonus Feats (11 total: levels 1, 2, 4, 6, 8, 10, 12, 14, 16, 18, 20)
+      "Power Attack",                    // 1st - Fighter bonus
+      { name: "Weapon Focus (No Weapon Selected)", displayName: "Weapon Focus (Longsword)", config: { weaponGroup: "Longsword" } },  // 2nd - Fighter bonus
+      "Cleave",                          // 4th - Fighter bonus
+      { name: "Weapon Specialization (No Weapon Selected)", displayName: "Weapon Specialization (Longsword)", config: { weaponGroup: "Longsword" } },  // 6th - Fighter bonus
+      "Improved Sunder",                 // 8th - Fighter bonus
+      "Improved Bull Rush",              // 10th - Fighter bonus
+      { name: "Greater Weapon Focus (No Weapon Selected)", displayName: "Greater Weapon Focus (Longsword)", config: { weaponGroup: "Longsword" } },  // 12th - Fighter bonus
+      "Great Cleave",                    // 14th - Fighter bonus
+      { name: "Improved Critical (No Weapon Selected)", displayName: "Improved Critical (Longsword)", config: { weaponGroup: "Longsword" } },  // 16th - Fighter bonus
+      "Improved Overrun",                // 18th - Fighter bonus
+      { name: "Greater Weapon Specialization (No Weapon Selected)", displayName: "Greater Weapon Specialization (Longsword)", config: { weaponGroup: "Longsword" } },  // 20th - Fighter bonus
+      
+      // Regular Feats (7 total: levels 1, 3, 6, 9, 12, 15, 18) - note some levels overlap with bonus feats
+      "Toughness",                       // 1st - Regular feat (Human gets this as bonus)
+      "Improved Initiative",             // 3rd - Regular feat
+      "Combat Reflexes",                 // 6th - Regular feat
+      "Dodge",                           // 9th - Regular feat
+      "Mobility",                        // 12th - Regular feat
+      "Iron Will",                       // 15th - Regular feat
+      "Lightning Reflexes"               // 18th - Regular feat
     ],
     startingKit: {
       weapons: [
-        { name: "Longsword", cost: 15, weight: 4, type: "weapon" },
+        // Random choice between longsword and shortsword for variety
+        [
+          { name: "Longsword", cost: 15, weight: 4, type: "weapon" },
+          { name: "Shortsword", cost: 10, weight: 2, type: "weapon" }
+        ],
         { name: "Spear", cost: 2, weight: 6, type: "weapon" }
       ],
-      armor: { name: "Scale Mail", cost: 50, weight: 30, type: "armor" },
+      // Level-scaled armor: Scale Mail at low levels, Full Plate at high levels
+      // Full Plate delayed to level 11 so character has budget to enhance it properly
+      armor: [
+        { minLevel: 1, item: { name: "Scale Mail", cost: 50, weight: 30, type: "armor" } },
+        { minLevel: 11, item: { name: "Full Plate", cost: 1500, weight: 50, type: "armor" } }
+      ],
       shield: { name: "Heavy Steel Shield", cost: 20, weight: 15, type: "shield" },
       gear: [
         { name: "Backpack, Common", cost: 2, weight: 2, type: "gear" },
@@ -469,6 +491,12 @@ export const TOWNIE_TEMPLATES: TownieTemplate[] = [
       "Improved Evasion", 
       { name: "Skill Focus (undefined)", displayName: "Skill Focus (Hide)", config: { skill: "hid" } }
     ],
+    rogueSpecialAbilities: [
+      "Crippling Strike",    // 10th level
+      "Defensive Roll",      // 13th level
+      "Opportunist",         // 16th level
+      "Improved Evasion"     // 19th level
+    ],
     startingKit: {
       weapons: [
         { name: "Rapier", cost: 20, weight: 2, type: "weapon" },
@@ -553,13 +581,15 @@ export const TOWNIE_TEMPLATES: TownieTemplate[] = [
   {
     id: "ranger-scout",
     name: "Ranger Scout",
-    description: "Wilderness guide or tracker",
+    description: "Wilderness guide or tracker (Archery combat style)",
     icon: "fas fa-tree",
     race: "Elf, High",
     classes: [{ name: "Ranger", level: 1 }],
     alignment: "Neutral Good",
     abilities: { str: 13, dex: 15, con: 11, int: 10, wis: 14, cha: 8 },
     primaryAbility: "dex",
+    rangerCombatStyle: "archery", // Determines Ranger combat style bonus feats
+    favoredEnemies: ["Humanoid (Orc)", "Giant", "Magical Beast", "Dragon"], // 1st, 5th, 10th, 15th, 20th
     skills: [
       { name: "sur", ranks: 5, priority: "high" },  // Survival - PRIMARY tracking skill
       { name: "spt", ranks: 4, priority: "high" },  // Spot
@@ -572,19 +602,23 @@ export const TOWNIE_TEMPLATES: TownieTemplate[] = [
       // High priority: Survival, Spot, Listen grow every level
     ],
     feats: [
-      "Track", 
-      "Point Blank Shot", 
-      "Rapid Shot", 
-      "Endurance", 
-      "Manyshot", 
-      { name: "Improved Critical (No Weapon Selected)", displayName: "Improved Critical (Longbow)", config: { weaponGroup: "Longbow" } },
-      { name: "Greater Weapon Focus (No Weapon Selected)", displayName: "Greater Weapon Focus (Longbow)", config: { weaponGroup: "Longbow" } },
-      "Precise Shot"
+      // Standard feats (1st, 3rd, 6th, 9th, 12th, 15th, 18th)
+      "Track",              // 1st - Standard (Rangers get Track for free, but we'll list it)
+      "Point Blank Shot",   // 3rd - Standard (prereq for archery)
+      "Precise Shot",       // 6th - Standard (archery chain)
+      "Endurance",          // 9th - Standard (good for rangers)
+      { name: "Weapon Focus (No Weapon Selected)", displayName: "Weapon Focus (Longbow)", config: { weaponGroup: "Longbow" } }, // 12th
+      { name: "Improved Critical (No Weapon Selected)", displayName: "Improved Critical (Longbow)", config: { weaponGroup: "Longbow" } }, // 15th
+      { name: "Greater Weapon Focus (No Weapon Selected)", displayName: "Greater Weapon Focus (Longbow)", config: { weaponGroup: "Longbow" } }, // 18th
+      // Combat style bonus feats (2nd, 6th, 11th) added automatically:
+      // - Rapid Shot (2nd)
+      // - Manyshot (6th) 
+      // - Improved Precise Shot (11th)
     ],
     startingKit: {
       weapons: [
-        { name: "Longsword", cost: 15, weight: 4, type: "weapon" },
-        { name: "Longbow", cost: 75, weight: 3, type: "weapon" }
+        { name: "Longbow", cost: 75, weight: 3, type: "weapon" },        // PRIMARY - determines archery style
+        { name: "Longsword", cost: 15, weight: 4, type: "weapon" }      // Secondary melee
       ],
       armor: { name: "Studded Leather", cost: 25, weight: 20, type: "armor" },
       ammo: [
@@ -768,7 +802,22 @@ export const TOWNIE_TEMPLATES: TownieTemplate[] = [
       // Total: 16 ranks (Monk gets 4+Int(0) = 4 per level, x4 at 1st = 16)
       // High: acrobatics, Medium: mobility, Low: stealth
     ],
-    feats: ["Improved Unarmed Strike", "Dodge", "Improved Grapple", "Deflect Arrows", "Mobility", "Spring Attack", "Improved Initiative", "Lightning Reflexes"],
+    feats: [
+      // Monk Bonus Feats (3 total: levels 1, 2, 6)
+      // Note: Improved Unarmed Strike is automatically granted at 1st level by the class
+      "Stunning Fist",         // 1st - Monk bonus (Stunning Fist or Improved Grapple)
+      "Combat Reflexes",       // 2nd - Monk bonus (Combat Reflexes or Deflect Arrows)
+      "Improved Trip",         // 6th - Monk bonus (Improved Disarm or Improved Trip)
+      
+      // Regular Feats (7 total: levels 1, 3, 6, 9, 12, 15, 18)
+      "Dodge",                 // 1st - Regular feat (Human gets this as bonus)
+      "Mobility",              // 3rd - Regular feat
+      "Spring Attack",         // 6th - Regular feat (requires Dodge & Mobility)
+      "Improved Initiative",   // 9th - Regular feat
+      "Weapon Finesse",        // 12th - Regular feat
+      "Lightning Reflexes",    // 15th - Regular feat
+      "Iron Will"              // 18th - Regular feat
+    ],
     startingKit: {
       weapons: [
         { name: "Quarterstaff", cost: 0, weight: 4, type: "weapon" },

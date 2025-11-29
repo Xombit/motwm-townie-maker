@@ -9,6 +9,15 @@
  * - Mid levels (8-12): +2/+3 enhancements, start adding cheap special abilities (+1 cost)
  * - High levels (13-16): +3/+4 enhancements, multiple special abilities
  * - Epic levels (17-20): +4/+5 enhancements, expensive special abilities
+ * 
+ * IMPORTANT NOTE ON COSTS:
+ * - Weapon costs include: base weapon (15 gp longsword) + masterwork (300 gp) + enhancement
+ * - Armor costs include: ONLY masterwork (150 gp) + enhancement (base armor NOT included)
+ * - Shield costs include: base shield + masterwork (150 gp) + enhancement
+ * 
+ * WHY? The character already owns the base armor from mundane equipment, so enhancement
+ * cost should only reflect the "upgrade" cost. This allows the system to work correctly
+ * regardless of armor type (Scale Mail 50gp vs Full Plate 1,500gp).
  */
 
 import { EnhancementDefinition } from './enhancements';
@@ -104,6 +113,13 @@ export const WEAPON_ENHANCEMENTS_BY_LEVEL: Record<string, EnhancementRecommendat
   // Level 5-7: Upgrade to +2 or add special ability
   'level-5-7': [
     {
+      enhancementBonus: 1,
+      specialAbilities: [],
+      totalBonusLevels: 1,
+      totalCost: 2315, // Longsword: 15 + 300 + 2000
+      reasoning: 'Starter magic weapon. Basic +1 enhancement provides consistent +1 to attack and damage. Overcomes DR/magic.'
+    },
+    {
       enhancementBonus: 2,
       specialAbilities: [],
       totalBonusLevels: 2,
@@ -137,6 +153,13 @@ export const WEAPON_ENHANCEMENTS_BY_LEVEL: Record<string, EnhancementRecommendat
     },
     {
       enhancementBonus: 2,
+      specialAbilities: [],
+      totalBonusLevels: 2,
+      totalCost: 8315, // 15 + 300 + 8000
+      reasoning: '+2 enhancement. Solid progression from +1, good for levels 8-9 before affording +3.'
+    },
+    {
+      enhancementBonus: 2,
       specialAbilities: ['flaming'],
       totalBonusLevels: 3,
       totalCost: 18315,
@@ -161,11 +184,32 @@ export const WEAPON_ENHANCEMENTS_BY_LEVEL: Record<string, EnhancementRecommendat
   // Level 11-13: +3/+4 with special abilities
   'level-11-13': [
     {
+      enhancementBonus: 3,
+      specialAbilities: [],
+      totalBonusLevels: 3,
+      totalCost: 18315, // 15 + 300 + 18000
+      reasoning: '+3 basic enhancement. Affordable option for level 11, overcomes DR/cold iron or silver.'
+    },
+    {
+      enhancementBonus: 2,
+      specialAbilities: ['keen'], // Slashing weapons only
+      totalBonusLevels: 3,
+      totalCost: 18315,
+      reasoning: '+2 Keen (slashing only). Doubled crit range with better to-hit. Great for level 11.'
+    },
+    {
+      enhancementBonus: 2,
+      specialAbilities: ['flaming'],
+      totalBonusLevels: 3,
+      totalCost: 18315,
+      reasoning: '+2 Flaming. +1d6 fire damage with good accuracy. Affordable at level 11.'
+    },
+    {
       enhancementBonus: 4,
       specialAbilities: [],
       totalBonusLevels: 4,
       totalCost: 32315, // 15 + 300 + 32000
-      reasoning: 'Pure +4 enhancement. Overcomes DR 10/magic or DR X/adamantine.'
+      reasoning: 'Pure +4 enhancement. Overcomes DR 10/magic or DR X/adamantine. Available at level 12+.'
     },
     {
       enhancementBonus: 3,
@@ -366,97 +410,101 @@ export const WEAPON_ENHANCEMENTS_BY_LEVEL: Record<string, EnhancementRecommendat
  */
 export const ARMOR_ENHANCEMENTS_BY_LEVEL: Record<string, EnhancementRecommendation[]> = {
   // Level 3-4: First magic armor (if budget allows after weapon)
+  // NOTE: totalCost is JUST the enhancement cost (masterwork + magic bonus)
+  // Base armor cost is added dynamically based on actual armor equipped
   'level-3-4': [
     {
       enhancementBonus: 1,
       specialAbilities: [],
       totalBonusLevels: 1,
-      totalCost: 1200, // Scale mail: 50 base + 150 mw + 1000 enhancement
+      totalCost: 1150, // 150 mw + 1000 enhancement (armor base cost excluded)
       reasoning: 'First magic armor. +1 AC is good, but weapon takes priority for martials.'
     }
   ],
 
   // Level 5-7: +1/+2 armor
+  // NOTE: totalCost is JUST the enhancement cost (masterwork + magic bonus)
   'level-5-7': [
     {
       enhancementBonus: 2,
       specialAbilities: [],
       totalBonusLevels: 2,
-      totalCost: 8200, // Scale mail: 50 + 150 + 8000
+      totalCost: 8150, // 150 mw + 8000 enhancement (armor base cost excluded)
       reasoning: '+2 armor. Solid defense boost.'
     },
     {
       enhancementBonus: 1,
       specialAbilities: [],
       totalBonusLevels: 1,
-      totalCost: 1200,
+      totalCost: 1150, // 150 mw + 1000 enhancement (armor base cost excluded)
       reasoning: '+1 armor. Budget option if upgrading weapon to +2/+3.'
     }
   ],
 
   // Level 8-10: +2/+3 armor with Light Fortification options
+  // NOTE: totalCost is JUST the enhancement cost (masterwork + magic bonus)
   'level-8-10': [
     {
       enhancementBonus: 3,
       specialAbilities: [],
       totalBonusLevels: 3,
-      totalCost: 18200, // 50 + 150 + 18000
+      totalCost: 18150, // 150 mw + 18000 enhancement
       reasoning: '+3 armor. Standard progression.'
     },
     {
       enhancementBonus: 2,
       specialAbilities: [{ key: 'fortification', level: 1 }], // Light Fortification (+1 cost, 25% crit negation)
       totalBonusLevels: 3,
-      totalCost: 18200,
+      totalCost: 18150,
       reasoning: '+2 Light Fortification. 25% crit negation - START getting fortification! Important for survivability.'
     },
     {
       enhancementBonus: 1,
       specialAbilities: [{ key: 'fortification', level: 2 }], // Moderate Fortification (+3 cost, 75% crit negation)
       totalBonusLevels: 4,
-      totalCost: 32200,
+      totalCost: 32150,
       reasoning: '+1 Moderate Fortification. 75% crit negation! Better protection at higher cost.'
     },
     {
       enhancementBonus: 1,
       specialAbilities: [{ key: 'fortification', level: 1 }], // Light Fortification (+1 cost, 25% crit negation)
       totalBonusLevels: 2,
-      totalCost: 4200,
+      totalCost: 4150,
       reasoning: '+1 Light Fortification. 25% crit negation! Budget-friendly option for levels 8-10.'
     },
     {
       enhancementBonus: 2,
       specialAbilities: [],
       totalBonusLevels: 2,
-      totalCost: 8200,
+      totalCost: 8150,
       reasoning: '+2 armor. Budget option if fortification unaffordable.'
     },
     {
       enhancementBonus: 1,
       specialAbilities: ['fireResistance'],
       totalBonusLevels: 1,
-      totalCost: 19350, // +18,000 gp for resistance
+      totalCost: 19300, // 150 + 18,000 gp + 1150 for resistance
       reasoning: '+1 Fire Resistance. Resist 10 fire. Great vs dragons/fire spells!'
     },
     {
       enhancementBonus: 1,
       specialAbilities: ['coldResistance'],
       totalBonusLevels: 1,
-      totalCost: 19350,
+      totalCost: 19300,
       reasoning: '+1 Cold Resistance. Resist 10 cold.'
     },
     {
       enhancementBonus: 1,
       specialAbilities: ['electricityResistance'],
       totalBonusLevels: 1,
-      totalCost: 19350,
+      totalCost: 19300,
       reasoning: '+1 Electricity Resistance. Resist 10 electricity.'
     },
     {
       enhancementBonus: 1,
       specialAbilities: ['invulnerability'], // +3 cost (DR 5/magic)
       totalBonusLevels: 4,
-      totalCost: 32200,
+      totalCost: 32150,
       reasoning: '+1 Invulnerability. DR 5/magic - great damage reduction for tanks.'
     }
   ],
@@ -655,6 +703,7 @@ export const ARMOR_ENHANCEMENTS_BY_LEVEL: Record<string, EnhancementRecommendati
 
   // Level 17-20: +5 armor with powerful abilities
   // Heavy Fortification is the standard, with +5 Heavy being the ultimate goal
+  // IMPORTANT: Include budget-friendly fallbacks for levels 17-19 (level 20 can afford the top tier)
   'level-17-20': [
     {
       enhancementBonus: 4,
@@ -993,56 +1042,56 @@ export const SHIELD_ENHANCEMENTS_BY_LEVEL: Record<string, EnhancementRecommendat
       enhancementBonus: 5,
       specialAbilities: ['arrowDeflection'],
       totalBonusLevels: 7,
-      totalCost: 49170,
+      totalCost: 98150,
       reasoning: '+5 Arrow Deflection. Maximum AC + Deflect Arrows.'
     },
     {
       enhancementBonus: 5,
       specialAbilities: ['fireResistanceGreater'],
       totalBonusLevels: 5,
-      totalCost: 91170, // +66,000 for greater resistance
+      totalCost: 116150, // +66,000 for greater resistance
       reasoning: '+5 Greater Fire Resistance. Maximum AC + Resist 30 fire.'
     },
     {
       enhancementBonus: 4,
       specialAbilities: ['fireResistanceGreater'],
       totalBonusLevels: 4,
-      totalCost: 82170,
+      totalCost: 98150,
       reasoning: '+4 Greater Fire Resistance. High AC + Resist 30 fire.'
     },
     {
       enhancementBonus: 3,
       specialAbilities: ['animated', 'arrowCatching'],
       totalBonusLevels: 6,
-      totalCost: 36170,
+      totalCost: 72150,
       reasoning: '+3 Animated Arrow Catching. Floating shield + ranged deflection.'
     },
     {
       enhancementBonus: 5,
       specialAbilities: ['reflecting'],
       totalBonusLevels: 10, // MAX!
-      totalCost: 200170, // Expensive but POWERFUL!
+      totalCost: 200150, // Expensive but POWERFUL!
       reasoning: '+5 Reflecting. ULTIMATE SHIELD. Reflects spells back at caster! Anti-mage perfection.'
     },
     {
       enhancementBonus: 4,
       specialAbilities: ['reflecting'],
       totalBonusLevels: 9,
-      totalCost: 162170,
+      totalCost: 162150,
       reasoning: '+4 Reflecting. Spell reflection at lower cost.'
     },
     {
       enhancementBonus: 3,
       specialAbilities: ['reflecting'],
       totalBonusLevels: 8,
-      totalCost: 128170,
+      totalCost: 128150,
       reasoning: '+3 Reflecting. Reflects spells - amazing vs casters!'
     },
     {
       enhancementBonus: 3,
       specialAbilities: ['animated'],
       totalBonusLevels: 5,
-      totalCost: 25170,
+      totalCost: 50150,
       reasoning: '+3 Animated. Good AC with floating shield.'
     }
   ]

@@ -301,14 +301,61 @@ export class TownieMakerApp extends Application {
 
       // Add feats from template if available
       if (this.selectedTemplate?.feats && this.selectedTemplate.feats.length > 0) {
-        // Check if race is Human (for bonus feat)
+        // Import feat selection system
+        const { allocateFeats, RangerCombatStyle } = await import('../data/feat-selection');
+        
+        // Determine Ranger combat style if applicable
+        let rangerStyle: any = undefined;
+        if (className?.toLowerCase() === 'ranger') {
+          if (this.selectedTemplate.rangerCombatStyle === 'archery') {
+            rangerStyle = RangerCombatStyle.ARCHERY;
+          } else if (this.selectedTemplate.rangerCombatStyle === 'two-weapon') {
+            rangerStyle = RangerCombatStyle.TWO_WEAPON;
+          }
+        }
+        
+        // Allocate feats based on class, level, and race
         const isHuman = this.formData.race === "Human";
-        await D35EAdapter.addFeats(actor, classLevel, this.selectedTemplate.feats, isHuman);
+        const featAllocations = allocateFeats(
+          className || 'Fighter', 
+          classLevel, 
+          isHuman,
+          this.selectedTemplate.feats,
+          rangerStyle
+        );
+        
+        console.log(`TownieMakerApp | Feat allocations for ${className} level ${classLevel}:`, featAllocations);
+        
+        // Pass full allocation objects to preserve source information
+        await D35EAdapter.addFeats(actor, classLevel, featAllocations, isHuman);
+      }
+
+      // Add Ranger favored enemies if applicable
+      console.log(`TownieMakerApp | Checking favored enemies - className: ${className}, template: ${this.selectedTemplate?.id}, favoredEnemies:`, this.selectedTemplate?.favoredEnemies);
+      if (className?.toLowerCase() === 'ranger' && 
+          this.selectedTemplate?.favoredEnemies && 
+          this.selectedTemplate.favoredEnemies.length > 0) {
+        console.log(`TownieMakerApp | Adding favored enemies for level ${classLevel} Ranger`);
+        await D35EAdapter.addFavoredEnemies(actor, classLevel, this.selectedTemplate.favoredEnemies);
+      } else {
+        console.log(`TownieMakerApp | Skipping favored enemies - conditions not met`);
+      }
+
+      // Add Rogue special abilities if applicable
+      if (className?.toLowerCase() === 'rogue' && 
+          this.selectedTemplate?.rogueSpecialAbilities && 
+          this.selectedTemplate.rogueSpecialAbilities.length > 0) {
+        console.log(`TownieMakerApp | Adding special abilities for level ${classLevel} Rogue`);
+        await D35EAdapter.addRogueSpecialAbilities(actor, classLevel, this.selectedTemplate.rogueSpecialAbilities);
       }
 
       // Add spells for caster classes (MUST be after class/level set, before equipment)
       if (className) {
+        console.log(`TownieMakerApp | About to call addSpells for ${className} level ${classLevel}`);
+        console.log(`TownieMakerApp | Ability scores:`, abilities);
         await D35EAdapter.addSpells(actor, className, classLevel, abilities);
+      } else {
+        console.warn(`TownieMakerApp | No className set, skipping spell configuration`);
       }
 
       // Add equipment from template if available
@@ -324,6 +371,11 @@ export class TownieMakerApp extends Application {
         await D35EAdapter.completePendingContainerMoves(actor);
       }
       console.log("TownieMakerApp | Finished addEquipment");
+
+      // Generate attacks for all equipped weapons
+      console.log("TownieMakerApp | Generating attacks...");
+      await D35EAdapter.addAttacks(actor);
+      console.log("TownieMakerApp | Finished generating attacks");
 
       // Set biography with personality and background
       if (this.formData.personality || this.formData.background) {

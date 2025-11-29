@@ -20,14 +20,26 @@ export interface EquipmentItem {
   type?: "weapon" | "armor" | "shield" | "gear" | "tool" | "ammo";  // Item category for compendium lookup
 }
 
+// Level-scaled equipment option - allows items to be swapped at certain levels
+export interface LevelScaledItem {
+  minLevel: number;       // Minimum level to use this item
+  item: EquipmentItem;    // The item to use at this level
+}
+
+// Equipment option - can be a single item, array of random choices, or level-scaled options
+export type EquipmentOption = 
+  | EquipmentItem 
+  | EquipmentItem[]  // Random choice from array (equal probability)
+  | LevelScaledItem[];  // Automatically upgrade at certain levels
+
 // Starting equipment kit - all items listed individually
 export interface StartingKit {
-  weapons?: EquipmentItem[];      // Weapons (swords, bows, etc.)
-  armor?: EquipmentItem;          // Single armor piece
-  shield?: EquipmentItem;         // Single shield
-  gear?: EquipmentItem[];         // Adventuring gear (backpack, rope, etc.)
-  tools?: EquipmentItem[];        // Class-specific tools (thieves' tools, holy symbol, spellbook, etc.)
-  ammo?: EquipmentItem[];         // Ammunition (arrows, bolts, sling bullets)
+  weapons?: EquipmentOption[];      // Weapons (swords, bows, etc.)
+  armor?: EquipmentOption;          // Single armor piece
+  shield?: EquipmentOption;         // Single shield
+  gear?: EquipmentOption[];         // Adventuring gear (backpack, rope, etc.)
+  tools?: EquipmentOption[];        // Class-specific tools (thieves' tools, holy symbol, spellbook, etc.)
+  ammo?: EquipmentOption[];         // Ammunition (arrows, bolts, sling bullets)
 }
 
 export interface TownieTemplate {
@@ -60,6 +72,13 @@ export interface TownieTemplate {
   }>;
   feats?: Array<string | FeatConfig>;
   startingKit?: StartingKit;  // Starting equipment kit (replaces equipment)
+  
+  // Ranger-specific
+  rangerCombatStyle?: "archery" | "two-weapon";  // Determines Ranger combat style bonus feats
+  favoredEnemies?: string[];  // Ranger favored enemies (1st, 5th, 10th, 15th, 20th)
+  
+  // Rogue-specific
+  rogueSpecialAbilities?: string[];  // Rogue special abilities (10th, 13th, 16th, 19th)
   
   // Optional flavor
   personality?: string;

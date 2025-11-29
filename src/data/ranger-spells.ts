@@ -483,118 +483,106 @@ export function selectRangerSpells(
   if (characterLevel < 4) {
     return {
       spells: [],
-      spellbook: {
-        class: 'Ranger',
-        preparedSpells: {},
-        availableSpellLevels: []
+      spellbookConfig: {
+        name: 'Primary',
+        class: 'ranger',
+        casterLevel: 0,
+        spellcastingType: 'divine',
+        ability: 'wis',
+        spontaneous: false,
+        hasSpecialSlot: false,
+        arcaneSpellFailure: false,
+        spellSlots: buildSpellSlots([0, 0, 0, 0, 0, 0, 0, 0, 0, 0], 0)
       }
     };
   }
 
   const wisdomMod = getAbilityModifier(wisdomScore);
   const baseSlots = RANGER_SPELL_SLOTS[characterLevel];
-  const spellSlots = buildSpellSlots(baseSlots, wisdomMod);
 
-  // Build spell list by level
-  const allSpells: Record<number, SpellDefinition[]> = {
-    1: RANGER_SPELLS_LEVEL_1,
-    2: RANGER_SPELLS_LEVEL_2,
-    3: RANGER_SPELLS_LEVEL_3,
-    4: RANGER_SPELLS_LEVEL_4
-  };
-
-  // Spell priorities for Rangers (nature-focused)
-  const priorities: Record<number, string[]> = {
-    1: [
-      'longstrider',        // Movement speed
-      'resistEnergy',       // Energy protection
-      'passWithoutTrace',   // Stealth/tracking
-      'endureElements',     // Environmental protection
-      'entangle',           // Battlefield control
-      'detectSnaresAndPits' // Trap detection
-    ],
-    2: [
-      'cureLightWounds',    // Healing
-      'catsGrace',          // Dex boost (archery)
-      'barkskin',           // AC boost
-      'bearsEndurance',     // Con boost
-      'protectionFromEnergy', // Better energy protection
-      'owlsWisdom'          // Wis boost (casting)
-    ],
-    3: [
-      'cureModerateWounds', // Better healing
-      'darkvision',         // See in dark
-      'neutralizePoison',   // Poison cure
-      'removeDisease',      // Disease cure
-      'waterWalk',          // Mobility
-      'greaterMagicFang'    // Animal companion buff
-    ],
-    4: [
-      'cureSeriousWounds',  // Best healing
-      'freedomOfMovement',  // Anti-grapple/entangle
-      'communeWithNature',  // Information gathering
-      'treeStride'          // Teleportation
-    ]
-  };
-
+  // Build spell list based on level
   const selectedSpells: SpellItem[] = [];
-  const preparedSpells: Record<number, string[]> = {};
-  const availableSpellLevels: number[] = [];
 
-  // Select spells for each level the ranger can cast
-  for (let spellLevel = 1; spellLevel <= 4; spellLevel++) {
-    if (spellSlots[spellLevel] === 0) continue;
-
-    availableSpellLevels.push(spellLevel);
-    const levelSpells = allSpells[spellLevel];
-    const levelPriorities = priorities[spellLevel];
-    preparedSpells[spellLevel] = [];
-
-    // Select spells based on priority and available slots
-    const slotsForLevel = spellSlots[spellLevel];
-    let selected = 0;
-
-    // First, add priority spells
-    for (const spellId of levelPriorities) {
-      if (selected >= slotsForLevel * 2) break; // Prepare 2x slots for flexibility
-
-      const spell = levelSpells.find(s => s.id === spellId);
-      if (spell) {
-        selectedSpells.push({
-          spell: spell,
-          prepared: selected < slotsForLevel, // Mark first N as prepared
-          spellLevel: spellLevel
-        });
-
-        if (selected < slotsForLevel) {
-          preparedSpells[spellLevel].push(spell.id);
-        }
-        selected++;
-      }
-    }
-
-    // Fill remaining slots with other useful spells
-    for (const spell of levelSpells) {
-      if (selected >= slotsForLevel * 2) break;
-      if (levelPriorities.includes(spell.id)) continue;
-
+  // Helper to add spells with priority
+  const addSpell = (spellArray: SpellDefinition[], spellName: string, priority: number) => {
+    const spell = spellArray.find(s => s.name === spellName);
+    if (spell) {
       selectedSpells.push({
-        spell: spell,
-        prepared: false,
-        spellLevel: spellLevel
+        compendiumId: spell.id,
+        name: spell.name,
+        level: spell.level,
+        school: spell.school,
+        preparationMode: 'prepared',
+        priority
       });
-      selected++;
+    }
+  };
+
+  // Level 4+: Can cast 1st level spells (with Wisdom bonus)
+  if (characterLevel >= 4) {
+    addSpell(RANGER_SPELLS_LEVEL_1, 'Longstrider', 100);
+    addSpell(RANGER_SPELLS_LEVEL_1, 'Resist Energy', 95);
+    addSpell(RANGER_SPELLS_LEVEL_1, 'Pass without Trace', 90);
+    addSpell(RANGER_SPELLS_LEVEL_1, 'Endure Elements', 85);
+  }
+
+  if (characterLevel >= 6) {
+    addSpell(RANGER_SPELLS_LEVEL_1, 'Entangle', 80);
+    addSpell(RANGER_SPELLS_LEVEL_1, 'Detect Snares and Pits', 75);
+    addSpell(RANGER_SPELLS_LEVEL_1, 'Alarm', 70);
+  }
+
+  // Level 10+: Add 2nd level spells
+  if (characterLevel >= 10) {
+    addSpell(RANGER_SPELLS_LEVEL_2, 'Cure Light Wounds', 100);
+    addSpell(RANGER_SPELLS_LEVEL_2, "Cat's Grace", 95);
+    addSpell(RANGER_SPELLS_LEVEL_2, 'Barkskin', 90);
+    addSpell(RANGER_SPELLS_LEVEL_2, "Bear's Endurance", 85);
+    addSpell(RANGER_SPELLS_LEVEL_2, 'Protection from Energy', 80);
+  }
+
+  // Level 12+: Add 3rd level spells
+  if (characterLevel >= 12) {
+    addSpell(RANGER_SPELLS_LEVEL_3, 'Cure Moderate Wounds', 100);
+    addSpell(RANGER_SPELLS_LEVEL_3, 'Darkvision', 95);
+    addSpell(RANGER_SPELLS_LEVEL_3, 'Neutralize Poison', 90);
+    addSpell(RANGER_SPELLS_LEVEL_3, 'Remove Disease', 85);
+    addSpell(RANGER_SPELLS_LEVEL_3, 'Water Walk', 80);
+    addSpell(RANGER_SPELLS_LEVEL_3, 'Magic Fang, Greater', 75);
+  }
+
+  // Level 15+: Add 4th level spells
+  if (characterLevel >= 15) {
+    addSpell(RANGER_SPELLS_LEVEL_4, 'Cure Serious Wounds', 100);
+    addSpell(RANGER_SPELLS_LEVEL_4, 'Freedom of Movement', 95);
+    addSpell(RANGER_SPELLS_LEVEL_4, 'Commune with Nature', 90);
+    addSpell(RANGER_SPELLS_LEVEL_4, 'Nondetection', 85);
+  }
+
+  // Build spellbook configuration
+  const spellbookConfig: SpellbookConfiguration = {
+    name: 'Primary',
+    class: 'ranger',
+    casterLevel: characterLevel,
+    spellcastingType: 'divine',
+    ability: 'wis',
+    spontaneous: false,
+    hasSpecialSlot: false,
+    arcaneSpellFailure: false,
+    spellSlots: buildSpellSlots(baseSlots, wisdomMod)
+  };
+
+  console.log(`Selected ${selectedSpells.length} ranger spells for level ${characterLevel} ranger (WIS ${wisdomScore}, +${wisdomMod}):`);
+  for (let lvl = 1; lvl <= 4; lvl++) {
+    const spellsAtLevel = selectedSpells.filter(s => s.level === lvl);
+    const slots = spellbookConfig.spellSlots[`spell${lvl}` as keyof typeof spellbookConfig.spellSlots].max;
+    if (spellsAtLevel.length > 0 || slots > 0) {
+      console.log(`  Level ${lvl}: ${spellsAtLevel.length} spells (${slots} daily slots)`);
     }
   }
 
   return {
     spells: selectedSpells,
-    spellbook: {
-      class: 'Ranger',
-      preparedSpells: preparedSpells,
-      availableSpellLevels: availableSpellLevels,
-      abilityScore: wisdomScore,
-      spellSlots: spellSlots
-    }
+    spellbookConfig
   };
 }
