@@ -207,11 +207,26 @@ function normalizeClassName(className: string): CharacterClass {
 
 /**
  * Determine what magic items a character should have based on level, class, and budget
+ * 
+ * @param templateBudgets - Optional budget allocation overrides from the template
+ *   - shieldPercent: % of armor budget for shield (default: 0.40 at levels 1-16, 0.50 at 17+)
+ *   - armorPercent: % of armor budget for armor (default: 0.60 at levels 1-16, 0.50 at 17+)
+ *   - secondaryWeaponPercent: % of weapon budget for off-hand/backup weapon (default: 0.50)
+ *   - ringPercent: % of protection budget for Ring of Protection (default: 0.60)
+ *   - amuletPercent: % of protection budget for Amulet of Natural Armor (default: 0.40)
+ * All percentages fall back to hardcoded defaults if not specified in template
  */
 export async function selectMagicItems(
   level: number,
   characterClass: string,
-  totalBudget: number
+  totalBudget: number,
+  templateBudgets?: {
+    shieldPercent?: number;
+    armorPercent?: number;
+    secondaryWeaponPercent?: number;
+    ringPercent?: number;
+    amuletPercent?: number;
+  }
 ): Promise<MagicItemSelection> {
   console.log(`\n=== MAGIC ITEM SELECTION ===`);
   console.log(`Level: ${level}, Class: ${characterClass}, Budget: ${totalBudget} gp`);
@@ -312,10 +327,15 @@ export async function selectMagicItems(
   
   // Calculate armor/shield budget split FIRST
   // At high levels (17+), give shields MORE budget for expensive abilities like Reflecting
-  const shieldBudgetPercent = level >= 17 ? 0.50 : 0.40; // 50% at high levels, 40% otherwise
-  const armorBudgetPercent = level >= 17 ? 0.50 : 0.60;  // 50% at high levels, 60% otherwise
+  // These can be overridden by template.magicItemBudgets
+  const shieldBudgetPercent = templateBudgets?.shieldPercent ?? (level >= 17 ? 0.50 : 0.40);
+  const armorBudgetPercent = templateBudgets?.armorPercent ?? (level >= 17 ? 0.50 : 0.60);
   const shieldBudget = Math.floor(armorBudget * shieldBudgetPercent);
   const armorOnlyBudget = Math.floor(armorBudget * armorBudgetPercent);
+  
+  if (templateBudgets?.shieldPercent !== undefined || templateBudgets?.armorPercent !== undefined) {
+    console.log(`Using template budget overrides: Shield ${(shieldBudgetPercent * 100).toFixed(0)}%, Armor ${(armorBudgetPercent * 100).toFixed(0)}%`);
+  }
   
   // Get armor enhancement first (needed for shield conflict checking)
   const armorRec = getBestArmorEnhancementForCharacter(level, normalizedClass, armorOnlyBudget);
@@ -331,7 +351,9 @@ export async function selectMagicItems(
   // Secondary weapon enhancement (50% of primary weapon budget)
   // Used for backup weapons, off-hand weapons, or two-weapon fighting builds
   // This comes AFTER shields as per user's priority requirement
-  const secondaryWeaponBudget = Math.floor(weaponBudget * 0.50);
+  // Can be overridden by template.magicItemBudgets
+  const secondaryWeaponPercent = templateBudgets?.secondaryWeaponPercent ?? 0.50;
+  const secondaryWeaponBudget = Math.floor(weaponBudget * secondaryWeaponPercent);
   const secondaryWeaponRec = level >= 5 
     ? getBestWeaponEnhancementForCharacter(level, normalizedClass, secondaryWeaponBudget)
     : null;
@@ -363,7 +385,8 @@ export async function selectMagicItems(
     normalizedClass,
     statItemBudget,
     resistanceBudget,
-    protectionBudget
+    protectionBudget,
+    templateBudgets
   );
 
   const wondrousItems = wondrousResult.wondrousItems;
@@ -503,7 +526,11 @@ function selectWondrousItems(
   characterClass: CharacterClass,
   statItemBudget: number,
   resistanceBudget: number,
-  protectionBudget: number
+  protectionBudget: number,
+  templateBudgets?: {
+    ringPercent?: number;
+    amuletPercent?: number;
+  }
 ): { wondrousItems: WondrousItemDefinition[]; hasHandyHaversack: boolean } {
   const selectedItems: WondrousItemDefinition[] = [];
   let spentBudget = 0;
@@ -552,8 +579,11 @@ function selectWondrousItems(
 
   // 3. Ring of Protection AND/OR Amulet of Natural Armor
   // Split protection budget between ring and amulet
-  const ringBudget = Math.floor(protectionBudget * 0.6); // Ring slightly more important
-  const amuletBudget = Math.floor(protectionBudget * 0.4);
+  // Can be overridden by template.magicItemBudgets
+  const ringPercent = templateBudgets?.ringPercent ?? 0.6;
+  const amuletPercent = templateBudgets?.amuletPercent ?? 0.4;
+  const ringBudget = Math.floor(protectionBudget * ringPercent);
+  const amuletBudget = Math.floor(protectionBudget * amuletPercent);
 
   if (ringBudget >= 2000) {
     const ring = getBestAffordableBonus('ring', ringBudget);

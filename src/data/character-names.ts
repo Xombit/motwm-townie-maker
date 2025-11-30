@@ -225,6 +225,107 @@ export const RACE_NAMES: Record<string, NamePool> = {
     ],
     useTitles: 'always',
     titleWeight: 0.9
+  },
+
+  drow: {
+    male: [
+      "Drizzt", "Jarlaxle", "Zakn", "Valas", "Ryld", "Pharaun", "Nimor", "Vhaeraun",
+      "Kelnozz", "Dantrag", "Berg'inyon", "Uthegental", "Raiguy", "Gromph", "Triel",
+      "Nalvos", "Tsabrak", "Malagdorl", "Gelroos", "Xantar", "Kalannar", "Vorn",
+      "Masoj", "Alton", "Zaknafein", "Dinin", "Nalfein", "Malice", "Rizzen",
+      "Bregan", "Szordrin", "Belgos", "Zek", "Urlryn", "Phaer", "Solaufein",
+      "Ilivarra", "Zedar", "Xeren", "Veldrin", "Xarann", "Zilvra", "Jhulae"
+    ],
+    female: [
+      "Qilue", "Liriel", "Yvonnel", "Malice", "Maya", "Briza", "Vierna", "Triel",
+      "Quenthel", "Yasraena", "Halisstra", "Danifae", "Faeryl", "Ssipriina", "Aunrae",
+      "Esvele", "Ulviirala", "Jhulae", "Shyntre", "Ilmryn", "Talice", "Zilvra",
+      "Xune", "Nathrae", "Ilivarra", "Despana", "Matron", "Eclavdra", "Blaeyne",
+      "Chalithra", "Elvanshalee", "Ginafae", "Laeral", "Maleficent", "Nedylene",
+      "Pellanue", "Quilue", "Rilrae", "Sabal", "Talindra", "Urlvrain", "Vornyn",
+      "Xullrae", "Zauvirr", "Felyndiira", "Iymrith", "Qilynrae", "Vlondril"
+    ],
+    surnames: [
+      "Baenre", "Do'Urden", "Armgo", "Barrison", "DeVir", "Hun'ett", "Oblodra",
+      "Mizzrym", "Fey-Branche", "T'orgh", "Kenafin", "Zauvirr", "Teken'duis",
+      "Despana", "Dhuurniv", "Melarn", "Xorlarrin", "Symryvvin", "Druu'giir",
+      "Aleanrahel", "Hune", "Tr'arach", "Zaphresz", "Maeviir", "Nasadra",
+      "Kilsek", "Horlbar", "Zaphrae", "Helviiryn", "Mylyl", "Yril",
+      "Zlind", "Vae", "Dyrr", "Auz'kovyn", "Vandree", "Shobalar", "Rilynt",
+      "Srune'lett", "Sorcere", "Melee-Magthere", "Arach-Tinilith", "Tlabbar",
+      "Druu'giir", "Y'rn", "Tlin'orzza", "Duskryn", "Zolond"
+    ],
+    useTitles: 'sometimes',
+    titleWeight: 0.3
+  },
+
+  aasimar: {
+    male: [
+      "Arael", "Azar", "Beltin", "Caspian", "Darien", "Elias", "Flavius", "Galad",
+      "Harmakhis", "Ilmater", "Jurian", "Karael", "Lucius", "Michael", "Nathaniel",
+      "Oberyn", "Pelor", "Quintus", "Raphael", "Seraph", "Tiberius", "Uriel",
+      "Valerian", "Zariel", "Arminas", "Balthazar", "Castiel", "Daevar", "Emmanuel",
+      "Forthael", "Gabriel", "Helios", "Isachar", "Justinian", "Kyriel", "Lucian",
+      "Mordecai", "Nomaris", "Orion", "Priam", "Quorin", "Raziel", "Samael",
+      "Tamiel", "Ulvaan", "Vasari", "Zaelar", "Aurelius", "Caelum"
+    ],
+    female: [
+      "Ariel", "Aurora", "Brielle", "Cassia", "Davina", "Elara", "Freya", "Grace",
+      "Haven", "Iridiel", "Juliana", "Kira", "Lumina", "Mercy", "Neria", "Ophelia",
+      "Paloma", "Seraphina", "Talia", "Urielle", "Valeria", "Zara", "Amara",
+      "Bright", "Celestia", "Dawn", "Elysia", "Faith", "Gloria", "Hope",
+      "Illumina", "Joy", "Kariel", "Lux", "Mira", "Nova", "Octavia",
+      "Peace", "Radiance", "Serene", "Trinity", "Una", "Verity", "Zenith",
+      "Angelica", "Beatrix", "Charis", "Dulcia", "Evangeline", "Felicity"
+    ],
+    surnames: [
+      "Brightborn", "Dawnbringer", "Faithkeeper", "Gracewind", "Hopestrider", "Lightbearer",
+      "Morningstar", "Radiantsoar", "Soulkeeper", "Truthseeker", "Valorheart", "Virtuewing",
+      "Dawnfire", "Everbright", "Goldenlight", "Hallowedwing", "Ivorygrace", "Justwing",
+      "Kindlingstar", "Luminarch", "Mercysong", "Nobleheart", "Oathsworn", "Peacewing",
+      "Quicksilver", "Righteye", "Sacredheart", "Truelight", "Unbowed", "Vigilstar",
+      "Wingedvirtue", "Zealguard", "Blessedstep", "Divinehand", "Everglow", "Faithwing",
+      "Gentleheart", "Heavenborn", "Incorrupt", "Joyous", "Kindflame", "Lovelight",
+      "Mercy's-touch", "Neverfall", "Oathbound", "Pureheart", "Quickbright", "Radiantshield"
+    ],
+    useTitles: 'sometimes',
+    titleWeight: 0.7
+  },
+
+  tiefling: {
+    male: [
+      "Amon", "Barakas", "Damakos", "Ekemon", "Iados", "Kairon", "Leucis", "Melech",
+      "Mordai", "Morthos", "Pelaios", "Skamos", "Therai", "Zagan", "Akmenos", "Baalzebul",
+      "Carnifex", "Dispater", "Errtu", "Forneus", "Glasya", "Hutijin", "Azazel",
+      "Bael", "Carrion", "Duskryn", "Eblis", "Fierabras", "Grazzt", "Haborym",
+      "Incendius", "Jezebeth", "Korvus", "Lorcan", "Mammon", "Nergal", "Oriax",
+      "Paymon", "Rimmon", "Scourge", "Tannin", "Umbral", "Vassago", "Xariel",
+      "Zaleos", "Abraxas", "Beleth", "Caine", "Dagon"
+    ],
+    female: [
+      "Akta", "Anakis", "Bryseis", "Criella", "Damaia", "Ea", "Kallista", "Lerissa",
+      "Makaria", "Nemeia", "Orianna", "Phelaia", "Rieta", "Akara", "Bryseis", "Criella",
+      "Damaia", "Kallista", "Lerissa", "Makaria", "Nemeia", "Orianna", "Phelaia", "Rieta",
+      "Belladonna", "Carmilla", "Desdemona", "Eris", "Fury", "Grimora", "Hex",
+      "Inferna", "Jezebel", "Karma", "Lilith", "Malice", "Nyx", "Obsidian",
+      "Perdita", "Raven", "Sorrow", "Tempest", "Umbra", "Vex", "Wrath",
+      "Zara", "Agony", "Blight", "Crimson", "Dread", "Ember"
+    ],
+    surnames: [
+      // Virtue names (common tiefling tradition)
+      "Art", "Carrion", "Chant", "Creed", "Despair", "Excellence", "Fear", "Glory",
+      "Hope", "Ideal", "Music", "Nowhere", "Open", "Poetry", "Quest", "Random",
+      "Reverence", "Sorrow", "Temerity", "Torment", "Weary", "Nowhere", "Random",
+      // Infernal surnames
+      "Ashborn", "Blackflame", "Crimsonscale", "Darkember", "Fellfire", "Grimclaw",
+      "Hellspark", "Inferna", "Nightbane", "Painseeker", "Ravenscar", "Shadowhorn",
+      "Thornheart", "Venomtongue", "Wickedsoul", "Bloodmoon", "Cinderfall", "Doomsayer",
+      "Emberstorm", "Fiendborn", "Gravewalker", "Hellforge", "Ironheart", "Netherbane",
+      "Scorchwing", "Sinborn", "Soulreaver", "Vileblood", "Wraithcaller", "Ashenmane",
+      "Blackthorn", "Crimsonfury", "Darkwhisper", "Fellshadow", "Grimtalon", "Hellfrost"
+    ],
+    useTitles: 'rarely',
+    titleWeight: 0.2
   }
 };
 
@@ -318,53 +419,91 @@ export const CLASS_TITLE_USAGE: Record<string, 'always' | 'often' | 'sometimes' 
 };
 
 /**
- * Generate a character name based on race, class, and gender
+ * Helper function to normalize race names
  */
-export function generateCharacterName(
-  race: string,
-  characterClass: string,
-  gender: 'male' | 'female'
-): string {
-  // Normalize race name: "Elf, High" -> "elf", "Half-Orc" -> "half-orc"
-  let raceLower = race.toLowerCase();
+function normalizeRaceName(race: string): string {
+  let raceLower = race.toLowerCase().trim();
   
-  // Handle special case: "Elf, High" or "Elf, Wood" -> "elf"
-  if (raceLower.startsWith('elf,')) {
-    raceLower = 'elf';
+  // Handle D3.5E subrace formats: "Elf, High" -> "elf", "Dwarf, Mountain" -> "dwarf"
+  if (raceLower.includes(',')) {
+    const baseRace = raceLower.split(',')[0].trim();
+    
+    // Special cases for subraces with their own pools
+    if (baseRace === 'elf' && raceLower.includes('drow')) {
+      raceLower = 'drow';
+    } else {
+      // All other subraces use their base race
+      raceLower = baseRace;
+    }
   }
-  // Handle "Halfling, Lightfoot" -> "halfling"
-  else if (raceLower.startsWith('halfling,')) {
-    raceLower = 'halfling';
+  
+  // Handle various naming conventions
+  if (raceLower === 'half orc' || raceLower === 'halforc') {
+    raceLower = 'half-orc';
+  } else if (raceLower === 'half elf' || raceLower === 'halfelf') {
+    raceLower = 'half-elf';
   }
   
-  const classLower = characterClass.toLowerCase();
-  
+  return raceLower;
+}
+
+/**
+ * Generate a first name for the given race and gender
+ */
+export function generateFirstName(race: string, gender: 'male' | 'female'): string {
+  const raceLower = normalizeRaceName(race);
   const racePool = RACE_NAMES[raceLower];
+  
   if (!racePool) {
-    console.warn(`Unknown race: ${race}`);
-    return "Unknown Adventurer";
+    console.warn(`Unknown race for name generation: ${race} (normalized to: ${raceLower})`);
+    return "Unknown";
   }
   
-  // Pick first name
   const firstNamePool = racePool[gender];
   if (!firstNamePool || firstNamePool.length === 0) {
     console.warn(`No ${gender} names for race: ${race}`);
-    return "Unknown Adventurer";
+    return "Unknown";
   }
-  const firstName = firstNamePool[Math.floor(Math.random() * firstNamePool.length)];
   
-  // Pick surname
-  let surname = "";
+  return firstNamePool[Math.floor(Math.random() * firstNamePool.length)];
+}
+
+/**
+ * Generate a surname for the given race
+ */
+export function generateSurname(race: string): string {
+  const raceLower = normalizeRaceName(race);
+  const racePool = RACE_NAMES[raceLower];
+  
+  if (!racePool) {
+    return "Adventurer";
+  }
+  
   if (raceLower === 'half-elf') {
     // Half-elves use either human or elf surnames randomly
     const useElf = Math.random() < 0.5;
     const surnamePool = useElf ? RACE_NAMES.elf.surnames : RACE_NAMES.human.surnames;
-    surname = surnamePool[Math.floor(Math.random() * surnamePool.length)];
-  } else {
-    const surnamePool = racePool.surnames;
-    if (surnamePool && surnamePool.length > 0) {
-      surname = surnamePool[Math.floor(Math.random() * surnamePool.length)];
-    }
+    return surnamePool[Math.floor(Math.random() * surnamePool.length)];
+  }
+  
+  const surnamePool = racePool.surnames;
+  if (surnamePool && surnamePool.length > 0) {
+    return surnamePool[Math.floor(Math.random() * surnamePool.length)];
+  }
+  
+  return "";
+}
+
+/**
+ * Generate a class epithet/title based on race and class
+ */
+export function generateClassTitle(race: string, characterClass: string): string {
+  const raceLower = normalizeRaceName(race);
+  const classLower = characterClass.toLowerCase();
+  
+  const racePool = RACE_NAMES[raceLower];
+  if (!racePool) {
+    return "";
   }
   
   // Determine if we should add title/epithet
@@ -393,13 +532,30 @@ export function generateCharacterName(
   }
   
   // Add epithet if appropriate
-  let epithet = '';
   if (shouldUseTitle) {
     const classEpithets = CLASS_EPITHETS[classLower];
     if (classEpithets && classEpithets.length > 0) {
-      epithet = ' ' + classEpithets[Math.floor(Math.random() * classEpithets.length)];
+      return classEpithets[Math.floor(Math.random() * classEpithets.length)];
     }
   }
   
-  return `${firstName} ${surname}${epithet}`;
+  return "";
+}
+
+/**
+ * Generate a character name based on race, class, and gender
+ */
+export function generateCharacterName(
+  race: string,
+  characterClass: string,
+  gender: 'male' | 'female'
+): string {
+  const firstName = generateFirstName(race, gender);
+  const surname = generateSurname(race);
+  const title = generateClassTitle(race, characterClass);
+  
+  if (title) {
+    return `${firstName} ${surname} ${title}`;
+  }
+  return `${firstName} ${surname}`;
 }

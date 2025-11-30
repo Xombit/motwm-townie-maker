@@ -1090,7 +1090,7 @@ export class D35EAdapter {
 
       // Step 5: Select magic items based on level, class, and budget
       const { selectMagicItems, addWondrousItemsToActor } = await import('./data/magic-item-system');
-      const magicItems = await selectMagicItems(level, className, magicBudget);
+      const magicItems = await selectMagicItems(level, className, magicBudget, template.magicItemBudgets);
 
       // Step 6: Add mundane items (with enhancements if selected)
       await this.addMundaneItems(actor, kit, magicItems, level);

@@ -1,11 +1,13 @@
 import { TownieTemplate, TownieFormData } from "../types";
 import { D35EAdapter } from "../d35e-adapter";
 import { TOWNIE_TEMPLATES } from "../data/templates";
-import { generateCharacterName } from "../data/character-names";
+import { generateCharacterName, generateFirstName, generateSurname, generateClassTitle } from "../data/character-names";
 
 export class TownieMakerApp extends Application {
   private selectedTemplate: TownieTemplate | null = null;
-  private formData: Partial<TownieFormData> = {};
+  private formData: Partial<TownieFormData> = {
+    magicItemBudgets: {} // Initialize budget object
+  };
   private availableRaces: Array<{ id: string; name: string }> = [];
   private availableClasses: Array<{ id: string; name: string }> = [];
 
@@ -20,6 +22,38 @@ export class TownieMakerApp extends Application {
       classes: ["motwm-townie-maker"],
       tabs: [{ navSelector: ".tabs", contentSelector: ".content", initial: "template" }]
     });
+  }
+
+  /**
+   * Get the default budget percentages based on level and template
+   */
+  private getDefaultBudgets(): { [key: string]: number } {
+    const level = this.formData.classLevel || 1;
+    
+    // Check if template has budget overrides
+    const templateBudgets = this.selectedTemplate?.magicItemBudgets;
+    
+    // Level-dependent hardcoded defaults
+    const shieldDefault = level >= 17 ? 50 : 40;
+    const armorDefault = level >= 17 ? 50 : 60;
+    
+    return {
+      shieldPercent: templateBudgets?.shieldPercent !== undefined 
+        ? Math.round(templateBudgets.shieldPercent * 100)
+        : shieldDefault,
+      armorPercent: templateBudgets?.armorPercent !== undefined 
+        ? Math.round(templateBudgets.armorPercent * 100)
+        : armorDefault,
+      secondaryWeaponPercent: templateBudgets?.secondaryWeaponPercent !== undefined 
+        ? Math.round(templateBudgets.secondaryWeaponPercent * 100)
+        : 50,
+      ringPercent: templateBudgets?.ringPercent !== undefined 
+        ? Math.round(templateBudgets.ringPercent * 100)
+        : 60,
+      amuletPercent: templateBudgets?.amuletPercent !== undefined 
+        ? Math.round(templateBudgets.amuletPercent * 100)
+        : 40
+    };
   }
 
   async getData(): Promise<any> {
@@ -51,14 +85,116 @@ export class TownieMakerApp extends Application {
       { key: "cha", label: "Charisma", value: this.formData.abilities?.cha ?? 10 }
     ];
 
+    // Get default budgets
+    const defaultBudgets = this.getDefaultBudgets();
+    
+    // Format budget percentages for display (use current value or default)
+    const magicItemBudgets = {
+      shieldPercent: this.formData.magicItemBudgets?.shieldPercent !== undefined 
+        ? Math.round(this.formData.magicItemBudgets.shieldPercent * 100) 
+        : defaultBudgets.shieldPercent,
+      armorPercent: this.formData.magicItemBudgets?.armorPercent !== undefined 
+        ? Math.round(this.formData.magicItemBudgets.armorPercent * 100) 
+        : defaultBudgets.armorPercent,
+      secondaryWeaponPercent: this.formData.magicItemBudgets?.secondaryWeaponPercent !== undefined 
+        ? Math.round(this.formData.magicItemBudgets.secondaryWeaponPercent * 100) 
+        : defaultBudgets.secondaryWeaponPercent,
+      ringPercent: this.formData.magicItemBudgets?.ringPercent !== undefined 
+        ? Math.round(this.formData.magicItemBudgets.ringPercent * 100) 
+        : defaultBudgets.ringPercent,
+      amuletPercent: this.formData.magicItemBudgets?.amuletPercent !== undefined 
+        ? Math.round(this.formData.magicItemBudgets.amuletPercent * 100) 
+        : defaultBudgets.amuletPercent
+    };
+
+    // Calculate wealth and magic budget for display
+    let totalWealth = 0;
+    let magicBudget = 0;
+    let budgetInfo = null;
+    
+    if (this.formData.classLevel && this.formData.className) {
+      // Import wealth calculation (dynamic to avoid circular deps)
+      const { getWealthForLevel } = await import('../data/wealth');
+      const { calculateKitCost } = await import('../data/equipment-resolver');
+      const { MAGIC_ITEM_BUDGET_ALLOCATION, getClassType } = await import('../data/magic-item-system');
+      
+      const level = this.formData.classLevel;
+      const className = this.formData.className;
+      
+      totalWealth = getWealthForLevel(level, className);
+      
+      // Calculate mundane equipment cost if template has starting kit
+      let mundaneCost = 0;
+      if (this.selectedTemplate?.startingKit) {
+        mundaneCost = calculateKitCost(this.selectedTemplate.startingKit, level);
+      }
+      
+      magicBudget = totalWealth - mundaneCost;
+      
+      // Determine class type for budget allocation
+      const classType = getClassType(className);
+      const normalizedClassLower = className.toLowerCase();
+      const isPaladinOrRanger = normalizedClassLower === 'paladin' || normalizedClassLower === 'ranger';
+      const budgetAllocation = isPaladinOrRanger 
+        ? MAGIC_ITEM_BUDGET_ALLOCATION.partialCasterMartial
+        : (classType === 'martial' ? MAGIC_ITEM_BUDGET_ALLOCATION.martial : MAGIC_ITEM_BUDGET_ALLOCATION.caster);
+      
+      // Calculate parent budget categories
+      const weaponBudgetTotal = Math.floor(magicBudget * budgetAllocation.weapon);
+      const armorBudgetTotal = Math.floor(magicBudget * budgetAllocation.armor);
+      const protectionBudgetTotal = Math.floor(magicBudget * budgetAllocation.protection);
+      
+      // Calculate GP values for each sub-category (percentages of parent budgets)
+      const shieldGP = Math.round(armorBudgetTotal * (magicItemBudgets.shieldPercent / 100));
+      const armorGP = Math.round(armorBudgetTotal * (magicItemBudgets.armorPercent / 100));
+      const secondaryWeaponGP = Math.round(weaponBudgetTotal * (magicItemBudgets.secondaryWeaponPercent / 100));
+      const ringGP = Math.round(protectionBudgetTotal * (magicItemBudgets.ringPercent / 100));
+      const amuletGP = Math.round(protectionBudgetTotal * (magicItemBudgets.amuletPercent / 100));
+      
+      // Calculate total allocated and unallocated (within their respective parent budgets)
+      const totalAllocatedPercent = magicItemBudgets.shieldPercent + 
+                                    magicItemBudgets.armorPercent + 
+                                    magicItemBudgets.secondaryWeaponPercent + 
+                                    magicItemBudgets.ringPercent + 
+                                    magicItemBudgets.amuletPercent;
+      const unallocatedPercent = Math.max(0, 100 - totalAllocatedPercent);
+      
+      // Calculate unallocated GP from each parent budget
+      const armorUnallocated = armorBudgetTotal - shieldGP - armorGP;
+      const weaponUnallocated = weaponBudgetTotal - secondaryWeaponGP - (weaponBudgetTotal * 0.5); // Primary takes 50%
+      const protectionUnallocated = protectionBudgetTotal - ringGP - amuletGP;
+      const unallocatedGP = Math.max(0, armorUnallocated + weaponUnallocated + protectionUnallocated);
+      
+      budgetInfo = {
+        totalWealth,
+        mundaneCost,
+        magicBudget,
+        weaponBudgetTotal,
+        armorBudgetTotal,
+        protectionBudgetTotal,
+        shieldGP,
+        armorGP,
+        secondaryWeaponGP,
+        ringGP,
+        amuletGP,
+        totalAllocatedPercent,
+        unallocatedPercent,
+        unallocatedGP
+      };
+    }
+
     return {
       templates: TOWNIE_TEMPLATES,
       selectedTemplate: this.selectedTemplate,
-      formData: this.formData,
+      formData: {
+        ...this.formData,
+        magicItemBudgets
+      },
       abilities,
       settings,
       races: this.availableRaces,
-      classes: this.availableClasses
+      classes: this.availableClasses,
+      budgetInfo
     };
   }
 
@@ -79,9 +215,40 @@ export class TownieMakerApp extends Application {
       // Parse numeric fields
       if (field === "classLevel") {
         value = parseInt(value as string) || 1;
+        
+        // Check if level crosses the 17 threshold and budgets haven't been customized
+        const oldLevel = this.formData.classLevel || 1;
+        const newLevel = value;
+        
+        // If crossing threshold and no custom budgets set, update to new defaults
+        if ((oldLevel < 17 && newLevel >= 17) || (oldLevel >= 17 && newLevel < 17)) {
+          // Only auto-update if user hasn't customized budgets
+          if (!this.formData.magicItemBudgets || Object.keys(this.formData.magicItemBudgets).length === 0) {
+            // Will be auto-populated with new defaults on render
+            this.formData.magicItemBudgets = {};
+          }
+        }
       }
       
       this.updateFormData(field, value);
+      
+      // Smart name regeneration based on what changed
+      if (field === "race" && this.formData.race && this.formData.className && this.formData.name) {
+        // Race changed: regenerate first + last name, keep class title
+        this.regenerateRacialName();
+        this.render(false);
+      } else if (field === "gender" && this.formData.gender && this.formData.name) {
+        // Gender changed: only regenerate first name
+        this.regenerateFirstName();
+        this.render(false);
+      } else if (field === "className" && this.formData.className && this.formData.race && this.formData.name) {
+        // Class changed: only regenerate class title
+        this.regenerateClassTitle();
+        this.render(false);
+      } else if (field === "classLevel") {
+        // Level changed: re-render to update budget defaults
+        this.render(false);
+      }
     });
 
     // Ability score inputs
@@ -89,6 +256,46 @@ export class TownieMakerApp extends Application {
       const ability = $(ev.currentTarget).data("ability");
       const value = parseInt($(ev.currentTarget).val() as string) || 10;
       this.updateAbilityScore(ability, value);
+    });
+
+    // Budget percentage inputs
+    html.on("change", "[data-budget]", (ev) => {
+      const budgetField = $(ev.currentTarget).data("budget");
+      const value = $(ev.currentTarget).val();
+      
+      // If empty string, delete the override to use default
+      if (value === "" || value === null || value === undefined) {
+        if (this.formData.magicItemBudgets) {
+          delete this.formData.magicItemBudgets[budgetField];
+        }
+      } else {
+        const numValue = parseFloat(value as string);
+        if (!isNaN(numValue) && numValue >= 0 && numValue <= 100) {
+          if (!this.formData.magicItemBudgets) {
+            this.formData.magicItemBudgets = {};
+          }
+          // Convert percentage to decimal (e.g., 50 -> 0.5)
+          this.formData.magicItemBudgets[budgetField] = numValue / 100;
+        }
+      }
+      console.log("Budget updated:", budgetField, this.formData.magicItemBudgets);
+    });
+
+    // Reset budgets button - restore to current defaults
+    html.on("click", "[data-action='reset-budgets']", () => {
+      // Get the current defaults based on level and template
+      const defaults = this.getDefaultBudgets();
+      
+      // Set form data to the default values (as decimals)
+      this.formData.magicItemBudgets = {
+        shieldPercent: defaults.shieldPercent / 100,
+        armorPercent: defaults.armorPercent / 100,
+        secondaryWeaponPercent: defaults.secondaryWeaponPercent / 100,
+        ringPercent: defaults.ringPercent / 100,
+        amuletPercent: defaults.amuletPercent / 100
+      };
+      
+      this.render(false);
     });
 
     // Apply standard array button
@@ -136,6 +343,13 @@ export class TownieMakerApp extends Application {
       // Apply ability score modifiers
       if (this.selectedTemplate.abilities) {
         this.formData.abilities = { ...this.selectedTemplate.abilities } as any;
+      }
+      
+      // Load magic item budget overrides from template
+      if (this.selectedTemplate.magicItemBudgets) {
+        this.formData.magicItemBudgets = { ...this.selectedTemplate.magicItemBudgets };
+      } else {
+        this.formData.magicItemBudgets = {};
       }
       
       // Auto-generate name for non-blank templates
@@ -207,6 +421,88 @@ export class TownieMakerApp extends Application {
     
     const name = generateCharacterName(this.formData.race, this.formData.className, gender);
     this.formData.name = name;
+  }
+
+  /**
+   * Regenerate only the first name (used when gender changes)
+   */
+  private regenerateFirstName(): void {
+    if (!this.formData.race || !this.formData.gender || !this.formData.name) {
+      return;
+    }
+
+    const currentName = this.formData.name;
+    const nameParts = currentName.split(' ');
+    
+    if (nameParts.length === 0) {
+      return;
+    }
+
+    // Generate new first name
+    const newFirstName = generateFirstName(this.formData.race, this.formData.gender);
+    
+    // Replace first name, keep everything else
+    nameParts[0] = newFirstName;
+    this.formData.name = nameParts.join(' ');
+  }
+
+  /**
+   * Regenerate first and last name, preserve class title if present (used when race changes)
+   */
+  private regenerateRacialName(): void {
+    if (!this.formData.race || !this.formData.className || !this.formData.name) {
+      return;
+    }
+
+    const currentName = this.formData.name;
+    const nameParts = currentName.split(' ');
+    
+    if (nameParts.length === 0) {
+      return;
+    }
+
+    // Generate new first and last name
+    const newFirstName = generateFirstName(this.formData.race, this.formData.gender || 'male');
+    const newSurname = generateSurname(this.formData.race);
+    
+    // Check if there was a title (3+ parts means title exists)
+    if (nameParts.length >= 3) {
+      // Keep the title (everything after the surname)
+      const title = nameParts.slice(2).join(' ');
+      this.formData.name = `${newFirstName} ${newSurname} ${title}`;
+    } else {
+      this.formData.name = `${newFirstName} ${newSurname}`;
+    }
+  }
+
+  /**
+   * Regenerate class title only (used when class changes)
+   */
+  private regenerateClassTitle(): void {
+    if (!this.formData.race || !this.formData.className || !this.formData.name) {
+      return;
+    }
+
+    const currentName = this.formData.name;
+    const nameParts = currentName.split(' ');
+    
+    if (nameParts.length < 2) {
+      return;
+    }
+
+    // Generate new class title
+    const newTitle = generateClassTitle(this.formData.race, this.formData.className);
+    
+    // Keep first and last name, replace or add title
+    const firstName = nameParts[0];
+    const surname = nameParts[1];
+    
+    if (newTitle) {
+      this.formData.name = `${firstName} ${surname} ${newTitle}`;
+    } else {
+      // No title generated, just use first and last name
+      this.formData.name = `${firstName} ${surname}`;
+    }
   }
 
   private randomizeName(): void {
@@ -363,7 +659,15 @@ export class TownieMakerApp extends Application {
       console.log("TownieMakerApp | selectedTemplate:", this.selectedTemplate?.name);
       console.log("TownieMakerApp | has startingKit:", !!this.selectedTemplate?.startingKit);
       if (this.selectedTemplate) {
-        await D35EAdapter.addEquipment(actor, this.selectedTemplate, classLevel);
+        // Merge form data budget overrides into template for this creation
+        const templateWithOverrides = {
+          ...this.selectedTemplate,
+          magicItemBudgets: this.formData.magicItemBudgets && Object.keys(this.formData.magicItemBudgets).length > 0
+            ? this.formData.magicItemBudgets
+            : this.selectedTemplate.magicItemBudgets
+        };
+        
+        await D35EAdapter.addEquipment(actor, templateWithOverrides, classLevel);
         
         // IMPORTANT: Complete container moves AFTER character is fully created
         // This must happen after all other updates to avoid D35E's actor.refresh() resetting containers

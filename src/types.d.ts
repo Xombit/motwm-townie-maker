@@ -73,6 +73,18 @@ export interface TownieTemplate {
   feats?: Array<string | FeatConfig>;
   startingKit?: StartingKit;  // Starting equipment kit (replaces equipment)
   
+  // Magic item budget overrides
+  magicItemBudgets?: {
+    // Armor/Shield split (what % of armor budget goes to shield vs armor)
+    shieldPercent?: number;      // Default: 0.40 (levels 1-16) or 0.50 (levels 17+)
+    armorPercent?: number;        // Default: 0.60 (levels 1-16) or 0.50 (levels 17+)
+    // Secondary weapon budget (% of weapon budget for off-hand/ranged weapon)
+    secondaryWeaponPercent?: number;  // Default: 0.50
+    // Protection item split (ring vs amulet)
+    ringPercent?: number;         // Default: 0.60
+    amuletPercent?: number;       // Default: 0.40
+  };
+  
   // Ranger-specific
   rangerCombatStyle?: "archery" | "two-weapon";  // Determines Ranger combat style bonus feats
   favoredEnemies?: string[];  // Ranger favored enemies (1st, 5th, 10th, 15th, 20th)
@@ -110,6 +122,15 @@ export interface TownieFormData {
   // Details
   personality?: string;
   background?: string;
+  
+  // Magic Item Budget Overrides (optional)
+  magicItemBudgets?: {
+    shieldPercent?: number;
+    armorPercent?: number;
+    secondaryWeaponPercent?: number;
+    ringPercent?: number;
+    amuletPercent?: number;
+  };
   
   // Options
   autoRollHP: boolean;

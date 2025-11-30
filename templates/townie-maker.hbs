@@ -132,6 +132,136 @@
         </div>
         {{/each}}
       </div>
+
+      <div class="section-header" style="margin-top: 20px;">Magic Item Budget Allocation</div>
+      <div style="font-size: 11px; color: var(--color-text-light-6, #999); margin-bottom: 8px; padding: 0 4px;">
+        Fine-tune how specific budget categories are split between related items.
+      </div>
+
+      {{#if budgetInfo}}
+      <div style="background: rgba(0,0,0,0.2); padding: 8px; margin-bottom: 12px; border-radius: 4px; font-size: 12px;">
+        <div style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 8px;">
+          <div><strong>Total Wealth:</strong> {{budgetInfo.totalWealth}} gp</div>
+          <div><strong>Mundane Cost:</strong> {{budgetInfo.mundaneCost}} gp</div>
+          <div><strong>Magic Budget:</strong> {{budgetInfo.magicBudget}} gp</div>
+        </div>
+      </div>
+      {{/if}}
+
+      <div class="abilities-grid">
+        {{#if budgetInfo}}
+        <div style="grid-column: 1 / -1; background: rgba(0,100,200,0.3); padding: 8px; border-left: 3px solid rgba(0,150,255,0.8); margin-bottom: 8px; border-radius: 4px;">
+          <div style="font-weight: bold; font-size: 11px; color: #ffffff; margin-bottom: 4px; text-shadow: 0 1px 2px rgba(0,0,0,0.5);">ARMOR BUDGET: {{budgetInfo.armorBudgetTotal}} gp</div>
+          <div style="font-size: 10px; color: #ffffff; opacity: 0.9;">Split between shield and armor enhancements</div>
+        </div>
+        {{/if}}
+
+        <div class="ability-input">
+          <label for="budget-shield" title="% of armor budget allocated to shield enhancement">
+            Shield {{#if budgetInfo}}<span style="font-weight: normal; font-size: 9px; opacity: 0.7;">(of armor budget)</span>{{/if}}
+            {{#if budgetInfo}}<span style="display: block; font-size: 10px; font-weight: normal; color: #4ade80;">{{budgetInfo.shieldGP}} gp</span>{{/if}}
+          </label>
+          <input type="number" 
+                 id="budget-shield" 
+                 data-budget="shieldPercent" 
+                 value="{{formData.magicItemBudgets.shieldPercent}}" 
+                 min="0" 
+                 max="100"
+                 step="5">
+        </div>
+
+        <div class="ability-input">
+          <label for="budget-armor" title="% of armor budget allocated to armor enhancement">
+            Armor {{#if budgetInfo}}<span style="font-weight: normal; font-size: 9px; opacity: 0.7;">(of armor budget)</span>{{/if}}
+            {{#if budgetInfo}}<span style="display: block; font-size: 10px; font-weight: normal; color: #4ade80;">{{budgetInfo.armorGP}} gp</span>{{/if}}
+          </label>
+          <input type="number" 
+                 id="budget-armor" 
+                 data-budget="armorPercent" 
+                 value="{{formData.magicItemBudgets.armorPercent}}" 
+                 min="0" 
+                 max="100"
+                 step="5">
+        </div>
+
+        {{#if budgetInfo}}
+        <div style="grid-column: 1 / -1; background: rgba(150,50,0,0.3); padding: 8px; border-left: 3px solid rgba(255,150,0,0.8); margin-top: 8px; margin-bottom: 8px; border-radius: 4px;">
+          <div style="font-weight: bold; font-size: 11px; color: #ffffff; margin-bottom: 4px; text-shadow: 0 1px 2px rgba(0,0,0,0.5);">WEAPON BUDGET: {{budgetInfo.weaponBudgetTotal}} gp</div>
+          <div style="font-size: 10px; color: #ffffff; opacity: 0.9;">Split between primary and secondary weapon enhancements</div>
+        </div>
+        {{/if}}
+
+        <div class="ability-input">
+          <label for="budget-secondary" title="% of weapon budget allocated to secondary/off-hand weapon">
+            Secondary Weapon {{#if budgetInfo}}<span style="font-weight: normal; font-size: 9px; opacity: 0.7;">(of weapon budget)</span>{{/if}}
+            {{#if budgetInfo}}<span style="display: block; font-size: 10px; font-weight: normal; color: #4ade80;">{{budgetInfo.secondaryWeaponGP}} gp</span>{{/if}}
+          </label>
+          <input type="number" 
+                 id="budget-secondary" 
+                 data-budget="secondaryWeaponPercent" 
+                 value="{{formData.magicItemBudgets.secondaryWeaponPercent}}" 
+                 min="0" 
+                 max="100"
+                 step="5">
+        </div>
+
+        {{#if budgetInfo}}
+        <div style="grid-column: 1 / -1; background: rgba(100,0,150,0.3); padding: 8px; border-left: 3px solid rgba(200,0,255,0.8); margin-top: 8px; margin-bottom: 8px; border-radius: 4px;">
+          <div style="font-weight: bold; font-size: 11px; color: #ffffff; margin-bottom: 4px; text-shadow: 0 1px 2px rgba(0,0,0,0.5);">PROTECTION BUDGET: {{budgetInfo.protectionBudgetTotal}} gp</div>
+          <div style="font-size: 10px; color: #ffffff; opacity: 0.9;">Split between Ring of Protection and Amulet of Natural Armor</div>
+        </div>
+        {{/if}}
+
+        <div class="ability-input">
+          <label for="budget-ring" title="% of protection budget allocated to Ring of Protection">
+            Ring of Protection {{#if budgetInfo}}<span style="font-weight: normal; font-size: 9px; opacity: 0.7;">(of protection budget)</span>{{/if}}
+            {{#if budgetInfo}}<span style="display: block; font-size: 10px; font-weight: normal; color: #4ade80;">{{budgetInfo.ringGP}} gp</span>{{/if}}
+          </label>
+          <input type="number" 
+                 id="budget-ring" 
+                 data-budget="ringPercent" 
+                 value="{{formData.magicItemBudgets.ringPercent}}" 
+                 min="0" 
+                 max="100"
+                 step="5">
+        </div>
+
+        <div class="ability-input">
+          <label for="budget-amulet" title="% of protection budget allocated to Amulet of Natural Armor">
+            Amulet of Nat. Armor {{#if budgetInfo}}<span style="font-weight: normal; font-size: 9px; opacity: 0.7;">(of protection budget)</span>{{/if}}
+            {{#if budgetInfo}}<span style="display: block; font-size: 10px; font-weight: normal; color: #4ade80;">{{budgetInfo.amuletGP}} gp</span>{{/if}}
+          </label>
+          <input type="number" 
+                 id="budget-amulet" 
+                 data-budget="amuletPercent" 
+                 value="{{formData.magicItemBudgets.amuletPercent}}" 
+                 min="0" 
+                 max="100"
+                 step="5">
+        </div>
+
+        <div class="ability-input" style="display: flex; align-items: flex-end;">
+          <button data-action="reset-budgets" style="width: 100%; height: 36px;" title="Reset all values to current defaults (based on level and template)">
+            <i class="fas fa-undo"></i> Reset
+          </button>
+        </div>
+      </div>
+
+      {{#if budgetInfo}}
+      <div style="background: rgba(0,0,0,0.2); padding: 8px; margin-top: 12px; border-radius: 4px; font-size: 12px;">
+        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 8px;">
+          <div>
+            <strong>Total Allocated:</strong> {{budgetInfo.totalAllocatedPercent}}%
+          </div>
+          <div style="{{#if (gt budgetInfo.unallocatedPercent 0)}}color: #5efc82;{{else}}color: #ff6b6b;{{/if}} font-weight: bold;">
+            <strong>Unallocated:</strong> {{budgetInfo.unallocatedPercent}}% ({{budgetInfo.unallocatedGP}} gp)
+          </div>
+        </div>
+        <div style="margin-top: 8px; padding-top: 8px; border-top: 1px solid rgba(255,255,255,0.1); font-size: 10px; color: #e0e0e0;">
+          <strong>Note:</strong> These percentages are sub-allocations within their parent budgets (Armor, Weapon, Protection). Unallocated funds within each category become extra spending money.
+        </div>
+      </div>
+      {{/if}}
     </div>
   </div>
 
