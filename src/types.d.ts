@@ -85,6 +85,13 @@ export interface TownieTemplate {
     amuletPercent?: number;       // Default: 0.40
   };
   
+  // Budget configuration
+  useStandardBudget?: boolean;  // Default: true. When false, NPC gets no magic items and only token gold.
+  
+  // Sheet type configuration
+  usePcSheet?: boolean;  // Default: true. When false, use Simple NPC sheet.
+  useMaxHpPerHD?: boolean;  // When true, use max HP per hit die instead of rolling
+  
   // Ranger-specific
   rangerCombatStyle?: "archery" | "two-weapon";  // Determines Ranger combat style bonus feats
   favoredEnemies?: string[];  // Ranger favored enemies (1st, 5th, 10th, 15th, 20th)
@@ -131,6 +138,13 @@ export interface TownieFormData {
     ringPercent?: number;
     amuletPercent?: number;
   };
+  
+  // Budget configuration
+  useStandardBudget?: boolean;  // When false, NPC gets no magic items and only token gold
+  
+  // Sheet type configuration
+  usePcSheet?: boolean;  // When true (default), use PC sheet; when false, use Simple NPC sheet
+  useMaxHpPerHD?: boolean;  // When true, use max HP per hit die instead of rolling
   
   // Options
   autoRollHP: boolean;

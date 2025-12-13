@@ -9,6 +9,9 @@
     <a class="item" data-tab="abilities">
       <i class="fas fa-dice-d20"></i> Abilities
     </a>
+    <a class="item" data-tab="config">
+      <i class="fas fa-cog"></i> Config
+    </a>
   </nav>
 
   <div class="content">
@@ -132,7 +135,57 @@
         </div>
         {{/each}}
       </div>
+    </div>
 
+    <!-- Config Tab -->
+    <div class="tab" data-tab="config">
+      <div class="section-header">Character Options</div>
+      
+      <div class="form-group" style="margin-bottom: 16px;">
+        <label style="display: flex; align-items: center; gap: 8px; cursor: pointer;">
+          <input type="checkbox" 
+                 data-field="usePcSheet" 
+                 {{#if formData.usePcSheet}}checked{{/if}}
+                 style="width: 18px; height: 18px;">
+          <span style="font-weight: bold;">Use PC Style Sheet</span>
+        </label>
+        <div style="font-size: 11px; color: var(--color-text-light-6, #999); margin-left: 26px; margin-top: 4px;">
+          When enabled, creates full PC sheet with class progression and automatic calculations.<br>
+          When disabled, creates simplified NPC sheet with manual HP and level.
+        </div>
+      </div>
+      
+      <div class="form-group" style="margin-bottom: 16px;">
+        <label style="display: flex; align-items: center; gap: 8px; cursor: pointer;">
+          <input type="checkbox" 
+                 data-field="useMaxHpPerHD" 
+                 {{#if formData.useMaxHpPerHD}}checked{{/if}}
+                 style="width: 18px; height: 18px;">
+          <span style="font-weight: bold;">Use Max HP per Hit Die</span>
+        </label>
+        <div style="font-size: 11px; color: var(--color-text-light-6, #999); margin-left: 26px; margin-top: 4px;">
+          When enabled, awards maximum HP per level (e.g. d10 = 10 HP/level).<br>
+          When disabled, rolls HP randomly (max at level 1, random for other levels).
+        </div>
+      </div>
+
+      <div class="section-header">Budget Options</div>
+      
+      <div class="form-group" style="margin-bottom: 16px;">
+        <label style="display: flex; align-items: center; gap: 8px; cursor: pointer;">
+          <input type="checkbox" 
+                 data-field="useStandardBudget" 
+                 {{#if formData.useStandardBudget}}checked{{/if}}
+                 style="width: 18px; height: 18px;">
+          <span style="font-weight: bold;">Use Standard Adventurer Budget</span>
+        </label>
+        <div style="font-size: 11px; color: var(--color-text-light-6, #999); margin-left: 26px; margin-top: 4px;">
+          When enabled, NPC receives wealth-by-level appropriate gear and magic items.<br>
+          When disabled, NPC receives no magic items and only token gold as loot.
+        </div>
+      </div>
+
+      {{#if formData.useStandardBudget}}
       <div class="section-header" style="margin-top: 20px;">Magic Item Budget Allocation</div>
       <div style="font-size: 11px; color: var(--color-text-light-6, #999); margin-bottom: 8px; padding: 0 4px;">
         Fine-tune how specific budget categories are split between related items.
@@ -262,6 +315,7 @@
         </div>
       </div>
       {{/if}}
+      {{/if}}
     </div>
   </div>
 
@@ -274,4 +328,16 @@
       <i class="fas fa-times"></i> Cancel
     </button>
   </footer>
+
+  <!-- Loading Overlay -->
+  <div class="loading-overlay" style="display: none;">
+    <div class="loading-content">
+      <i class="fas fa-spinner fa-spin loading-spinner"></i>
+      <div class="loading-title">Creating NPC...</div>
+      <div class="loading-step"></div>
+      <div class="loading-progress">
+        <div class="loading-progress-bar"></div>
+      </div>
+    </div>
+  </div>
 </div>

@@ -398,6 +398,37 @@ export const CLASS_EPITHETS: Record<string, string[]> = {
     "the Charming", "Storyteller", "the Melodious", "Versebringer", "the Performer",
     "the Charismatic", "Tunesmith", "the Inspiring", "the Entertaining", "Rhymester",
     "the Poetic", "Balladeerlord", "the Musical", "the Artistic", "Legendkeeper"
+  ],
+  // NPC Classes
+  adept: [
+    "the Humble", "the Simple", "the Local", "the Village Healer", "the Wise One",
+    "the Elder", "the Herbalist", "the Fortuneteller", "the Mystic", "the Spiritual",
+    "the Traditional", "the Folk Mage", "the Healer", "the Oracle", "the Seer",
+    "the Faithful", "the Keeper", "the Guidekeeper", "the Ritual Master", "the Believer"
+  ],
+  aristocrat: [
+    "the Noble", "the Highborn", "the Titled", "the Lord", "the Lady",
+    "the Distinguished", "the Wealthy", "the Privileged", "the Landed", "the Heir",
+    "the Refined", "the Courtly", "the Genteel", "the Dignified", "the Esteemed",
+    "the Honorable", "the Patrician", "the Blue-Blooded", "the Well-Born", "the Eminent"
+  ],
+  commoner: [
+    "the Hardworking", "the Humble", "the Simple", "the Farmer", "the Laborer",
+    "the Craftsman", "the Worker", "the Peasant", "the Villager", "the Townsfolk",
+    "the Tradesman", "the Artisan", "the Merchant", "the Shopkeeper", "the Miller",
+    "the Baker", "the Brewer", "the Cooper", "the Tanner", "the Weaver"
+  ],
+  expert: [
+    "the Skilled", "the Master", "the Craftmaster", "the Professional", "the Specialist",
+    "the Artisan", "the Talented", "the Accomplished", "the Proficient", "the Adept",
+    "the Capable", "the Experienced", "the Practiced", "the Versed", "the Qualified",
+    "the Trained", "the Expert", "the Knowledgeable", "the Competent", "the Learned"
+  ],
+  warrior: [
+    "the Fighter", "the Soldier", "the Guard", "the Defender", "the Sentry",
+    "the Watchman", "the Militiaman", "the Trooper", "the Veteran", "the Armsman",
+    "the Swordsman", "the Combatant", "the Protector", "the Sentinel", "the Recruit",
+    "the Guardsman", "the Man-at-Arms", "the Footman", "the Warrior", "the Battler"
   ]
 };
 
@@ -415,7 +446,13 @@ export const CLASS_TITLE_USAGE: Record<string, 'always' | 'often' | 'sometimes' 
   sorcerer: 'rarely',
   cleric: 'often',
   druid: 'sometimes',
-  bard: 'never'
+  bard: 'never',
+  // NPC Classes
+  adept: 'sometimes',
+  aristocrat: 'often',
+  commoner: 'rarely',
+  expert: 'sometimes',
+  warrior: 'often'
 };
 
 /**

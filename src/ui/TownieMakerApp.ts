@@ -2,11 +2,30 @@ import { TownieTemplate, TownieFormData } from "../types";
 import { D35EAdapter } from "../d35e-adapter";
 import { TOWNIE_TEMPLATES } from "../data/templates";
 import { generateCharacterName, generateFirstName, generateSurname, generateClassTitle } from "../data/character-names";
+import { resolveCharacterImages, normalizeGender, getDefaultImages } from "../data/image-resolver";
+
+// Module-level storage for Config tab settings that persists between app opens
+// This resets on page reload but persists during the session
+let persistedConfigSettings: {
+  useStandardBudget?: boolean;
+  usePcSheet?: boolean;
+  useMaxHpPerHD?: boolean;
+  magicItemBudgets?: {
+    shieldPercent?: number;
+    armorPercent?: number;
+    secondaryWeaponPercent?: number;
+    ringPercent?: number;
+    amuletPercent?: number;
+  };
+} | null = null;
 
 export class TownieMakerApp extends Application {
   private selectedTemplate: TownieTemplate | null = null;
   private formData: Partial<TownieFormData> = {
-    magicItemBudgets: {} // Initialize budget object
+    magicItemBudgets: {}, // Initialize budget object
+    useStandardBudget: true, // Default to standard adventurer budget
+    usePcSheet: true, // Default to PC sheet
+    useMaxHpPerHD: false // Default to rolling HP
   };
   private availableRaces: Array<{ id: string; name: string }> = [];
   private availableClasses: Array<{ id: string; name: string }> = [];
@@ -66,6 +85,29 @@ export class TownieMakerApp extends Application {
     // Load available classes if not already loaded
     if (this.availableClasses.length === 0) {
       this.availableClasses = await D35EAdapter.getClasses();
+    }
+    
+    // Load persisted Config settings if available (first open after page load)
+    if (persistedConfigSettings) {
+      // Only restore config settings if they haven't been overwritten by template selection
+      if (this.formData.useStandardBudget === undefined || !this.selectedTemplate) {
+        this.formData.useStandardBudget = persistedConfigSettings.useStandardBudget ?? true;
+      }
+      if (this.formData.usePcSheet === undefined || !this.selectedTemplate) {
+        this.formData.usePcSheet = persistedConfigSettings.usePcSheet ?? true;
+      }
+      if (this.formData.useMaxHpPerHD === undefined || !this.selectedTemplate) {
+        this.formData.useMaxHpPerHD = persistedConfigSettings.useMaxHpPerHD ?? false;
+      }
+      if (!this.formData.magicItemBudgets || Object.keys(this.formData.magicItemBudgets).length === 0) {
+        this.formData.magicItemBudgets = persistedConfigSettings.magicItemBudgets || {};
+      }
+    } else {
+      // Initialize usePcSheet from settings if not already set
+      if (this.formData.usePcSheet === undefined) {
+        const defaultSheetType = game.settings.get("motwm-townie-maker", "defaultSheetType") as string;
+        this.formData.usePcSheet = defaultSheetType !== 'simpleNpc';
+      }
     }
 
     const settings = {
@@ -212,6 +254,17 @@ export class TownieMakerApp extends Application {
       const field = $(ev.currentTarget).data("field");
       let value: any = $(ev.currentTarget).val();
       
+      // Handle checkboxes specially
+      if (field === "useStandardBudget" || field === "usePcSheet" || field === "useMaxHpPerHD") {
+        value = $(ev.currentTarget).is(':checked');
+        // @ts-ignore
+        this.formData[field] = value;
+        // Persist config settings
+        this.persistConfigSettings();
+        this.render(false);
+        return;
+      }
+      
       // Parse numeric fields
       if (field === "classLevel") {
         value = parseInt(value as string) || 1;
@@ -278,6 +331,8 @@ export class TownieMakerApp extends Application {
           this.formData.magicItemBudgets[budgetField] = numValue / 100;
         }
       }
+      // Persist config settings
+      this.persistConfigSettings();
       console.log("Budget updated:", budgetField, this.formData.magicItemBudgets);
     });
 
@@ -313,8 +368,10 @@ export class TownieMakerApp extends Application {
       this.randomizeName();
     });
 
-    // Create NPC button
-    html.on("click", "[data-action='create-npc']", () => {
+    // Create NPC button - use mousedown to fire before blur/change events
+    // This prevents the double-click issue when an input field has focus
+    html.on("mousedown", "[data-action='create-npc']", (ev) => {
+      ev.preventDefault(); // Prevent focus change
       this.createNPC();
     });
 
@@ -325,6 +382,10 @@ export class TownieMakerApp extends Application {
   }
 
   private selectTemplate(templateId: string): void {
+    // Save scroll position of the template tab before re-render
+    const templateTab = this.element?.find('.tab[data-tab="template"]');
+    const scrollTop = templateTab?.scrollTop() || 0;
+    
     this.selectedTemplate = TOWNIE_TEMPLATES.find(t => t.id === templateId) || null;
     
     if (this.selectedTemplate) {
@@ -352,13 +413,29 @@ export class TownieMakerApp extends Application {
         this.formData.magicItemBudgets = {};
       }
       
+      // Load useStandardBudget from template (default to true if not specified)
+      this.formData.useStandardBudget = this.selectedTemplate.useStandardBudget !== false;
+      
+      // Load usePcSheet from template (default to true if not specified)
+      this.formData.usePcSheet = this.selectedTemplate.usePcSheet !== false;
+      
+      // Load useMaxHpPerHD from template (default to false if not specified)
+      this.formData.useMaxHpPerHD = this.selectedTemplate.useMaxHpPerHD === true;
+      
       // Auto-generate name for non-blank templates
       if (this.selectedTemplate.id !== 'blank' && this.formData.race && this.formData.className) {
         this.generateAndSetName();
       }
     }
     
-    this.render(false);
+    // Render and restore scroll position
+    this.render(false).then(() => {
+      // Restore scroll position after render completes
+      if (scrollTop > 0) {
+        const newTemplateTab = this.element?.find('.tab[data-tab="template"]');
+        newTemplateTab?.scrollTop(scrollTop);
+      }
+    });
   }
 
   private updateFormData(field: string, value: any): void {
@@ -372,6 +449,20 @@ export class TownieMakerApp extends Application {
     }
     // @ts-ignore
     this.formData.abilities[ability] = value;
+  }
+
+  /**
+   * Persist Config tab settings to module-level storage
+   * These persist between app opens but reset on page reload
+   */
+  private persistConfigSettings(): void {
+    persistedConfigSettings = {
+      useStandardBudget: this.formData.useStandardBudget,
+      usePcSheet: this.formData.usePcSheet,
+      useMaxHpPerHD: this.formData.useMaxHpPerHD,
+      magicItemBudgets: this.formData.magicItemBudgets ? { ...this.formData.magicItemBudgets } : {}
+    };
+    console.log("TownieMakerApp | Persisted config settings:", persistedConfigSettings);
   }
 
   private applyStandardArray(): void {
@@ -542,6 +633,38 @@ export class TownieMakerApp extends Application {
     return highest;
   }
 
+  /**
+   * Show/hide the loading overlay
+   */
+  private setLoading(show: boolean, step?: string, progress?: number): void {
+    const overlay = this.element.find('.loading-overlay');
+    const stepEl = overlay.find('.loading-step');
+    const progressBar = overlay.find('.loading-progress-bar');
+    
+    if (show) {
+      overlay.css('display', 'flex');
+      if (step) {
+        stepEl.text(step);
+      }
+      if (progress !== undefined) {
+        progressBar.css('width', `${progress}%`);
+      }
+    } else {
+      overlay.hide();
+      stepEl.text('');
+      progressBar.css('width', '0%');
+    }
+  }
+
+  /**
+   * Update just the loading step text and progress
+   */
+  private updateLoadingStep(step: string, progress: number): void {
+    const overlay = this.element.find('.loading-overlay');
+    overlay.find('.loading-step').text(step);
+    overlay.find('.loading-progress-bar').css('width', `${progress}%`);
+  }
+
   private async createNPC(): Promise<void> {
     const name = this.formData.name;
     if (!name) {
@@ -551,16 +674,48 @@ export class TownieMakerApp extends Application {
 
     const abilities = this.formData.abilities || { str: 10, dex: 10, con: 10, int: 10, wis: 10, cha: 10 };
 
+    // Show loading overlay
+    this.setLoading(true, 'Initializing...', 0);
+
     try {
-      const actorType = game.settings.get("motwm-townie-maker", "defaultActorType") as "character" | "npc";
+      // Determine actor type based on sheet type selection
+      const usePcSheet = this.formData.usePcSheet !== false;
+      const actorType = usePcSheet ? 'character' : 'npc';
+      const useMaxHp = this.formData.useMaxHpPerHD === true;
+      
       const folder = game.settings.get("motwm-townie-maker", "defaultFolder") as string;
       const autoRollHP = game.settings.get("motwm-townie-maker", "autoRollHP") as boolean;
+      
+      console.log(`TownieMakerApp | Creating actor - usePcSheet: ${usePcSheet}, actorType: ${actorType}, useMaxHp: ${useMaxHp}`);
 
-      // Create the actor
+      // Resolve character images based on race, class, and gender
+      this.updateLoadingStep('Resolving character images...', 5);
+      const className = this.formData.className || (this.formData.classes?.[0]?.name);
+      const gender = normalizeGender(this.formData.gender);
+      let characterImages = getDefaultImages();
+      
+      if (this.formData.race && className) {
+        const resolvedImages = await resolveCharacterImages(
+          this.formData.race,
+          className,
+          gender
+        );
+        if (resolvedImages) {
+          characterImages = resolvedImages;
+          console.log(`TownieMakerApp | Resolved images - Portrait: ${characterImages.portrait}, Token: ${characterImages.token}`);
+        } else {
+          console.log(`TownieMakerApp | No images found for ${this.formData.race} ${className}, using defaults`);
+        }
+      }
+
+      // Create the actor with portrait and token images
+      this.updateLoadingStep('Creating actor...', 10);
       const actor = await D35EAdapter.createActor({
         name,
         type: actorType,
-        folder: folder || undefined
+        folder: folder || undefined,
+        img: characterImages.portrait,
+        tokenImg: characterImages.token
       });
 
       if (!actor) {
@@ -568,35 +723,67 @@ export class TownieMakerApp extends Application {
       }
 
       // Set ability scores
+      this.updateLoadingStep('Setting ability scores...', 15);
       await D35EAdapter.setAbilityScores(actor, abilities);
 
       // Add race if specified
       if (this.formData.race) {
+        this.updateLoadingStep(`Adding race: ${this.formData.race}...`, 20);
         await D35EAdapter.addRace(actor, this.formData.race);
       }
 
       // Add class if specified (use className/classLevel or fall back to classes array)
-      const className = this.formData.className || (this.formData.classes?.[0]?.name);
       const classLevel = parseInt(this.formData.classLevel as any) || parseInt(this.formData.classes?.[0]?.level as any) || 1;
       
-      if (className) {
-        await D35EAdapter.addClass(actor, className, classLevel);
-      }
+      // Branch based on sheet type
+      if (!usePcSheet) {
+        // SIMPLE NPC SHEET PATH
+        // Uses manual HP and simplified level tracking
+        
+        if (className) {
+          this.updateLoadingStep(`Adding class: ${className} (Level ${classLevel})...`, 25);
+          const hitDie = await D35EAdapter.addNpcClass(actor, className, classLevel);
+          
+          // Calculate and set HP for NPC (pass className to set system.classes.X.hp)
+          if (autoRollHP) {
+            this.updateLoadingStep('Calculating hit points...', 30);
+            const conMod = Math.floor((abilities.con - 10) / 2);
+            await D35EAdapter.calculateAndSetNpcHP(actor, classLevel, hitDie, conMod, useMaxHp, className);
+          }
+        }
+        
+        // Simple NPC sheets don't use levelUpData, so skip skills that depend on it
+        // Skills and feats would need to be added differently for NPCs (future enhancement)
+        console.log(`TownieMakerApp | Simple NPC sheet - skipping levelUpData-dependent features`);
+        
+      } else {
+        // PC SHEET PATH
+        // Uses full class progression with levelUpData
+        
+        if (className) {
+          this.updateLoadingStep(`Adding class: ${className} (Level ${classLevel})...`, 25);
+          await D35EAdapter.addClass(actor, className, classLevel);
+        }
 
-      // Roll HP if enabled (MUST be before addSkills to create levelUpData)
-      if (autoRollHP) {
-        // Get primary ability from template or default based on highest ability score
-        const primaryAbility = this.selectedTemplate?.primaryAbility || this.getPrimaryAbilityFromScores(abilities);
-        await D35EAdapter.rollHP(actor, classLevel, primaryAbility);
-      }
+        // Roll HP if enabled (MUST be before addSkills to create levelUpData)
+        if (autoRollHP) {
+          this.updateLoadingStep('Rolling hit points...', 30);
+          // Get primary ability from template or default based on highest ability score
+          const primaryAbility = this.selectedTemplate?.primaryAbility || this.getPrimaryAbilityFromScores(abilities);
+          await D35EAdapter.rollHP(actor, classLevel, primaryAbility, useMaxHp);
+        }
 
-      // Add skills from template if available (MUST be after rollHP creates levelUpData)
-      if (this.selectedTemplate?.skills && this.selectedTemplate.skills.length > 0) {
-        await D35EAdapter.addSkills(actor, classLevel, this.selectedTemplate.skills);
+        // Add skills from template if available (MUST be after rollHP creates levelUpData)
+        if (this.selectedTemplate?.skills && this.selectedTemplate.skills.length > 0) {
+          this.updateLoadingStep('Adding skills...', 35);
+          await D35EAdapter.addSkills(actor, classLevel, this.selectedTemplate.skills);
+        }
       }
+      // END OF PC/NPC BRANCHING - Common code follows
 
       // Add feats from template if available
       if (this.selectedTemplate?.feats && this.selectedTemplate.feats.length > 0) {
+        this.updateLoadingStep('Adding feats...', 40);
         // Import feat selection system
         const { allocateFeats, RangerCombatStyle } = await import('../data/feat-selection');
         
@@ -631,6 +818,7 @@ export class TownieMakerApp extends Application {
       if (className?.toLowerCase() === 'ranger' && 
           this.selectedTemplate?.favoredEnemies && 
           this.selectedTemplate.favoredEnemies.length > 0) {
+        this.updateLoadingStep('Adding favored enemies...', 50);
         console.log(`TownieMakerApp | Adding favored enemies for level ${classLevel} Ranger`);
         await D35EAdapter.addFavoredEnemies(actor, classLevel, this.selectedTemplate.favoredEnemies);
       } else {
@@ -641,12 +829,14 @@ export class TownieMakerApp extends Application {
       if (className?.toLowerCase() === 'rogue' && 
           this.selectedTemplate?.rogueSpecialAbilities && 
           this.selectedTemplate.rogueSpecialAbilities.length > 0) {
+        this.updateLoadingStep('Adding special abilities...', 50);
         console.log(`TownieMakerApp | Adding special abilities for level ${classLevel} Rogue`);
         await D35EAdapter.addRogueSpecialAbilities(actor, classLevel, this.selectedTemplate.rogueSpecialAbilities);
       }
 
       // Add spells for caster classes (MUST be after class/level set, before equipment)
       if (className) {
+        this.updateLoadingStep('Configuring spells...', 55);
         console.log(`TownieMakerApp | About to call addSpells for ${className} level ${classLevel}`);
         console.log(`TownieMakerApp | Ability scores:`, abilities);
         await D35EAdapter.addSpells(actor, className, classLevel, abilities);
@@ -655,46 +845,68 @@ export class TownieMakerApp extends Application {
       }
 
       // Add equipment from template if available
+      this.updateLoadingStep('Adding equipment & magic items...', 65);
       console.log("TownieMakerApp | About to call addEquipment...");
       console.log("TownieMakerApp | selectedTemplate:", this.selectedTemplate?.name);
       console.log("TownieMakerApp | has startingKit:", !!this.selectedTemplate?.startingKit);
+      console.log("TownieMakerApp | useStandardBudget:", this.formData.useStandardBudget);
       if (this.selectedTemplate) {
         // Merge form data budget overrides into template for this creation
         const templateWithOverrides = {
           ...this.selectedTemplate,
           magicItemBudgets: this.formData.magicItemBudgets && Object.keys(this.formData.magicItemBudgets).length > 0
             ? this.formData.magicItemBudgets
-            : this.selectedTemplate.magicItemBudgets
+            : this.selectedTemplate.magicItemBudgets,
+          // Pass useStandardBudget from form (defaults to true if not explicitly set)
+          useStandardBudget: this.formData.useStandardBudget !== false
         };
         
         await D35EAdapter.addEquipment(actor, templateWithOverrides, classLevel);
         
         // IMPORTANT: Complete container moves AFTER character is fully created
-        // This must happen after all other updates to avoid D35E's actor.refresh() resetting containers
+        this.updateLoadingStep('Organizing inventory...', 80);
         console.log("TownieMakerApp | Completing pending container moves...");
         await D35EAdapter.completePendingContainerMoves(actor);
       }
       console.log("TownieMakerApp | Finished addEquipment");
 
       // Generate attacks for all equipped weapons
+      this.updateLoadingStep('Generating attacks...', 85);
       console.log("TownieMakerApp | Generating attacks...");
       await D35EAdapter.addAttacks(actor);
       console.log("TownieMakerApp | Finished generating attacks");
 
       // Set biography with personality and background
       if (this.formData.personality || this.formData.background) {
+        this.updateLoadingStep('Setting biography...', 90);
         await D35EAdapter.setBiography(actor, {
           personality: this.formData.personality,
           background: this.formData.background
         });
       }
 
+      // FINAL STEP: Re-apply token image after all D35E updates
+      // D35E's actorUpdater overwrites the token image during various updates,
+      // so we need to set it again at the very end
+      if (characterImages.token !== characterImages.portrait) {
+        this.updateLoadingStep('Finalizing token...', 95);
+        console.log("TownieMakerApp | Re-applying token image after D35E updates...");
+        await D35EAdapter.setTokenImage(actor, characterImages.token);
+      }
+
+      this.updateLoadingStep('Complete!', 100);
+      
+      // Small delay to show completion before closing
+      await new Promise(resolve => setTimeout(resolve, 300));
+
+      this.setLoading(false);
       ui.notifications?.info(`Created ${name}!`);
       actor.sheet?.render(true);
       this.close();
 
     } catch (error) {
       console.error("Failed to create NPC:", error);
+      this.setLoading(false);
       ui.notifications?.error("Failed to create NPC. Check console for details.");
     }
   }

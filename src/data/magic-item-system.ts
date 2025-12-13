@@ -61,6 +61,11 @@ import {
  * 
  * Updated with unified consumables budget that adapts by class type
  * Martials get more weapon/armor budget since they rely on them more
+ * 
+ * CASTER TYPES:
+ * - pureCaster (Wizard/Sorcerer): Skip weapons, redirect to rods/staves. Skip armor (arcane spell failure).
+ * - divineCaster (Cleric/Druid): Skip weapons, can wear armor. Redirect weapon budget to rods/staves.
+ * - caster (Bard, other): Original caster allocation.
  */
 export const MAGIC_ITEM_BUDGET_ALLOCATION = {
   martial: {
@@ -69,15 +74,40 @@ export const MAGIC_ITEM_BUDGET_ALLOCATION = {
     statItem: 0.12,    // 12% - Stat booster
     resistance: 0.07,  // 7% - Cloak of Resistance
     protection: 0.07,  // 7% - Ring/Amulet
-    consumables: 0.02  // 2% - Mostly potions (reduced to spend more on combat gear)
+    consumables: 0.02, // 2% - Mostly potions (reduced to spend more on combat gear)
+    rodsStaves: 0.00   // 0% - Martials don't use rods/staves
   },
   caster: {
-    weapon: 0.22,      // 22% - Casters don't rely on weapons (slightly increased)
-    armor: 0.22,       // 22% - Casters wear lighter armor (increased from 18%)
+    weapon: 0.22,      // 22% - Bards etc still use weapons somewhat
+    armor: 0.22,       // 22% - Bards etc wear light armor
     statItem: 0.18,    // 18% - Stat boost is KEY for DCs
     resistance: 0.12,  // 12% - Saves are important
     protection: 0.10,  // 10% - AC helps fragile casters
-    consumables: 0.16  // 16% - Wands/scrolls/potions (reduced to spend more on defenses)
+    consumables: 0.16, // 16% - Wands/scrolls/potions
+    rodsStaves: 0.00   // 0% - Generic casters use weapon budget
+  },
+  // PURE CASTERS (Wizard, Sorcerer): Can't use weapons or armor effectively
+  // Redirect ALL weapon budget to rods/staves
+  // Redirect armor budget to Bracers of Armor (handled in wondrous items)
+  pureCaster: {
+    weapon: 0.00,      // 0% - Don't waste gold on weapons they won't use
+    armor: 0.00,       // 0% - Arcane spell failure - use Bracers of Armor instead
+    statItem: 0.22,    // 22% - Mental stat is CRITICAL for spell DCs (boosted)
+    resistance: 0.14,  // 14% - Saves are very important for squishy casters
+    protection: 0.14,  // 14% - AC from Ring/Amulet + Bracers (boosted, includes bracers budget)
+    consumables: 0.18, // 18% - Wands/scrolls/potions
+    rodsStaves: 0.32   // 32% - Metamagic rods and staffs (replaces weapon+armor)
+  },
+  // DIVINE CASTERS (Cleric, Druid): Can wear armor but don't need weapons
+  // Redirect weapon budget to rods/staves, keep armor budget
+  divineCaster: {
+    weapon: 0.00,      // 0% - Divine casters don't need +5 weapons
+    armor: 0.28,       // 28% - Can wear armor! (increased from caster)
+    statItem: 0.18,    // 18% - Wisdom for DCs
+    resistance: 0.12,  // 12% - Saves
+    protection: 0.10,  // 10% - Ring/Amulet
+    consumables: 0.12, // 12% - Wands/scrolls/potions (less than pure caster)
+    rodsStaves: 0.20   // 20% - Rods and staves (replaces weapon budget)
   },
   // Paladins/Rangers: martial combat prowess + divine casting
   // Need high weapon/armor but also wands/scrolls/potions
@@ -87,7 +117,8 @@ export const MAGIC_ITEM_BUDGET_ALLOCATION = {
     statItem: 0.12,    // 12% - Stat booster (Cha for Paladin, Wis for Ranger)
     resistance: 0.06,  // 6% - Cloak of Resistance (slightly reduced)
     protection: 0.04,  // 4% - Ring/Amulet (slightly reduced)
-    consumables: 0.06  // 6% - Wands/scrolls/potions (3x more than pure martial)
+    consumables: 0.06, // 6% - Wands/scrolls/potions (3x more than pure martial)
+    rodsStaves: 0.00   // 0% - Paladins/Rangers use weapons, not rods
   }
 } as const;
 
@@ -169,6 +200,16 @@ export interface PotionRecommendation {
   quantity: number;
 }
 
+// Import rod/staff types
+import {
+  RodRecommendation,
+  StaffRecommendation,
+  selectCasterItems,
+  isPureCaster,
+  skipArmorEnhancements,
+  isDivineCaster
+} from './rod-staff-recommendations';
+
 export interface MagicItemSelection {
   weaponEnhancement: { bonus: number; abilities: string[] } | null;
   secondaryWeaponEnhancement: { bonus: number; abilities: string[] } | null;  // For backup/off-hand weapons
@@ -179,6 +220,9 @@ export interface MagicItemSelection {
   wands: WandRecommendation[];  // Wands for casters
   scrolls: ScrollRecommendation[];  // Scrolls for casters
   potions: PotionRecommendation[];  // Potions for everyone
+  // NEW: Caster-specific items (rods and staves)
+  rods: RodRecommendation[];  // Metamagic rods for casters
+  staff: StaffRecommendation | null;  // Staff for casters
   weaponCost: number;
   secondaryWeaponCost: number;  // Cost of secondary weapon enhancement
   armorCost: number;
@@ -187,6 +231,8 @@ export interface MagicItemSelection {
   wandsCost: number;  // Cost of wands
   scrollsCost: number;  // Cost of scrolls
   potionsCost: number;  // Cost of potions
+  rodsCost: number;  // Cost of metamagic rods
+  staffCost: number;  // Cost of staff
   totalCost: number;
 }
 
@@ -244,6 +290,8 @@ export async function selectMagicItems(
       wands: [],
       scrolls: [],
       potions: [],
+      rods: [],
+      staff: null,
       weaponCost: 0,
       secondaryWeaponCost: 0,
       armorCost: 0,
@@ -252,6 +300,8 @@ export async function selectMagicItems(
       wandsCost: 0,
       scrollsCost: 0,
       potionsCost: 0,
+      rodsCost: 0,
+      staffCost: 0,
       totalCost: 0
     };
   }
@@ -259,17 +309,50 @@ export async function selectMagicItems(
   // Determine class type for budget allocation
   const classType = getClassType(characterClass);
   
-  // Determine budget type: martial gets more weapon/armor, caster gets more consumables/stats
-  // Paladins and Rangers are frontline combatants despite being partial casters, so they use martial budget
-  // But they also need consumables (wands/scrolls/potions) unlike pure martials
+  // Determine budget type based on class
+  // - Pure casters (wizard/sorcerer): Skip weapons entirely, use rods/staves
+  // - Divine casters (cleric/druid): Skip weapons, but can wear armor
+  // - Partial caster martials (paladin/ranger): Frontline fighters who can cast
+  // - Martials: Pure weapon/armor focus
+  // - Generic casters (bard): Some weapon use
   const normalizedClassLower = characterClass.toLowerCase();
   const isPaladinOrRanger = normalizedClassLower === 'paladin' || normalizedClassLower === 'ranger';
+  const isPure = isPureCaster(characterClass);
+  const isDivine = isDivineCaster(characterClass);
   const isMartial = classType === 'martial' || isPaladinOrRanger;
   
-  // Select budget allocation: special hybrid for Paladin/Ranger, martial for pure martials, caster for casters
-  const budgetAllocation = isPaladinOrRanger 
-    ? MAGIC_ITEM_BUDGET_ALLOCATION.partialCasterMartial
-    : (isMartial ? MAGIC_ITEM_BUDGET_ALLOCATION.martial : MAGIC_ITEM_BUDGET_ALLOCATION.caster);
+  // Select budget allocation based on class type
+  // Use generic type to allow different budget configurations
+  let budgetAllocation: {
+    weapon: number;
+    armor: number;
+    statItem: number;
+    resistance: number;
+    protection: number;
+    consumables: number;
+    rodsStaves: number;
+  };
+  let budgetTypeName: string;
+  
+  if (isPure) {
+    budgetAllocation = MAGIC_ITEM_BUDGET_ALLOCATION.pureCaster;
+    budgetTypeName = 'Pure Caster (Wizard/Sorcerer)';
+  } else if (isDivine) {
+    budgetAllocation = MAGIC_ITEM_BUDGET_ALLOCATION.divineCaster;
+    budgetTypeName = 'Divine Caster (Cleric/Druid)';
+  } else if (isPaladinOrRanger) {
+    budgetAllocation = MAGIC_ITEM_BUDGET_ALLOCATION.partialCasterMartial;
+    budgetTypeName = 'Partial Caster Martial (Paladin/Ranger)';
+  } else if (isMartial) {
+    budgetAllocation = MAGIC_ITEM_BUDGET_ALLOCATION.martial;
+    budgetTypeName = 'Martial';
+  } else {
+    budgetAllocation = MAGIC_ITEM_BUDGET_ALLOCATION.caster;
+    budgetTypeName = 'Caster (Bard)';
+  }
+  
+  // Calculate rod/staff budget for casters (before weapon/armor, so we can skip them)
+  const rodsStavesBudget = Math.floor(totalBudget * budgetAllocation.rodsStaves);
   
   // LEVEL-BASED BUDGET ADJUSTMENT FOR MARTIALS
   // Early levels (3-7): Weapon is CRITICAL, boost weapon budget so they can afford their first magic weapon
@@ -307,10 +390,10 @@ export async function selectMagicItems(
   const scrollsBudget = Math.floor(consumablesBudget * consumableSplit.scrolls);
   const potionsBudget = Math.floor(consumablesBudget * consumableSplit.potions);
 
-  const budgetTypeName = isPaladinOrRanger ? 'Partial Caster Martial' : (isMartial ? 'Martial' : 'Caster');
   console.log(`Budget Type: ${budgetTypeName} (${classType})`);
   console.log(`Weapon Budget: ${weaponBudget} gp (${(budgetAllocation.weapon * 100).toFixed(0)}%)`);
   console.log(`Armor Budget: ${armorBudget} gp (${(budgetAllocation.armor * 100).toFixed(0)}%)`);
+  console.log(`Rods/Staves Budget: ${rodsStavesBudget} gp (${(budgetAllocation.rodsStaves * 100).toFixed(0)}%)`);
   console.log(`Stat Item Budget: ${statItemBudget} gp (${(budgetAllocation.statItem * 100).toFixed(0)}%)`);
   console.log(`Resistance Budget: ${resistanceBudget} gp (${(budgetAllocation.resistance * 100).toFixed(0)}%)`);
   console.log(`Protection Budget: ${protectionBudget} gp (${(budgetAllocation.protection * 100).toFixed(0)}%)`);
@@ -321,52 +404,74 @@ export async function selectMagicItems(
 
   // Get recommendations from the enhancement-recommendations system
   const normalizedClass = normalizeClassName(characterClass);
-  console.log(`DEBUG: Normalized class for weapon selection: ${normalizedClass}, budget: ${weaponBudget} gp`);
-  const weaponRec = getBestWeaponEnhancementForCharacter(level, normalizedClass, weaponBudget);
-  console.log(`DEBUG: Weapon recommendation result: ${weaponRec ? `+${weaponRec.enhancementBonus} (${weaponRec.totalCost} gp)` : 'NULL'}`);
+  
+  // PURE CASTERS: Skip weapon enhancements entirely, select rods/staves instead
+  // DIVINE CASTERS: Skip weapons, but can use armor
+  // OTHER CLASSES: Normal weapon selection
+  let weaponRec = null;
+  let casterItemSelection = null;
+  
+  if (isPure || isDivine) {
+    // Select rods and staves for casters
+    console.log(`${budgetTypeName}: Skipping weapon enhancements, selecting rods/staves instead`);
+    casterItemSelection = selectCasterItems(level, rodsStavesBudget, characterClass);
+  } else {
+    // Normal weapon selection for martial/partial caster
+    console.log(`DEBUG: Normalized class for weapon selection: ${normalizedClass}, budget: ${weaponBudget} gp`);
+    weaponRec = getBestWeaponEnhancementForCharacter(level, normalizedClass, weaponBudget);
+    console.log(`DEBUG: Weapon recommendation result: ${weaponRec ? `+${weaponRec.enhancementBonus} (${weaponRec.totalCost} gp)` : 'NULL'}`);
+  }
   
   // Calculate armor/shield budget split FIRST
   // At high levels (17+), give shields MORE budget for expensive abilities like Reflecting
   // These can be overridden by template.magicItemBudgets
+  // PURE CASTERS: Skip armor entirely (arcane spell failure), they use Bracers of Armor
   const shieldBudgetPercent = templateBudgets?.shieldPercent ?? (level >= 17 ? 0.50 : 0.40);
   const armorBudgetPercent = templateBudgets?.armorPercent ?? (level >= 17 ? 0.50 : 0.60);
-  const shieldBudget = Math.floor(armorBudget * shieldBudgetPercent);
-  const armorOnlyBudget = Math.floor(armorBudget * armorBudgetPercent);
+  const shieldBudget = isPure ? 0 : Math.floor(armorBudget * shieldBudgetPercent);
+  const armorOnlyBudget = isPure ? 0 : Math.floor(armorBudget * armorBudgetPercent);
   
   if (templateBudgets?.shieldPercent !== undefined || templateBudgets?.armorPercent !== undefined) {
     console.log(`Using template budget overrides: Shield ${(shieldBudgetPercent * 100).toFixed(0)}%, Armor ${(armorBudgetPercent * 100).toFixed(0)}%`);
   }
   
+  if (isPure) {
+    console.log(`${budgetTypeName}: Skipping armor enhancements (arcane spell failure). Will use Bracers of Armor from wondrous items.`);
+  }
+  
   // Get armor enhancement first (needed for shield conflict checking)
-  const armorRec = getBestArmorEnhancementForCharacter(level, normalizedClass, armorOnlyBudget);
+  // Skip for pure casters who can't wear armor
+  const armorRec = isPure ? null : getBestArmorEnhancementForCharacter(level, normalizedClass, armorOnlyBudget);
   
   // Shield enhancement (gets 40% of armor budget, armor gets 60%)
   // Shields are prioritized BEFORE secondary weapons
   // Shields use armor enhancement mechanics (same as armor)
   // IMPORTANT: Pass armorRec to avoid resistance conflicts!
-  const shieldRec = level >= 4 
-    ? getBestShieldEnhancementForCharacter(level, normalizedClass, shieldBudget, armorRec)
-    : null;
+  // Skip for pure casters
+  const shieldRec = (isPure || level < 4) 
+    ? null 
+    : getBestShieldEnhancementForCharacter(level, normalizedClass, shieldBudget, armorRec);
   
   // Secondary weapon enhancement (50% of primary weapon budget)
   // Used for backup weapons, off-hand weapons, or two-weapon fighting builds
   // This comes AFTER shields as per user's priority requirement
   // Can be overridden by template.magicItemBudgets
+  // Skip for pure casters and divine casters (they use rods/staves instead)
   const secondaryWeaponPercent = templateBudgets?.secondaryWeaponPercent ?? 0.50;
   const secondaryWeaponBudget = Math.floor(weaponBudget * secondaryWeaponPercent);
-  const secondaryWeaponRec = level >= 5 
-    ? getBestWeaponEnhancementForCharacter(level, normalizedClass, secondaryWeaponBudget)
-    : null;
+  const secondaryWeaponRec = (isPure || isDivine || level < 5) 
+    ? null
+    : getBestWeaponEnhancementForCharacter(level, normalizedClass, secondaryWeaponBudget);
 
   // Calculate actual costs
   const weaponCost = weaponRec ? calculateWeaponEnhancementCost(
     weaponRec.enhancementBonus,
-    weaponRec.specialAbilities
+    weaponRec.specialAbilities as string[]
   ) : 0;
 
   const secondaryWeaponCost = secondaryWeaponRec ? calculateWeaponEnhancementCost(
     secondaryWeaponRec.enhancementBonus,
-    secondaryWeaponRec.specialAbilities
+    secondaryWeaponRec.specialAbilities as string[]
   ) : 0;
 
   const armorCost = armorRec ? calculateArmorEnhancementCost(
@@ -479,18 +584,41 @@ export async function selectMagicItems(
     console.log(`  None (insufficient budget)`);
   }
 
-  console.log(`\nTotal Magic Item Cost: ${weaponCost + secondaryWeaponCost + armorCost + shieldCost + wondrousCost + wandsCost + scrollsCost + potionsCost} gp`);
-  console.log(`Remaining Budget: ${totalBudget - (weaponCost + secondaryWeaponCost + armorCost + shieldCost + wondrousCost + wandsCost + scrollsCost + potionsCost)} gp`);
+  // Calculate rod/staff costs
+  const rodsCost = casterItemSelection?.rodsCost ?? 0;
+  const staffCost = casterItemSelection?.staffCost ?? 0;
+  
+  if (casterItemSelection) {
+    console.log(`\nRods:`);
+    if (casterItemSelection.rods.length > 0) {
+      for (const rodRec of casterItemSelection.rods) {
+        console.log(`  ${rodRec.rod.name} (${rodRec.rod.price} gp) - ${rodRec.reasoning}`);
+      }
+    } else {
+      console.log(`  None (insufficient budget or level)`);
+    }
+    
+    console.log(`\nStaff:`);
+    if (casterItemSelection.staff) {
+      console.log(`  ${casterItemSelection.staff.staff.name} (${casterItemSelection.staff.staff.price} gp) - ${casterItemSelection.staff.reasoning}`);
+    } else {
+      console.log(`  None (insufficient budget or level)`);
+    }
+  }
+
+  const totalCost = weaponCost + secondaryWeaponCost + armorCost + shieldCost + wondrousCost + wandsCost + scrollsCost + potionsCost + rodsCost + staffCost;
+  console.log(`\nTotal Magic Item Cost: ${totalCost} gp`);
+  console.log(`Remaining Budget: ${totalBudget - totalCost} gp`);
   console.log(`=== MAGIC ITEM SELECTION COMPLETE ===\n`);
 
   return {
     weaponEnhancement: weaponRec ? {
       bonus: weaponRec.enhancementBonus,
-      abilities: weaponRec.specialAbilities
+      abilities: weaponRec.specialAbilities as string[]  // Type assertion for legacy compatibility
     } : null,
     secondaryWeaponEnhancement: secondaryWeaponRec ? {
       bonus: secondaryWeaponRec.enhancementBonus,
-      abilities: secondaryWeaponRec.specialAbilities
+      abilities: secondaryWeaponRec.specialAbilities as string[]  // Type assertion for legacy compatibility
     } : null,
     armorEnhancement: armorRec ? {
       bonus: armorRec.enhancementBonus,
@@ -505,6 +633,8 @@ export async function selectMagicItems(
     wands: wandSelection.wands,
     scrolls: scrollSelection.scrolls,
     potions: potionSelection.potions,
+    rods: casterItemSelection?.rods ?? [],
+    staff: casterItemSelection?.staff ?? null,
     weaponCost,
     secondaryWeaponCost,
     armorCost,
@@ -513,7 +643,9 @@ export async function selectMagicItems(
     wandsCost,
     scrollsCost,
     potionsCost,
-    totalCost: weaponCost + secondaryWeaponCost + armorCost + shieldCost + wondrousCost + wandsCost + scrollsCost + potionsCost
+    rodsCost,
+    staffCost,
+    totalCost
   };
 }
 

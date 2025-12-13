@@ -1,74 +1,65 @@
 // D35E System Adapter - Helper functions for interacting with D35E system
+
+// Supported races - must have matching image folders
+// Names must match D35E compendium exactly (e.g., "Elf, High" not "Elf")
+const SUPPORTED_RACES: Array<{ id: string; name: string }> = [
+  // Humans
+  { id: "human", name: "Human" },
+  // Elves (subraces)
+  { id: "elf-high", name: "Elf, High" },
+  { id: "elf-wood", name: "Elf, Wood" },
+  { id: "elf-drow", name: "Elf, Drow" },
+  // Dwarves (subraces)
+  { id: "dwarf-hill", name: "Dwarf, Hill" },
+  { id: "dwarf-mountain", name: "Dwarf, Mountain" },
+  // Gnomes (subraces)
+  { id: "gnome-rock", name: "Gnome, Rock" },
+  // Halflings (subraces)
+  { id: "halfling-lightfoot", name: "Halfling, Lightfoot" },
+  // Half-breeds
+  { id: "half-elf", name: "Half-Elf" },
+  { id: "half-orc", name: "Half-Orc" },
+  // Planetouched
+  { id: "aasimar", name: "Aasimar" },
+  { id: "tiefling", name: "Tiefling" },
+];
+
+// Supported classes - must have matching image folders
+const SUPPORTED_CLASSES: Array<{ id: string; name: string }> = [
+  // Core Martial
+  { id: "fighter", name: "Fighter" },
+  { id: "barbarian", name: "Barbarian" },
+  { id: "monk", name: "Monk" },
+  { id: "paladin", name: "Paladin" },
+  { id: "ranger", name: "Ranger" },
+  { id: "rogue", name: "Rogue" },
+  // Core Casters
+  { id: "bard", name: "Bard" },
+  { id: "cleric", name: "Cleric" },
+  { id: "druid", name: "Druid" },
+  { id: "sorcerer", name: "Sorcerer" },
+  { id: "wizard", name: "Wizard" },
+  // NPC Classes
+  { id: "adept", name: "Adept (NPC)" },
+  { id: "aristocrat", name: "Aristocrat (NPC)" },
+  { id: "commoner", name: "Commoner (NPC)" },
+  { id: "expert", name: "Expert (NPC)" },
+  { id: "warrior", name: "Warrior (NPC)" },
+];
+
 export class D35EAdapter {
   /**
-   * Get available races from the system
+   * Get available races (hardcoded to those with image support)
    */
   static async getRaces(): Promise<Array<{ id: string; name: string }>> {
-    const races: Array<{ id: string; name: string }> = [];
-    
-    // Try to get from compendiums
-    const racePacks = game.packs?.filter(p => 
-      p.metadata.type === "Item" && 
-      p.metadata.label?.toLowerCase().includes("race")
-    );
-    
-    if (racePacks) {
-      for (const pack of racePacks) {
-        const content = await pack.getDocuments();
-        for (const item of content) {
-          if ((item as any).type === "race") {
-            races.push({ id: item.id!, name: item.name! });
-          }
-        }
-      }
-    }
-    
-    return races;
+    return SUPPORTED_RACES;
   }
 
   /**
-   * Get available classes from the system
+   * Get available classes (hardcoded to those with image support)
    */
   static async getClasses(): Promise<Array<{ id: string; name: string }>> {
-    const classes: Array<{ id: string; name: string }> = [];
-    
-    // Followers/companions to exclude
-    const excludedFollowers = [
-      "familiar", "animal companion", "paladin mount", "psicrystal", 
-      "special mount", "companion", "drake companion", "eidolon"
-    ];
-    
-    // Try to get from compendiums
-    const classPacks = game.packs?.filter(p => 
-      p.metadata.type === "Item" && 
-      p.metadata.label?.toLowerCase().includes("class")
-    );
-    
-    if (classPacks) {
-      for (const pack of classPacks) {
-        const content = await pack.getDocuments();
-        for (const item of content) {
-          const itemData = item as any;
-          if (itemData.type === "class") {
-            const itemName = item.name!.toLowerCase();
-            
-            // Skip followers/companions
-            if (excludedFollowers.some(follower => itemName.includes(follower))) {
-              continue;
-            }
-            
-            // Skip prestige classes (they have classType === "prestige")
-            if (itemData.system?.classType === "prestige") {
-              continue;
-            }
-            
-            classes.push({ id: item.id!, name: item.name! });
-          }
-        }
-      }
-    }
-    
-    return classes;
+    return SUPPORTED_CLASSES;
   }
 
   /**
@@ -104,6 +95,8 @@ export class D35EAdapter {
     name: string;
     type: "character" | "npc";
     folder?: string;
+    img?: string;           // Portrait image path
+    tokenImg?: string;      // Token image path
   }): Promise<Actor | null> {
     // Find or create folder
     let folderId: string | undefined;
@@ -123,12 +116,21 @@ export class D35EAdapter {
       folderId = folder?.id;
     }
 
-    // Create the actor
+    // Use provided images or fall back to defaults
+    const portraitImg = data.img || "icons/svg/mystery-man.svg";
+    const tokenImg = data.tokenImg || portraitImg;
+
+    // Create the actor with portrait and token images
     const actor = await Actor.create({
       name: data.name,
       type: data.type,
       folder: folderId,
-      img: "icons/svg/mystery-man.svg"
+      img: portraitImg,
+      prototypeToken: {
+        texture: {
+          src: tokenImg
+        }
+      }
     });
 
     return actor as Actor;
@@ -152,9 +154,202 @@ export class D35EAdapter {
   }
 
   /**
-   * Add a race to an actor
+   * Set the token image for an actor
+   * This should be called AFTER all other updates to prevent D35E from overwriting it
+   * Sets both prototypeToken.texture.src (Foundry standard) and system.tokenImg (D35E specific)
+   */
+  static async setTokenImage(actor: Actor, tokenImg: string): Promise<void> {
+    console.log(`D35EAdapter | Setting token image to: ${tokenImg}`);
+    await actor.update({
+      "prototypeToken.texture.src": tokenImg,
+      "system.tokenImg": tokenImg  // D35E uses this field for token image
+    });
+  }
+
+  /**
+   * Set the NPC's level directly (for Simple NPC sheet)
+   * Unlike PC sheets which track level via class progression, NPC sheets have a simple level value
+   * Also sets the CR to match the level
+   */
+  static async setNpcLevel(actor: Actor, level: number): Promise<void> {
+    console.log(`D35EAdapter | Setting NPC level to: ${level}, CR to: ${level}`);
+    
+    await actor.update({
+      "system.details.level.value": level,
+      "system.details.cr": level
+    });
+  }
+
+  /**
+   * Update the class item's level value on an NPC
+   * This sets the system.levels field on the class item itself (note: plural "levels")
+   * The D35E system derives system.classes.<classname>.level from cls.system.levels
+   */
+  static async updateNpcClassItemLevel(actor: Actor, className: string, level: number): Promise<void> {
+    // Find the class item on the actor
+    const classItem = actor.items?.find((i: any) => 
+      i.type === 'class' && i.name.toLowerCase() === className.toLowerCase()
+    );
+    
+    if (classItem) {
+      console.log(`D35EAdapter | Updating class item ${className} levels to: ${level}`);
+      await classItem.update({ "system.levels": level });
+    } else {
+      console.warn(`D35EAdapter | Could not find class item ${className} to update level`);
+    }
+  }
+
+  /**
+   * Set the NPC's HP directly (for Simple NPC sheet)
+   * Sets hp.value and hp.max on the actor
+   */
+  static async setNpcHP(actor: Actor, hp: number): Promise<void> {
+    console.log(`D35EAdapter | Setting NPC HP to: ${hp}`);
+    
+    await actor.update({
+      "system.attributes.hp.value": hp,
+      "system.attributes.hp.max": hp
+    });
+  }
+
+  /**
+   * Update the class item's HP value on an NPC
+   * This sets the system.hp field on the class item itself
+   */
+  static async updateNpcClassItemHP(actor: Actor, className: string, hp: number): Promise<void> {
+    // Find the class item on the actor
+    const classItem = actor.items?.find((i: any) => 
+      i.type === 'class' && i.name.toLowerCase() === className.toLowerCase()
+    );
+    
+    if (classItem) {
+      console.log(`D35EAdapter | Updating class item ${className} HP to: ${hp}`);
+      await classItem.update({ "system.hp": hp });
+    } else {
+      console.warn(`D35EAdapter | Could not find class item ${className} to update HP`);
+    }
+  }
+
+  /**
+   * Calculate and set HP for a Simple NPC based on class hit die
+   * Rolls HD x level and adds CON modifier x level
+   * Also updates the class item's HP for proper display
+   */
+  static async calculateAndSetNpcHP(
+    actor: Actor, 
+    level: number, 
+    hitDie: number,
+    conModifier: number,
+    useMaxHp: boolean = false,
+    className?: string
+  ): Promise<number> {
+    const rolls: number[] = [];
+    
+    for (let lvl = 1; lvl <= level; lvl++) {
+      let hpRoll: number;
+      
+      if (useMaxHp || lvl === 1) {
+        // Max HP per level OR first level: max HD
+        hpRoll = hitDie;
+      } else {
+        // Random roll for other levels (minimum 1)
+        hpRoll = Math.max(1, Math.floor(Math.random() * hitDie) + 1);
+      }
+      
+      rolls.push(hpRoll);
+    }
+    
+    const totalHP = rolls.reduce((sum, r) => sum + r, 0) + (conModifier * level);
+    const finalHP = Math.max(totalHP, 1); // Minimum 1 HP
+    
+    console.log(`D35EAdapter | NPC HP calculation: HD ${hitDie} x ${level} levels = ${rolls.join('+')} + (CON mod ${conModifier} x ${level}) = ${finalHP}${useMaxHp ? ' (MAX HP)' : ''}`);
+    
+    // Set the actor's HP values
+    await this.setNpcHP(actor, finalHP);
+    
+    // Also update the class item's HP for proper display on the sheet
+    if (className) {
+      await this.updateNpcClassItemHP(actor, className, finalHP);
+    }
+    
+    return finalHP;
+  }
+
+  /**
+   * Add a class to an NPC sheet (item only, no progression tracking)
+   * For Simple NPC sheets, the class is just an item - level is tracked separately
+   */
+  static async addNpcClass(actor: Actor, className: string, level: number): Promise<number> {
+    // Import hardcoded IDs
+    const { getClassId } = await import('./data/compendium-ids');
+    
+    try {
+      // Get class compendium
+      const pack = game.packs?.get('D35E.classes');
+      if (!pack) {
+        throw new Error("Class compendium 'D35E.classes' not found");
+      }
+
+      // Try hardcoded ID first (fast path)
+      const classId = getClassId(className);
+      let classDoc: any = null;
+      
+      if (classId) {
+        // Direct lookup by ID - fast!
+        classDoc = await pack.getDocument(classId);
+        if (classDoc) {
+          console.log(`D35EAdapter | Found class ${className} by ID for NPC`);
+        }
+      }
+      
+      // Fallback: Find class by name (slow path for unknown classes)
+      if (!classDoc) {
+        console.warn(`D35EAdapter | Class '${className}' not in hardcoded IDs for NPC, falling back to name lookup`);
+        const index = await pack.getIndex();
+        const classEntry = index.find((i: any) => i.name === className);
+        
+        if (!classEntry) {
+          throw new Error(`Class '${className}' not found in compendium`);
+        }
+
+        classDoc = await pack.getDocument(classEntry._id);
+      }
+      
+      if (!classDoc) {
+        throw new Error(`Failed to load class document for '${className}'`);
+      }
+
+      // Get the hit die from the class
+      const hitDie = classDoc.system.hd || 8;
+
+      // Add class to actor as item (for NPC sheet, just add it - no level tracking)
+      const classData = classDoc.toObject();
+      // Set the level on the class item itself (note: plural "levels" for D35E)
+      classData.system.levels = level;
+      await actor.createEmbeddedDocuments('Item', [classData]);
+
+      console.log(`D35EAdapter | Added class ${className} to NPC ${actor.name} (HD: d${hitDie})`);
+      
+      // Set the NPC's level value on the actor
+      await this.setNpcLevel(actor, level);
+      
+      // Update the class item's level (D35E derives system.classes.X.level from this)
+      await this.updateNpcClassItemLevel(actor, className, level);
+      
+      return hitDie;
+    } catch (error) {
+      console.error(`D35EAdapter | Failed to add NPC class ${className}:`, error);
+      throw error;
+    }
+  }
+
+  /**
+   * Add a race to an actor using hardcoded compendium ID
    */
   static async addRace(actor: Actor, raceName: string): Promise<void> {
+    // Import hardcoded IDs
+    const { getRaceId } = await import('./data/compendium-ids');
+    
     try {
       // Get race compendium
       const pack = game.packs?.get('D35E.racialfeatures');
@@ -162,7 +357,21 @@ export class D35EAdapter {
         throw new Error("Race compendium 'D35E.racialfeatures' not found");
       }
 
-      // Find race by name
+      // Try hardcoded ID first (fast path)
+      const raceId = getRaceId(raceName);
+      
+      if (raceId) {
+        // Direct lookup by ID - fast!
+        const raceDoc = await pack.getDocument(raceId);
+        if (raceDoc) {
+          await actor.createEmbeddedDocuments('Item', [raceDoc.toObject()]);
+          console.log(`D35EAdapter | Added race ${raceName} to ${actor.name} (by ID)`);
+          return;
+        }
+      }
+
+      // Fallback: Find race by name (slow path for unknown races)
+      console.warn(`D35EAdapter | Race '${raceName}' not in hardcoded IDs, falling back to name lookup`);
       const index = await pack.getIndex();
       const raceEntry = index.find((i: any) => i.name === raceName);
       
@@ -178,7 +387,7 @@ export class D35EAdapter {
 
       // Add to actor
       await actor.createEmbeddedDocuments('Item', [raceDoc.toObject()]);
-      console.log(`D35EAdapter | Added race ${raceName} to ${actor.name}`);
+      console.log(`D35EAdapter | Added race ${raceName} to ${actor.name} (by name)`);
     } catch (error) {
       console.error(`D35EAdapter | Failed to add race ${raceName}:`, error);
       throw error;
@@ -562,9 +771,12 @@ export class D35EAdapter {
   }
 
   /**
-   * Add a class to an actor
+   * Add a class to an actor using hardcoded compendium ID
    */
   static async addClass(actor: Actor, className: string, level: number): Promise<void> {
+    // Import hardcoded IDs
+    const { getClassId } = await import('./data/compendium-ids');
+    
     try {
       // XP thresholds for levels 1-20 (D&D 3.5e SRD)
       // These are the MINIMUM XP needed to reach each level
@@ -600,16 +812,31 @@ export class D35EAdapter {
         throw new Error("Class compendium 'D35E.classes' not found");
       }
 
-      // Find class by name
-      const index = await pack.getIndex();
-      const classEntry = index.find((i: any) => i.name === className);
+      // Try hardcoded ID first (fast path)
+      const classId = getClassId(className);
+      let classDoc: any = null;
       
-      if (!classEntry) {
-        throw new Error(`Class '${className}' not found in compendium`);
+      if (classId) {
+        // Direct lookup by ID - fast!
+        classDoc = await pack.getDocument(classId);
+        if (classDoc) {
+          console.log(`D35EAdapter | Found class ${className} by ID`);
+        }
       }
+      
+      // Fallback: Find class by name (slow path for unknown classes)
+      if (!classDoc) {
+        console.warn(`D35EAdapter | Class '${className}' not in hardcoded IDs, falling back to name lookup`);
+        const index = await pack.getIndex();
+        const classEntry = index.find((i: any) => i.name === className);
+        
+        if (!classEntry) {
+          throw new Error(`Class '${className}' not found in compendium`);
+        }
 
-      // Get full class document
-      const classDoc = await pack.getDocument(classEntry._id);
+        classDoc = await pack.getDocument(classEntry._id);
+      }
+      
       if (!classDoc) {
         throw new Error(`Failed to load class document for '${className}'`);
       }
@@ -636,7 +863,8 @@ export class D35EAdapter {
   static async rollHP(
     actor: Actor, 
     level: number, 
-    primaryAbility: "str" | "dex" | "con" | "int" | "wis" | "cha" = "str"
+    primaryAbility: "str" | "dex" | "con" | "int" | "wis" | "cha" = "str",
+    useMaxHp: boolean = false
   ): Promise<void> {
     try {
       // Get all class items from actor
@@ -664,8 +892,8 @@ export class D35EAdapter {
       for (let lvl = 1; lvl <= level; lvl++) {
         let hpRoll: number;
         
-        if (lvl === 1) {
-          // First level: max HD
+        if (useMaxHp || lvl === 1) {
+          // Max HP per level OR first level: max HD
           hpRoll = hd;
         } else {
           // Other levels: roll HD (minimum 1)
@@ -1061,21 +1289,41 @@ export class D35EAdapter {
     try {
       console.log(`\n=== EQUIPMENT SYSTEM ===`);
       console.log(`Template: ${template.name}, Level: ${level}`);
+      console.log(`Use Standard Budget: ${template.useStandardBudget !== false}`);
 
       // Import wealth data and equipment resolver
-      const { getWealthForLevel, convertToCoins } = await import('./data/wealth');
+      const { getWealthForLevel, convertToCoins, CLASS_STARTING_WEALTH } = await import('./data/wealth');
       const { calculateKitCost } = await import('./data/equipment-resolver');
 
-      // Step 1: Calculate total wealth
+      // Check if using standard adventurer budget
+      const useStandardBudget = template.useStandardBudget !== false;
+      
+      // Step 1: Calculate total wealth (or token amount if no standard budget)
       const className = template.classes?.[0]?.name || "Fighter";
-      const totalWealth = getWealthForLevel(level, className);
-      console.log(`Total Wealth: ${totalWealth} gp`);
+      const totalWealth = useStandardBudget 
+        ? getWealthForLevel(level, className)
+        : 0; // No wealth budget when standard budget is disabled
+      console.log(`Total Wealth: ${totalWealth} gp${!useStandardBudget ? ' (standard budget disabled)' : ''}`);
+      
+      // Helper function to calculate token gold (50-100% of level 1 wealth for the class)
+      const calculateTokenGold = (): number => {
+        const level1Wealth = CLASS_STARTING_WEALTH[className] || CLASS_STARTING_WEALTH["Fighter"] || 150;
+        const percentage = 0.5 + (Math.random() * 0.5); // 50% to 100%
+        return Math.floor(level1Wealth * percentage);
+      };
 
       // Step 2: Check if template has starting kit
       const kit = template.startingKit;
       if (!kit) {
-        console.log("No starting kit defined, adding coins only");
-        await this.addCoins(actor, totalWealth);
+        if (useStandardBudget) {
+          console.log("No starting kit defined, adding coins only");
+          await this.addCoins(actor, totalWealth);
+        } else {
+          // Token gold amount for NPCs without standard budget (50-100% of level 1 wealth)
+          const tokenGold = calculateTokenGold();
+          console.log(`No starting kit defined, adding token gold: ${tokenGold} gp (50-100% of level 1 ${className} wealth)`);
+          await this.addCoins(actor, tokenGold);
+        }
         console.log("=== EQUIPMENT COMPLETE ===\n");
         return;
       }
@@ -1084,7 +1332,23 @@ export class D35EAdapter {
       const mundaneCost = calculateKitCost(kit, level);
       console.log(`Mundane Equipment Cost: ${mundaneCost} gp`);
 
-      // Step 4: Calculate magic item budget
+      // If standard budget is disabled, just add mundane items and token gold
+      if (!useStandardBudget) {
+        console.log("Standard budget disabled - adding mundane items only, no magic items");
+        
+        // Add mundane items WITHOUT any magic enhancements
+        await this.addMundaneItems(actor, kit, null, level);
+        
+        // Add token gold amount (50-100% of level 1 wealth for the class)
+        const tokenGold = calculateTokenGold();
+        console.log(`Adding token gold: ${tokenGold} gp (50-100% of level 1 ${className} wealth)`);
+        await this.addCoins(actor, tokenGold);
+        
+        console.log("=== EQUIPMENT COMPLETE (NO MAGIC) ===\n");
+        return;
+      }
+
+      // Step 4: Calculate magic item budget (only if using standard budget)
       const magicBudget = totalWealth - mundaneCost;
       console.log(`Magic Item Budget: ${magicBudget} gp`);
 
@@ -1138,6 +1402,12 @@ export class D35EAdapter {
       if (magicItems.potions && magicItems.potions.length > 0) {
         const { createPotionsForActor } = await import('./data/potion-creation');
         await createPotionsForActor(actor, magicItems.potions);
+      }
+      
+      // Step 6f: Add rods and staves for casters
+      if ((magicItems.rods && magicItems.rods.length > 0) || magicItems.staff) {
+        const { addRodsAndStaffToActor } = await import('./data/rod-staff-creation');
+        await addRodsAndStaffToActor(actor, magicItems.rods || [], magicItems.staff || null);
       }
 
       // Step 7: Calculate remaining wealth
