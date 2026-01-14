@@ -97,6 +97,7 @@ export class D35EAdapter {
     folder?: string;
     img?: string;           // Portrait image path
     tokenImg?: string;      // Token image path
+    tokenDisposition?: number;  // -1 = Hostile, 0 = Neutral, 1 = Friendly
   }): Promise<Actor | null> {
     // Find or create folder
     let folderId: string | undefined;
@@ -119,6 +120,9 @@ export class D35EAdapter {
     // Use provided images or fall back to defaults
     const portraitImg = data.img || "icons/svg/mystery-man.svg";
     const tokenImg = data.tokenImg || portraitImg;
+    
+    // Use provided disposition or default to Neutral (0)
+    const disposition = data.tokenDisposition ?? 0;
 
     // Create the actor with portrait and token images
     const actor = await Actor.create({
@@ -129,7 +133,8 @@ export class D35EAdapter {
       prototypeToken: {
         texture: {
           src: tokenImg
-        }
+        },
+        disposition: disposition
       }
     });
 
@@ -340,6 +345,131 @@ export class D35EAdapter {
     } catch (error) {
       console.error(`D35EAdapter | Failed to add NPC class ${className}:`, error);
       throw error;
+    }
+  }
+
+  /**
+   * Add skills to an NPC sheet (direct point assignment, no levelUpData)
+   * For Simple NPC sheets, we just set the `points` value on each skill
+   * D35E will automatically calculate rank (class skills get full points, cross-class half)
+   * 
+   * @param actor The actor to add skills to
+   * @param level The character level (for max rank calculation)
+   * @param skillList Array of skills with priorities
+   */
+  static async addNpcSkills(
+    actor: Actor,
+    level: number,
+    skillList: Array<{ name: string; ranks: number; priority?: "high" | "medium" | "low" }>
+  ): Promise<void> {
+    try {
+      if (!skillList || skillList.length === 0) {
+        return;
+      }
+
+      // Get class info for skill points and class skills
+      const classItem = actor.items?.find((i: any) => i.type === "class");
+      if (!classItem) {
+        console.warn(`D35EAdapter | No class found for NPC skill calculation`);
+        return;
+      }
+      
+      const classSkills = (classItem as any).system.classSkills || {};
+      const baseSkillPoints = (classItem as any).system.skillsPerLevel || 2;
+      const intMod = (actor as any).system.abilities?.int?.mod || 0;
+      
+      // Total skill points for NPC: (base + INT) × level
+      // Note: NPCs don't get the x4 at 1st level that PCs do
+      const totalSkillPoints = (baseSkillPoints + intMod) * level;
+      
+      // Max ranks: class skills = level + 3, cross-class = (level + 3) / 2
+      const maxClassRanks = level + 3;
+      const maxCrossClassRanks = Math.floor((level + 3) / 2);
+      
+      console.log(`D35EAdapter | NPC Skills: ${totalSkillPoints} total points, max ranks: ${maxClassRanks} (class) / ${maxCrossClassRanks} (cross-class)`);
+      
+      // Group skills by priority
+      const highPriority = skillList.filter(s => s.priority === 'high');
+      const mediumPriority = skillList.filter(s => s.priority === 'medium');
+      const lowPriority = skillList.filter(s => s.priority === 'low');
+      
+      // Calculate points to allocate based on priority weights
+      // High = 4 weight, Medium = 2 weight, Low = 1 weight
+      const totalWeight = (highPriority.length * 4) + (mediumPriority.length * 2) + (lowPriority.length * 1);
+      const pointsPerWeight = totalWeight > 0 ? totalSkillPoints / totalWeight : 0;
+      
+      // Build the skill update object
+      const skillUpdates: any = {};
+      let pointsSpent = 0;
+      
+      // Helper to calculate points for a skill
+      const allocateSkillPoints = (skillName: string, weight: number) => {
+        // Handle subskills (format: "crf1:Weaponsmithing")
+        let skillKey: string;
+        let subSkillName: string | null = null;
+        
+        if (skillName.includes(':')) {
+          const [subSkillId, customName] = skillName.split(':');
+          skillKey = subSkillId.substring(0, 3);
+          subSkillName = customName;
+        } else {
+          skillKey = skillName;
+        }
+        
+        // Check if it's a class skill
+        const isClassSkill = classSkills[skillKey] === true;
+        const maxRanks = isClassSkill ? maxClassRanks : maxCrossClassRanks;
+        
+        // Calculate raw points based on weight
+        let rawPoints = Math.round(pointsPerWeight * weight);
+        
+        // For cross-class skills, we need to spend 2 points per rank
+        // So if we want N ranks, we spend N*2 points
+        // For class skills, 1 point = 1 rank
+        
+        // Clamp to max ranks
+        let targetRanks = Math.min(rawPoints, maxRanks);
+        
+        // If cross-class, actual points spent is double the ranks
+        let actualPointsSpent = isClassSkill ? targetRanks : targetRanks * 2;
+        
+        // For cross-class, we set points = 2 * targetRanks so D35E calculates rank = points/2 = targetRanks
+        // For class skills, points = targetRanks
+        const pointsToSet = isClassSkill ? targetRanks : targetRanks * 2;
+        
+        if (subSkillName) {
+          // Subskill (Craft, Profession, Perform)
+          // Need to create or update the subskill
+          console.log(`D35EAdapter | Subskills not yet supported for NPCs: ${skillName}`);
+        } else {
+          skillUpdates[`system.skills.${skillKey}.points`] = pointsToSet;
+          console.log(`D35EAdapter | NPC Skill ${skillKey}: ${pointsToSet} points -> ${targetRanks} ranks (${isClassSkill ? 'class' : 'cross-class'})`);
+        }
+        
+        return actualPointsSpent;
+      };
+      
+      // Allocate points by priority
+      for (const skill of highPriority) {
+        pointsSpent += allocateSkillPoints(skill.name, 4);
+      }
+      for (const skill of mediumPriority) {
+        pointsSpent += allocateSkillPoints(skill.name, 2);
+      }
+      for (const skill of lowPriority) {
+        pointsSpent += allocateSkillPoints(skill.name, 1);
+      }
+      
+      console.log(`D35EAdapter | NPC Skills: Spent ${pointsSpent}/${totalSkillPoints} skill points`);
+      
+      // Apply all skill updates at once
+      if (Object.keys(skillUpdates).length > 0) {
+        await actor.update(skillUpdates);
+        console.log(`D35EAdapter | Applied NPC skill updates:`, skillUpdates);
+      }
+      
+    } catch (error) {
+      console.error(`D35EAdapter | Failed to add NPC skills:`, error);
     }
   }
 
@@ -1280,16 +1410,24 @@ export class D35EAdapter {
   /**
    * Add equipment to an actor based on template starting kit and level
    * NOW WITH MAGIC ITEM SUPPORT!
+   * @param identifyItems - If true, magic items will be identified; if false, they'll be unidentified (for loot)
+   * @param extraMoneyInBank - If true, excess gold becomes a bank deposit slip with only pocket change remaining
    */
   static async addEquipment(
     actor: Actor,
     template: any,  // TownieTemplate
-    level: number
+    level: number,
+    identifyItems: boolean = false,
+    extraMoneyInBank: boolean = false,
+    bankName: string = "The First Bank of Lower Everbrook"
   ): Promise<void> {
     try {
       console.log(`\n=== EQUIPMENT SYSTEM ===`);
       console.log(`Template: ${template.name}, Level: ${level}`);
       console.log(`Use Standard Budget: ${template.useStandardBudget !== false}`);
+      console.log(`Identify Items: ${identifyItems}`);
+      console.log(`Extra Money in Bank: ${extraMoneyInBank}`);
+      console.log(`Bank Name: ${bankName}`);
 
       // Import wealth data and equipment resolver
       const { getWealthForLevel, convertToCoins, CLASS_STARTING_WEALTH } = await import('./data/wealth');
@@ -1337,7 +1475,7 @@ export class D35EAdapter {
         console.log("Standard budget disabled - adding mundane items only, no magic items");
         
         // Add mundane items WITHOUT any magic enhancements
-        await this.addMundaneItems(actor, kit, null, level);
+        await this.addMundaneItems(actor, kit, null, level, false, className);
         
         // Add token gold amount (50-100% of level 1 wealth for the class)
         const tokenGold = calculateTokenGold();
@@ -1353,14 +1491,29 @@ export class D35EAdapter {
       console.log(`Magic Item Budget: ${magicBudget} gp`);
 
       // Step 5: Select magic items based on level, class, and budget
+      // Get character's STR to determine if they can carry Bag of Holding
+      const strScore = (actor.system as any)?.abilities?.str?.total ?? 
+                       (actor.system as any)?.abilities?.str?.value ?? 10;
+      console.log(`Character STR: ${strScore} (for Bag of Holding eligibility)`);
+      
       const { selectMagicItems, addWondrousItemsToActor } = await import('./data/magic-item-system');
-      const magicItems = await selectMagicItems(level, className, magicBudget, template.magicItemBudgets);
+      
+      // Check if template has a shield (used to detect melee vs caster build for clerics/druids)
+      const hasShield = !!kit.shield;
+      console.log(`Template has shield: ${hasShield} (used for cleric/druid build detection)`);
+      
+      const magicItems = await selectMagicItems(level, className, magicBudget, template.magicItemBudgets, strScore, hasShield);
 
       // Step 6: Add mundane items (with enhancements if selected)
-      await this.addMundaneItems(actor, kit, magicItems, level);
+      await this.addMundaneItems(actor, kit, magicItems, level, identifyItems, className);
 
       // Step 6b: Add wondrous items (Big Six)
-      await addWondrousItemsToActor(actor, magicItems.wondrousItems);
+      // Filter out Scarab of Protection if using custom version (D35E compendium bug)
+      const wondrousItemsToAdd = magicItems.hasScarabOfProtection
+        ? magicItems.wondrousItems.filter(item => !item.name.includes('Scarab of Protection'))
+        : magicItems.wondrousItems;
+      
+      await addWondrousItemsToActor(actor, wondrousItemsToAdd, identifyItems);
       
       // Step 6b.5: Add custom Handy Haversack if selected
       if (magicItems.hasHandyHaversack) {
@@ -1373,7 +1526,12 @@ export class D35EAdapter {
           ...CUSTOM_HANDY_HAVERSACK,
           system: {
             ...CUSTOM_HANDY_HAVERSACK.system,
-            identified: true,
+            identified: identifyItems,
+            identifiedName: CUSTOM_HANDY_HAVERSACK.name,
+            unidentified: {
+              name: 'Backpack',
+              price: 0
+            },
             carried: true,
             equipped: true
           }
@@ -1386,36 +1544,96 @@ export class D35EAdapter {
         console.log('=== CUSTOM HANDY HAVERSACK ADDED ===\n');
       }
       
+      // Step 6b.6: Add custom Scarab of Protection if selected (D35E compendium missing SR 20)
+      if (magicItems.hasScarabOfProtection) {
+        const { CUSTOM_SCARAB_OF_PROTECTION } = await import('./data/wondrous-items');
+        console.log('\n=== ADDING CUSTOM SCARAB OF PROTECTION ===');
+        console.log('Creating custom wondrous item (D35E compendium bug fix)...');
+        
+        // Create the custom scarab with SR 20 changes array
+        const scarabData = {
+          ...CUSTOM_SCARAB_OF_PROTECTION,
+          system: {
+            ...CUSTOM_SCARAB_OF_PROTECTION.system,
+            identified: identifyItems,
+            carried: true,
+            equipped: true
+          }
+        };
+        
+        await actor.createEmbeddedDocuments("Item", [scarabData]);
+        console.log('✓ Added Scarab of Protection (Custom Fixed Version) - 38,000 gp');
+        console.log('  - SR 20 applied correctly via changes array');
+        console.log('  - 12 charges to absorb death/energy drain effects');
+        console.log('=== CUSTOM SCARAB OF PROTECTION ADDED ===\n');
+      }
+      
       // Step 6c: Add wands for casters
       if (magicItems.wands && magicItems.wands.length > 0) {
         const { addWandsToActor } = await import('./data/wand-creation');
-        await addWandsToActor(actor, magicItems.wands);
+        await addWandsToActor(actor, magicItems.wands, identifyItems);
       }
       
       // Step 6d: Add scrolls for casters
       if (magicItems.scrolls && magicItems.scrolls.length > 0) {
         const { createScrollsForActor } = await import('./data/scroll-creation');
-        await createScrollsForActor(actor, magicItems.scrolls);
+        await createScrollsForActor(actor, magicItems.scrolls, identifyItems);
       }
       
       // Step 6e: Add potions for all characters
       if (magicItems.potions && magicItems.potions.length > 0) {
         const { createPotionsForActor } = await import('./data/potion-creation');
-        await createPotionsForActor(actor, magicItems.potions);
+        await createPotionsForActor(actor, magicItems.potions, identifyItems);
       }
       
       // Step 6f: Add rods and staves for casters
       if ((magicItems.rods && magicItems.rods.length > 0) || magicItems.staff) {
         const { addRodsAndStaffToActor } = await import('./data/rod-staff-creation');
-        await addRodsAndStaffToActor(actor, magicItems.rods || [], magicItems.staff || null);
+        await addRodsAndStaffToActor(actor, magicItems.rods || [], magicItems.staff || null, identifyItems);
       }
 
       // Step 7: Calculate remaining wealth
-      const remainder = totalWealth - mundaneCost - magicItems.totalCost;
+      // Subtract overspend for special purchases like Staff of Power
+      const overspend = magicItems.overspend ?? 0;
+      const remainder = totalWealth - mundaneCost - magicItems.totalCost - overspend;
       console.log(`Remaining Wealth: ${remainder} gp`);
+      if (overspend > 0) {
+        console.log(`  (includes ${overspend} gp overspend for Staff of Power)`);
+      }
 
-      // Step 8: Add remaining wealth as coins
-      await this.addCoins(actor, remainder);
+      // Step 8: Add remaining wealth as coins (or as bank deposit with pocket change)
+      if (extraMoneyInBank && remainder > 0) {
+        // Calculate pocket change (50-100% of level 1 wealth for the class)
+        const pocketChange = calculateTokenGold();
+        
+        // Only create bank deposit if there's meaningful money beyond pocket change
+        // Threshold: remainder must be at least pocket change + 50gp to justify a deposit
+        const minDepositThreshold = pocketChange + 50;
+        
+        if (remainder > minDepositThreshold) {
+          // Deposit the excess, keep pocket change
+          const depositAmount = Math.floor(remainder - pocketChange);
+          
+          console.log(`\n=== BANK DEPOSIT ===`);
+          console.log(`Total remainder: ${remainder} gp`);
+          console.log(`Pocket change: ${pocketChange} gp`);
+          console.log(`Bank deposit: ${depositAmount} gp`);
+          console.log(`Bank name: ${bankName}`);
+          
+          // Create the bank deposit slip item
+          await this.createBankDepositSlip(actor, depositAmount, bankName);
+          
+          // Give pocket change as randomized coins
+          await this.addCoins(actor, pocketChange);
+          console.log(`=== BANK DEPOSIT COMPLETE ===\n`);
+        } else {
+          // Not enough to justify a bank deposit, just give all as pocket change
+          console.log(`Remainder (${remainder} gp) below deposit threshold (${minDepositThreshold} gp), keeping as coins`);
+          await this.addCoins(actor, remainder);
+        }
+      } else {
+        await this.addCoins(actor, remainder);
+      }
 
       console.log("=== EQUIPMENT COMPLETE ===\n");
     } catch (error) {
@@ -1474,10 +1692,15 @@ export class D35EAdapter {
   /**
    * Add mundane items from starting kit to actor
    * Now supports magic item enhancements!
+   * @param identifyItems - If true, enhanced items will be identified; if false, unidentified
+   * @param characterClass - The character's class for special handling (e.g., casters put ranged weapons in containers)
    */
-  private static async addMundaneItems(actor: any, kit: any, magicItems?: any, level: number = 1): Promise<void> {
+  private static async addMundaneItems(actor: any, kit: any, magicItems?: any, level: number = 1, identifyItems: boolean = false, characterClass: string = "Fighter"): Promise<void> {
     const itemsToAdd: any[] = [];
     let backpackId: string | null = null;
+    
+    // Track ranged weapon IDs for pure casters to put them in containers
+    const rangedWeaponNames: string[] = [];
 
     console.log("D35EAdapter | Resolving equipment options for level", level);
     
@@ -1536,6 +1759,16 @@ export class D35EAdapter {
               magicItems.secondaryWeaponEnhancement.abilities
             );
             // Secondary weapon not equipped by default
+          }
+          
+          // Track ranged weapons for pure casters to put in containers
+          const weaponNameLower = weapon.name.toLowerCase();
+          const isRangedWeapon = weaponNameLower.includes('crossbow') || 
+                                  weaponNameLower.includes('bow') ||
+                                  weaponNameLower.includes('sling');
+          if (isRangedWeapon) {
+            rangedWeaponNames.push(weapon.name);
+            console.log(`D35EAdapter | → Tracked as ranged weapon for potential container storage`);
           }
           
           itemsToAdd.push(weaponToAdd);
@@ -1738,9 +1971,35 @@ export class D35EAdapter {
         // because D35E's actor.refresh() resets item containers during creation
         if (backpackId) {
           console.log(`D35EAdapter | === PHASE 3: Preparing container move (deferred) ===`);
-          const itemsToMove = created.filter((item: any) => 
-            item.type === "loot" && item.id !== backpackId
-          );
+          
+          // Check if this is a pure caster (wizard/sorcerer) - they put ranged weapons in containers
+          const { isPureCaster } = await import('./data/rod-staff-recommendations');
+          const characterIsPureCaster = isPureCaster(characterClass);
+          
+          const itemsToMove = created.filter((item: any) => {
+            // Always move loot (gear, tools) except the backpack itself
+            if (item.type === "loot" && item.id !== backpackId) {
+              return true;
+            }
+            
+            // For pure casters, also move ranged weapons into containers
+            // They're emergency weapons only, not primary combat options
+            if (characterIsPureCaster && item.type === "weapon") {
+              const itemName = item.name?.toLowerCase() || '';
+              const isRangedWeapon = rangedWeaponNames.some(name => 
+                itemName.includes(name.toLowerCase())
+              ) || itemName.includes('crossbow') || 
+                 itemName.includes('bow') || 
+                 itemName.includes('sling');
+              
+              if (isRangedWeapon) {
+                console.log(`D35EAdapter | Pure caster: Moving ${item.name} to container (emergency weapon only)`);
+                return true;
+              }
+            }
+            
+            return false;
+          });
           
           if (itemsToMove.length > 0) {
             console.log(`D35EAdapter | ${itemsToMove.length} items will be moved into backpack after character creation`);
@@ -1824,7 +2083,7 @@ export class D35EAdapter {
   }
 
   /**
-   * Add coins to actor
+   * Add coins to actor with randomized distribution across coin types
    */
   private static async addCoins(actor: Actor, amount: number): Promise<void> {
     if (amount <= 0) {
@@ -1832,9 +2091,9 @@ export class D35EAdapter {
       return;
     }
 
-    // Import conversion function
-    const { convertToCoins } = await import('./data/wealth');
-    const coins = convertToCoins(amount);
+    // Import conversion function - use randomized version for natural feel
+    const { convertToRandomizedCoins } = await import('./data/wealth');
+    const coins = convertToRandomizedCoins(amount);
 
     // Set currency on actor
     await actor.update({
@@ -1844,11 +2103,58 @@ export class D35EAdapter {
       "system.currency.cp": coins.cp
     });
 
-    console.log(`D35EAdapter | Added coins: ${coins.pp}pp ${coins.gp}gp ${coins.sp}sp ${coins.cp}cp`);
+    // Calculate total GP value for verification
+    const totalGpValue = (coins.pp * 10) + coins.gp + (coins.sp / 10) + (coins.cp / 100);
+    console.log(`D35EAdapter | Added coins: ${coins.pp}pp ${coins.gp}gp ${coins.sp}sp ${coins.cp}cp (≈${totalGpValue.toFixed(2)} gp from ${amount} gp)`);
+  }
+
+  /**
+   * Create a bank deposit slip item for excess gold
+   * @param actor - The actor to add the deposit slip to
+   * @param amount - Amount in gold pieces to deposit
+   * @param bankName - Name of the bank for the deposit slip
+   */
+  private static async createBankDepositSlip(actor: Actor, amount: number, bankName: string = "The First Bank of Lower Everbrook"): Promise<void> {
+    // Format the amount with commas for readability
+    const formattedAmount = amount.toLocaleString();
+    
+    // Create the bank deposit slip item data
+    const depositSlipData = {
+      name: `Bank Deposit Slip [${formattedAmount} gp]`,
+      type: 'loot',
+      img: 'systems/D35E/icons/items/inventory/Quest_21.png',
+      system: {
+        description: {
+          value: `<p>Let it be known that <strong>${actor.name}</strong> has entrusted <strong>${formattedAmount}</strong> pieces of gold to the keeping of <strong>${bankName}</strong>, to be held in good faith until lawfully withdrawn.</p>`,
+          chat: '',
+          unidentified: ''
+        },
+        quantity: 1,
+        weight: 0,
+        price: 0, // The slip itself has no value - only the deposit does
+        identified: true,
+        identifiedName: `Bank Deposit Slip [${formattedAmount} gp]`,
+        unidentified: {
+          price: 0,
+          name: 'Piece of Paper'
+        },
+        subType: 'misc',
+        carried: true
+      }
+    };
+    
+    // Create the item on the actor
+    await actor.createEmbeddedDocuments('Item', [depositSlipData]);
+    console.log(`D35EAdapter | Created bank deposit slip for ${formattedAmount} gp at ${bankName}`);
   }
 
   /**
    * Complete pending container moves (must be called after character creation is fully complete)
+   * Prefers magical containers (Handy Haversack, Bag of Holding) over regular backpack
+   * 
+   * Container weights:
+   * - Handy Haversack: 5 lbs (always usable)
+   * - Bag of Holding Type 1-4: 15-60 lbs (only for high-STR characters)
    */
   static async completePendingContainerMoves(actor: any): Promise<void> {
     const pending = (actor as any)._pendingContainerMoves;
@@ -1858,7 +2164,59 @@ export class D35EAdapter {
     }
 
     console.log(`D35EAdapter | === Completing pending container moves ===`);
-    console.log(`D35EAdapter | Moving ${pending.itemIds.length} items into backpack ${pending.backpackId}`);
+    
+    // Find the best container - prefer magical containers over backpack
+    // Priority: Handy Haversack > Bag of Holding > Backpack
+    let targetContainerId = pending.backpackId;
+    let containerName = "backpack";
+    
+    // Check character's strength score (for Bag of Holding weight)
+    const strScore = actor.system?.abilities?.str?.total ?? actor.system?.abilities?.str?.value ?? 10;
+    
+    console.log(`D35EAdapter | Character STR: ${strScore}`);
+    
+    // Always check for Handy Haversack first - it's only 5 lbs, anyone can use it!
+    const handyHaversack = actor.items.find((item: any) => 
+      item.name?.toLowerCase().includes("handy haversack")
+    );
+    
+    if (handyHaversack) {
+      targetContainerId = handyHaversack.id;
+      containerName = "Handy Haversack";
+      console.log(`D35EAdapter | Found Handy Haversack (5 lbs) - using as primary container`);
+    } else {
+      // Check for Bag of Holding (only if STR is high enough for the weight)
+      // Type 1: 15 lbs, Type 2: 25 lbs, Type 3: 35 lbs, Type 4: 60 lbs
+      const bagOfHolding = actor.items.find((item: any) => 
+        item.name?.toLowerCase().includes("bag of holding")
+      );
+      
+      if (bagOfHolding) {
+        // Calculate if character can handle the bag's weight
+        // Assume light load for STR 10 is ~33 lbs, for STR 14 is ~58 lbs
+        const bagName = bagOfHolding.name?.toLowerCase() || '';
+        let bagWeight = 15; // Default Type 1
+        if (bagName.includes('type 4') || bagName.includes('type iv')) bagWeight = 60;
+        else if (bagName.includes('type 3') || bagName.includes('type iii')) bagWeight = 35;
+        else if (bagName.includes('type 2') || bagName.includes('type ii')) bagWeight = 25;
+        
+        // Require STR high enough that bag weight is less than 50% of light load
+        // STR 12 light load ~43 lbs, STR 14 light load ~58 lbs, STR 16 light load ~76 lbs
+        const canCarryBag = (strScore >= 14 && bagWeight <= 60) || 
+                           (strScore >= 12 && bagWeight <= 35) ||
+                           (strScore >= 10 && bagWeight <= 15);
+        
+        if (canCarryBag) {
+          targetContainerId = bagOfHolding.id;
+          containerName = `Bag of Holding (${bagWeight} lbs)`;
+          console.log(`D35EAdapter | Found ${bagOfHolding.name} - using as primary container (STR ${strScore} can carry ${bagWeight} lbs)`);
+        } else {
+          console.log(`D35EAdapter | Found ${bagOfHolding.name} (${bagWeight} lbs) but STR ${strScore} too low to carry it efficiently - using backpack`);
+        }
+      }
+    }
+    
+    console.log(`D35EAdapter | Moving ${pending.itemIds.length} items into ${containerName} (${targetContainerId})`);
 
     // Build updates array
     const updates = pending.itemIds.map((itemId: string) => {
@@ -1866,14 +2224,14 @@ export class D35EAdapter {
       console.log(`D35EAdapter | → Moving "${item?.name}" (${itemId})`);
       return {
         _id: itemId,
-        "system.container": pending.backpackId,
-        "system.containerId": pending.backpackId  // CRITICAL: D35E requires BOTH fields
+        "system.container": targetContainerId,
+        "system.containerId": targetContainerId  // CRITICAL: D35E requires BOTH fields
       };
     });
 
     // Execute the batch update
     await actor.updateEmbeddedDocuments("Item", updates);
-    console.log(`D35EAdapter | ✓ Completed moving ${updates.length} items into backpack`);
+    console.log(`D35EAdapter | ✓ Completed moving ${updates.length} items into ${containerName}`);
 
     // CRITICAL: Wait for Foundry to commit changes to database
     // updateEmbeddedDocuments is async but returns before DB commit completes
@@ -1885,10 +2243,10 @@ export class D35EAdapter {
     delete (actor as any)._pendingContainerMoves;
 
     // Verify the move worked
-    const itemsInBackpack = actor.items.filter((i: any) => 
-      i.system?.container === pending.backpackId
+    const itemsInContainer = actor.items.filter((i: any) => 
+      i.system?.container === targetContainerId
     );
-    console.log(`D35EAdapter | ✓ Final verification: ${itemsInBackpack.length} items in backpack`);
+    console.log(`D35EAdapter | ✓ Final verification: ${itemsInContainer.length} items in ${containerName}`);
   }
 
   /**
@@ -1906,12 +2264,28 @@ export class D35EAdapter {
     const numAttacks = Math.floor(bab / 5) + 1;
     console.log(`D35EAdapter | Iterative attacks: ${numAttacks}`);
 
+    // Check if character is a monk (has Monk class levels)
+    const classes = actor.items.filter((item: any) => item.type === "class");
+    const isMonk = classes.some((c: any) => c.name?.toLowerCase().includes('monk'));
+    console.log(`D35EAdapter | Is Monk: ${isMonk}`);
+
     // Find all carried weapons (equipped or not)
     const weapons = actor.items.filter((item: any) => 
       item.type === "weapon" && item.system?.carried === true
     );
 
     console.log(`D35EAdapter | Found ${weapons.length} carried weapons`);
+
+    // For monks, find their Unarmed Strike (Monk) weapon
+    let monkUnarmedStrike: any = null;
+    if (isMonk) {
+      monkUnarmedStrike = weapons.find((w: any) => 
+        w.name?.toLowerCase().includes('unarmed strike') && w.name?.toLowerCase().includes('monk')
+      );
+      if (monkUnarmedStrike) {
+        console.log(`D35EAdapter | Found Monk Unarmed Strike: ${monkUnarmedStrike.name}`);
+      }
+    }
 
     if (weapons.length === 0) {
       console.log("D35EAdapter | No carried weapons found, skipping attack generation");
@@ -2051,7 +2425,28 @@ export class D35EAdapter {
 
     // Create Full Attack (Melee) if there are melee weapons and BAB allows iterative attacks
     if (meleeWeapons.length > 0 && numAttacks > 1) {
-      const primaryMelee = meleeWeapons[0]; // Use first melee weapon as primary
+      // For monks, prioritize Unarmed Strike (Monk) as primary melee weapon
+      let primaryMelee = meleeWeapons[0]; // Default to first melee weapon
+      
+      if (isMonk && monkUnarmedStrike) {
+        // Find the unarmed strike in our processed melee weapons list
+        const unarmedInList = meleeWeapons.find(w => w.id === monkUnarmedStrike.id);
+        if (unarmedInList) {
+          primaryMelee = unarmedInList;
+          console.log(`D35EAdapter | Monk: Using ${primaryMelee.name} as primary melee weapon for full attack`);
+        } else {
+          // Unarmed strike wasn't in the melee list, add it
+          const unarmedData = monkUnarmedStrike.system;
+          primaryMelee = {
+            id: monkUnarmedStrike.id,
+            name: monkUnarmedStrike.name,
+            img: monkUnarmedStrike.img,
+            hasSpeed: false
+          };
+          console.log(`D35EAdapter | Monk: Using ${primaryMelee.name} as primary melee weapon for full attack (added from class feature)`);
+        }
+      }
+      
       const attacks: any = {};
       
       // Speed enhancement gives an extra attack at full BAB

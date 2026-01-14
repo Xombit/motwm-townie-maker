@@ -10,6 +10,10 @@ let persistedConfigSettings: {
   useStandardBudget?: boolean;
   usePcSheet?: boolean;
   useMaxHpPerHD?: boolean;
+  identifyItems?: boolean;
+  extraMoneyInBank?: boolean;
+  bankName?: string;
+  tokenDisposition?: number;  // -1 = Hostile, 0 = Neutral, 1 = Friendly
   magicItemBudgets?: {
     shieldPercent?: number;
     armorPercent?: number;
@@ -99,6 +103,18 @@ export class TownieMakerApp extends Application {
       if (this.formData.useMaxHpPerHD === undefined || !this.selectedTemplate) {
         this.formData.useMaxHpPerHD = persistedConfigSettings.useMaxHpPerHD ?? false;
       }
+      if (this.formData.identifyItems === undefined || !this.selectedTemplate) {
+        this.formData.identifyItems = persistedConfigSettings.identifyItems ?? false;
+      }
+      if (this.formData.extraMoneyInBank === undefined || !this.selectedTemplate) {
+        this.formData.extraMoneyInBank = persistedConfigSettings.extraMoneyInBank ?? true;
+      }
+      if (this.formData.bankName === undefined || !this.selectedTemplate) {
+        this.formData.bankName = persistedConfigSettings.bankName ?? "The First Bank of Lower Everbrook";
+      }
+      if (this.formData.tokenDisposition === undefined || !this.selectedTemplate) {
+        this.formData.tokenDisposition = persistedConfigSettings.tokenDisposition ?? 0; // Default: Neutral
+      }
       if (!this.formData.magicItemBudgets || Object.keys(this.formData.magicItemBudgets).length === 0) {
         this.formData.magicItemBudgets = persistedConfigSettings.magicItemBudgets || {};
       }
@@ -107,6 +123,19 @@ export class TownieMakerApp extends Application {
       if (this.formData.usePcSheet === undefined) {
         const defaultSheetType = game.settings.get("motwm-townie-maker", "defaultSheetType") as string;
         this.formData.usePcSheet = defaultSheetType !== 'simpleNpc';
+      }
+      // Initialize new loot options to defaults
+      if (this.formData.identifyItems === undefined) {
+        this.formData.identifyItems = false;
+      }
+      if (this.formData.extraMoneyInBank === undefined) {
+        this.formData.extraMoneyInBank = true;
+      }
+      if (this.formData.bankName === undefined) {
+        this.formData.bankName = "The First Bank of Lower Everbrook";
+      }
+      if (this.formData.tokenDisposition === undefined) {
+        this.formData.tokenDisposition = 0; // Default: Neutral
       }
     }
 
@@ -429,13 +458,25 @@ export class TownieMakerApp extends Application {
     }
     
     // Render and restore scroll position
-    this.render(false).then(() => {
-      // Restore scroll position after render completes
-      if (scrollTop > 0) {
-        const newTemplateTab = this.element?.find('.tab[data-tab="template"]');
-        newTemplateTab?.scrollTop(scrollTop);
-      }
-    });
+    // Note: render() may not return a Promise in all Foundry versions
+    const renderResult = this.render(false);
+    if (renderResult && typeof renderResult.then === 'function') {
+      renderResult.then(() => {
+        // Restore scroll position after render completes
+        if (scrollTop > 0) {
+          const newTemplateTab = this.element?.find('.tab[data-tab="template"]');
+          newTemplateTab?.scrollTop(scrollTop);
+        }
+      });
+    } else {
+      // Fallback for synchronous render
+      setTimeout(() => {
+        if (scrollTop > 0) {
+          const newTemplateTab = this.element?.find('.tab[data-tab="template"]');
+          newTemplateTab?.scrollTop(scrollTop);
+        }
+      }, 10);
+    }
   }
 
   private updateFormData(field: string, value: any): void {
@@ -460,6 +501,10 @@ export class TownieMakerApp extends Application {
       useStandardBudget: this.formData.useStandardBudget,
       usePcSheet: this.formData.usePcSheet,
       useMaxHpPerHD: this.formData.useMaxHpPerHD,
+      identifyItems: this.formData.identifyItems,
+      extraMoneyInBank: this.formData.extraMoneyInBank,
+      bankName: this.formData.bankName,
+      tokenDisposition: this.formData.tokenDisposition,
       magicItemBudgets: this.formData.magicItemBudgets ? { ...this.formData.magicItemBudgets } : {}
     };
     console.log("TownieMakerApp | Persisted config settings:", persistedConfigSettings);
@@ -686,7 +731,13 @@ export class TownieMakerApp extends Application {
       const folder = game.settings.get("motwm-townie-maker", "defaultFolder") as string;
       const autoRollHP = game.settings.get("motwm-townie-maker", "autoRollHP") as boolean;
       
-      console.log(`TownieMakerApp | Creating actor - usePcSheet: ${usePcSheet}, actorType: ${actorType}, useMaxHp: ${useMaxHp}`);
+      // Use formData for loot options (these are now in the Config tab)
+      const identifyItems = this.formData.identifyItems === true;
+      const extraMoneyInBank = this.formData.extraMoneyInBank === true;
+      const bankName = this.formData.bankName || "The First Bank of Lower Everbrook";
+      
+      console.log(`TownieMakerApp | Creating actor - usePcSheet: ${usePcSheet}, actorType: ${actorType}, useMaxHp: ${useMaxHp}, identifyItems: ${identifyItems}, extraMoneyInBank: ${extraMoneyInBank}`);
+      console.log(`TownieMakerApp | Bank name: ${bankName}`);
 
       // Resolve character images based on race, class, and gender
       this.updateLoadingStep('Resolving character images...', 5);
@@ -708,6 +759,9 @@ export class TownieMakerApp extends Application {
         }
       }
 
+      // Get token disposition from form data (default to Neutral)
+      const tokenDisposition = this.formData.tokenDisposition ?? 0;
+
       // Create the actor with portrait and token images
       this.updateLoadingStep('Creating actor...', 10);
       const actor = await D35EAdapter.createActor({
@@ -715,7 +769,8 @@ export class TownieMakerApp extends Application {
         type: actorType,
         folder: folder || undefined,
         img: characterImages.portrait,
-        tokenImg: characterImages.token
+        tokenImg: characterImages.token,
+        tokenDisposition: tokenDisposition
       });
 
       if (!actor) {
@@ -752,9 +807,13 @@ export class TownieMakerApp extends Application {
           }
         }
         
-        // Simple NPC sheets don't use levelUpData, so skip skills that depend on it
-        // Skills and feats would need to be added differently for NPCs (future enhancement)
-        console.log(`TownieMakerApp | Simple NPC sheet - skipping levelUpData-dependent features`);
+        // Add skills from template for NPC (uses direct point assignment, no levelUpData)
+        if (this.selectedTemplate?.skills && this.selectedTemplate.skills.length > 0) {
+          this.updateLoadingStep('Adding skills...', 35);
+          await D35EAdapter.addNpcSkills(actor, classLevel, this.selectedTemplate.skills);
+        }
+        
+        console.log(`TownieMakerApp | Simple NPC sheet - skills added via direct point assignment`);
         
       } else {
         // PC SHEET PATH
@@ -850,6 +909,9 @@ export class TownieMakerApp extends Application {
       console.log("TownieMakerApp | selectedTemplate:", this.selectedTemplate?.name);
       console.log("TownieMakerApp | has startingKit:", !!this.selectedTemplate?.startingKit);
       console.log("TownieMakerApp | useStandardBudget:", this.formData.useStandardBudget);
+      console.log("TownieMakerApp | identifyItems:", identifyItems);
+      console.log("TownieMakerApp | extraMoneyInBank:", extraMoneyInBank);
+      console.log("TownieMakerApp | bankName:", bankName);
       if (this.selectedTemplate) {
         // Merge form data budget overrides into template for this creation
         const templateWithOverrides = {
@@ -861,7 +923,7 @@ export class TownieMakerApp extends Application {
           useStandardBudget: this.formData.useStandardBudget !== false
         };
         
-        await D35EAdapter.addEquipment(actor, templateWithOverrides, classLevel);
+        await D35EAdapter.addEquipment(actor, templateWithOverrides, classLevel, identifyItems, extraMoneyInBank, bankName);
         
         // IMPORTANT: Complete container moves AFTER character is fully created
         this.updateLoadingStep('Organizing inventory...', 80);

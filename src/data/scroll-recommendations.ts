@@ -196,17 +196,51 @@ export function selectScrolls(
   const selectedScrolls: ScrollRecommendation[] = [];
   let remainingBudget = budget;
   
-  // Strategy: Buy scrolls in priority order, one of each type
+  // Determine max scrolls based on level and budget
+  // Higher level characters should have MORE scrolls for versatility
+  const maxScrolls = characterLevel >= 17 ? 15 : (characterLevel >= 13 ? 10 : (characterLevel >= 9 ? 7 : 4));
+  
+  console.log(`Scroll selection: Level ${characterLevel}, Budget ${budget} gp, Max scrolls ${maxScrolls}`);
+  
+  // Strategy: Buy scrolls in priority order, one of each type first
   for (const scroll of recommendations) {
+    if (selectedScrolls.length >= maxScrolls) break;
+    
     if (scroll.cost <= remainingBudget) {
       // Check if we already have a scroll of this spell
       const alreadyHave = selectedScrolls.some(s => s.spell.id === scroll.spell.id);
       if (!alreadyHave) {
         selectedScrolls.push(scroll);
         remainingBudget -= scroll.cost;
+        console.log(`  + Scroll of ${scroll.spell.name} (${scroll.cost} gp), remaining: ${remainingBudget} gp`);
       }
     }
   }
+  
+  // SECOND PASS: If significant budget left, buy duplicates of important scrolls
+  const budgetThreshold = budget * 0.25;
+  if (remainingBudget > budgetThreshold && selectedScrolls.length < maxScrolls) {
+    console.log(`  Second pass: ${remainingBudget} gp remaining, buying extra scrolls...`);
+    
+    // Priority for duplicates: utility/emergency > buff
+    const duplicatePriority = selectedScrolls
+      .filter(s => s.spell.tags.includes('utility') || s.spell.tags.includes('healing') || s.spell.tags.includes('buff'))
+      .sort((a, b) => b.priority - a.priority);
+    
+    for (const scroll of duplicatePriority) {
+      if (selectedScrolls.length >= maxScrolls) break;
+      if (scroll.cost <= remainingBudget) {
+        const existingCount = selectedScrolls.filter(s => s.spell.id === scroll.spell.id).length;
+        if (existingCount < 2) {  // Max 2 of each scroll type
+          selectedScrolls.push({ ...scroll });
+          remainingBudget -= scroll.cost;
+          console.log(`  + (duplicate) Scroll of ${scroll.spell.name} (${scroll.cost} gp), remaining: ${remainingBudget} gp`);
+        }
+      }
+    }
+  }
+  
+  console.log(`Scroll selection complete: ${selectedScrolls.length} scrolls, ${budget - remainingBudget} gp spent`);
   
   return {
     scrolls: selectedScrolls,

@@ -61,6 +61,164 @@ export const HEADBAND_OF_INTELLECT: Record<number, WondrousItemDefinition> = {
 } as const;
 
 /**
+ * Periapt of Wisdom
+ * Grants enhancement bonus to Wisdom
+ * Slot: neck
+ * 
+ * Essential for WIS-based casters: Clerics, Druids, Rangers
+ * Competes with Amulet of Natural Armor for neck slot at higher levels
+ */
+export const PERIAPT_OF_WISDOM: Record<number, WondrousItemDefinition> = {
+  2: {
+    id: 'pR2Hpz1YJ8s8bsxr',
+    name: 'Periapt of Wisdom +2',
+    slot: 'neck',
+    price: 4000,
+    bonus: 2,
+    description: '+2 enhancement bonus to Wisdom'
+  },
+  4: {
+    id: 'h5p6AJ2CL1ychoGp',
+    name: 'Periapt of Wisdom +4',
+    slot: 'neck',
+    price: 16000,
+    bonus: 4,
+    description: '+4 enhancement bonus to Wisdom'
+  },
+  6: {
+    id: 'Q3SlDIDVITp6mNqZ',
+    name: 'Periapt of Wisdom +6',
+    slot: 'neck',
+    price: 36000,
+    bonus: 6,
+    description: '+6 enhancement bonus to Wisdom'
+  }
+} as const;
+
+/**
+ * Cloak of Charisma
+ * Grants enhancement bonus to Charisma
+ * Slot: shoulders
+ * 
+ * Essential for CHA-based casters: Sorcerers, Bards, Paladins
+ * Competes with Cloak of Resistance for shoulders slot - players must choose!
+ */
+export const CLOAK_OF_CHARISMA: Record<number, WondrousItemDefinition> = {
+  2: {
+    id: '3E9dw6bIOvTMB1u3',
+    name: 'Cloak of Charisma +2',
+    slot: 'shoulders',
+    price: 4000,
+    bonus: 2,
+    description: '+2 enhancement bonus to Charisma'
+  },
+  4: {
+    id: '5Lk7hjNCSUVmpa61',
+    name: 'Cloak of Charisma +4',
+    slot: 'shoulders',
+    price: 16000,
+    bonus: 4,
+    description: '+4 enhancement bonus to Charisma'
+  },
+  6: {
+    id: 'qbX0hSglUSmsBhpV',
+    name: 'Cloak of Charisma +6',
+    slot: 'shoulders',
+    price: 36000,
+    bonus: 6,
+    description: '+6 enhancement bonus to Charisma'
+  }
+} as const;
+
+/**
+ * Amulet of Mighty Fists
+ * Grants enhancement bonus to unarmed strikes and natural attacks
+ * Slot: neck (CRITICAL: Competes with Amulet of Natural Armor and Periapt of Wisdom!)
+ * 
+ * This is THE signature monk item. Stacks with Ki Strike's magic property.
+ * Monks should prioritize this over defensive neck slot items.
+ * 
+ * Pricing follows enhancement bonus squared × 6000 gp formula
+ */
+export const AMULET_OF_MIGHTY_FISTS: Record<number, WondrousItemDefinition> = {
+  1: {
+    id: 'tXiJigkXecce1BQc',
+    name: 'Amulet of Mighty Fists +1',
+    slot: 'neck',
+    price: 6000,
+    bonus: 1,
+    description: '+1 enhancement bonus to unarmed strikes and natural attacks'
+  },
+  2: {
+    id: 'LicOTfMUuaGz3yBf',
+    name: 'Amulet of Mighty Fists +2',
+    slot: 'neck',
+    price: 24000,
+    bonus: 2,
+    description: '+2 enhancement bonus to unarmed strikes and natural attacks'
+  },
+  3: {
+    id: 'qj4lqs66wOwWQ4Do',
+    name: 'Amulet of Mighty Fists +3',
+    slot: 'neck',
+    price: 54000,
+    bonus: 3,
+    description: '+3 enhancement bonus to unarmed strikes and natural attacks'
+  },
+  4: {
+    id: 'N4HW2fvonDlyecSr',
+    name: 'Amulet of Mighty Fists +4',
+    slot: 'neck',
+    price: 96000,
+    bonus: 4,
+    description: '+4 enhancement bonus to unarmed strikes and natural attacks'
+  },
+  5: {
+    id: 'ebAYp1Y2uu7PinYc',
+    name: 'Amulet of Mighty Fists +5',
+    slot: 'neck',
+    price: 150000,
+    bonus: 5,
+    description: '+5 enhancement bonus to unarmed strikes and natural attacks'
+  }
+} as const;
+
+/**
+ * Gloves of Dexterity
+ * Grants enhancement bonus to Dexterity
+ * Slot: hands
+ * 
+ * Perfect for DEX-based builds: Rangers, Rogues, Monks (ranged/finesse fighters)
+ * Competes with Gauntlets of Ogre Power for hands slot
+ */
+export const GLOVES_OF_DEXTERITY: Record<number, WondrousItemDefinition> = {
+  2: {
+    id: '4P5yn0LYo3dwQjme',
+    name: 'Gloves of Dexterity +2',
+    slot: 'hands',
+    price: 4000,
+    bonus: 2,
+    description: '+2 enhancement bonus to Dexterity'
+  },
+  4: {
+    id: 'QtTlWHZg506MRg2A',
+    name: 'Gloves of Dexterity +4',
+    slot: 'hands',
+    price: 16000,
+    bonus: 4,
+    description: '+4 enhancement bonus to Dexterity'
+  },
+  6: {
+    id: '6Wa5nrzzOrvvj3en',
+    name: 'Gloves of Dexterity +6',
+    slot: 'hands',
+    price: 36000,
+    bonus: 6,
+    description: '+6 enhancement bonus to Dexterity'
+  }
+} as const;
+
+/**
  * Gauntlets of Ogre Power
  * Grants +2 enhancement bonus to Strength
  * Slot: hands
@@ -259,6 +417,85 @@ export const AMULET_OF_NATURAL_ARMOR: Record<number, WondrousItemDefinition> = {
   }
 } as const;
 
+/**
+ * Bracers of Armor
+ * Grants armor bonus to AC (no arcane spell failure, no armor check penalty)
+ * Slot: wrists
+ * 
+ * Perfect for pure casters (wizards/sorcerers) who can't wear armor due to
+ * arcane spell failure. Provides the "armor" component of AC without penalties.
+ * 
+ * Pricing formula: bonus^2 × 1,000 gp
+ * +1 = 1,000 gp, +2 = 4,000 gp, +3 = 9,000 gp, +4 = 16,000 gp, +5 = 25,000 gp
+ * +6 = 36,000 gp, +7 = 49,000 gp, +8 = 64,000 gp
+ */
+export const BRACERS_OF_ARMOR: Record<number, WondrousItemDefinition> = {
+  1: {
+    id: '6PsJOv5Gz8k0OLgU',
+    name: 'Bracers of Armor +1',
+    slot: 'wrists',
+    price: 1000,
+    bonus: 1,
+    description: '+1 armor bonus to AC. No armor check penalty or arcane spell failure.'
+  },
+  2: {
+    id: 'uMdb7TlnUWaod7kp',
+    name: 'Bracers of Armor +2',
+    slot: 'wrists',
+    price: 4000,
+    bonus: 2,
+    description: '+2 armor bonus to AC. No armor check penalty or arcane spell failure.'
+  },
+  3: {
+    id: '4iTA8I89BXxw7GXI',
+    name: 'Bracers of Armor +3',
+    slot: 'wrists',
+    price: 9000,
+    bonus: 3,
+    description: '+3 armor bonus to AC. No armor check penalty or arcane spell failure.'
+  },
+  4: {
+    id: '65PkQkllUQiydlBJ',
+    name: 'Bracers of Armor +4',
+    slot: 'wrists',
+    price: 16000,
+    bonus: 4,
+    description: '+4 armor bonus to AC. No armor check penalty or arcane spell failure.'
+  },
+  5: {
+    id: 'xWr9GkxCZWOzT4GX',
+    name: 'Bracers of Armor +5',
+    slot: 'wrists',
+    price: 25000,
+    bonus: 5,
+    description: '+5 armor bonus to AC. No armor check penalty or arcane spell failure.'
+  },
+  6: {
+    id: '0ws1rDjVweODWFd9',
+    name: 'Bracers of Armor +6',
+    slot: 'wrists',
+    price: 36000,
+    bonus: 6,
+    description: '+6 armor bonus to AC. No armor check penalty or arcane spell failure.'
+  },
+  7: {
+    id: 'BJ8RfOD2G6ahi6IA',
+    name: 'Bracers of Armor +7',
+    slot: 'wrists',
+    price: 49000,
+    bonus: 7,
+    description: '+7 armor bonus to AC. No armor check penalty or arcane spell failure.'
+  },
+  8: {
+    id: '4FbeOWqbhXjuIDT5',
+    name: 'Bracers of Armor +8',
+    slot: 'wrists',
+    price: 64000,
+    bonus: 8,
+    description: '+8 armor bonus to AC. No armor check penalty or arcane spell failure.'
+  }
+} as const;
+
 // =============================================================================
 // HELPER FUNCTIONS
 // =============================================================================
@@ -266,18 +503,28 @@ export const AMULET_OF_NATURAL_ARMOR: Record<number, WondrousItemDefinition> = {
 /**
  * Get all available bonuses for a specific item type
  */
-export function getAvailableBonuses(itemType: 'headband' | 'belt' | 'cloak' | 'ring' | 'amulet'): number[] {
+export function getAvailableBonuses(itemType: 'headband' | 'periapt' | 'charisma-cloak' | 'belt' | 'gloves' | 'cloak' | 'ring' | 'amulet' | 'bracers' | 'mighty-fists'): number[] {
   switch (itemType) {
     case 'headband':
       return Object.keys(HEADBAND_OF_INTELLECT).map(Number);
+    case 'periapt':
+      return Object.keys(PERIAPT_OF_WISDOM).map(Number);
+    case 'charisma-cloak':
+      return Object.keys(CLOAK_OF_CHARISMA).map(Number);
     case 'belt':
       return Object.keys(BELT_OF_GIANT_STRENGTH).map(Number);
+    case 'gloves':
+      return Object.keys(GLOVES_OF_DEXTERITY).map(Number);
+    case 'mighty-fists':
+      return Object.keys(AMULET_OF_MIGHTY_FISTS).map(Number);
     case 'cloak':
       return Object.keys(CLOAK_OF_RESISTANCE).map(Number);
     case 'ring':
       return Object.keys(RING_OF_PROTECTION).map(Number);
     case 'amulet':
       return Object.keys(AMULET_OF_NATURAL_ARMOR).map(Number);
+    case 'bracers':
+      return Object.keys(BRACERS_OF_ARMOR).map(Number);
   }
 }
 
@@ -286,7 +533,7 @@ export function getAvailableBonuses(itemType: 'headband' | 'belt' | 'cloak' | 'r
  * Returns null if no items are affordable
  */
 export function getBestAffordableBonus(
-  itemType: 'headband' | 'belt' | 'cloak' | 'ring' | 'amulet',
+  itemType: 'headband' | 'periapt' | 'charisma-cloak' | 'belt' | 'gloves' | 'cloak' | 'ring' | 'amulet' | 'bracers' | 'mighty-fists',
   budget: number
 ): WondrousItemDefinition | null {
   const bonuses = getAvailableBonuses(itemType);
@@ -299,8 +546,20 @@ export function getBestAffordableBonus(
       case 'headband':
         item = HEADBAND_OF_INTELLECT[bonus];
         break;
+      case 'periapt':
+        item = PERIAPT_OF_WISDOM[bonus];
+        break;
+      case 'charisma-cloak':
+        item = CLOAK_OF_CHARISMA[bonus];
+        break;
       case 'belt':
         item = BELT_OF_GIANT_STRENGTH[bonus];
+        break;
+      case 'gloves':
+        item = GLOVES_OF_DEXTERITY[bonus];
+        break;
+      case 'mighty-fists':
+        item = AMULET_OF_MIGHTY_FISTS[bonus];
         break;
       case 'cloak':
         item = CLOAK_OF_RESISTANCE[bonus];
@@ -310,6 +569,9 @@ export function getBestAffordableBonus(
         break;
       case 'amulet':
         item = AMULET_OF_NATURAL_ARMOR[bonus];
+        break;
+      case 'bracers':
+        item = BRACERS_OF_ARMOR[bonus];
         break;
     }
     
@@ -328,23 +590,30 @@ export const BIG_SIX_PRIORITIES = {
   // Melee martials need weapon > armor > stats > cloak > ring/amulet
   fighter: ['weapon', 'armor', 'belt', 'cloak', 'ring', 'amulet'] as const,
   barbarian: ['weapon', 'armor', 'belt', 'cloak', 'amulet', 'ring'] as const,
-  paladin: ['weapon', 'armor', 'belt', 'cloak', 'ring', 'amulet'] as const,
-  ranger: ['weapon', 'armor', 'belt', 'cloak', 'ring', 'amulet'] as const,
+  // Paladins use CHA for spells but need STR for combat - use charisma-cloak for spell DCs
+  paladin: ['weapon', 'armor', 'charisma-cloak', 'belt', 'ring', 'amulet'] as const,
+  // Rangers use DEX for ranged attacks and AC - gloves for DEX boost
+  ranger: ['weapon', 'armor', 'gloves', 'cloak', 'ring', 'amulet'] as const,
   
   // Rogues need weapon > cloak (saves!) > ring/amulet > armor
   rogue: ['weapon', 'cloak', 'ring', 'amulet', 'armor', 'belt'] as const,
   
-  // Monks need amulet > belt > cloak > ring (often no armor)
-  monk: ['amulet', 'belt', 'cloak', 'ring', 'weapon', 'armor'] as const,
+  // Monks: Amulet of Mighty Fists takes neck slot, so no periapt/amulet!
+  // Belt for STR (attack/damage), Gloves for DEX (AC), Bracers for armor bonus
+  // Ring of Protection is their main AC item now
+  monk: ['mighty-fists', 'belt', 'gloves', 'cloak', 'ring', 'bracers'] as const,
   
   // Casters need stats > cloak > ring/amulet > armor (no weapon!)
+  // Wizards use INT
   wizard: ['headband', 'cloak', 'ring', 'amulet', 'armor'] as const,
-  sorcerer: ['headband', 'cloak', 'ring', 'amulet', 'armor'] as const,
+  // Sorcerers use CHA - charisma-cloak competes with cloak of resistance!
+  sorcerer: ['charisma-cloak', 'ring', 'amulet', 'armor'] as const,
   
-  // Divine casters need balanced approach
-  cleric: ['weapon', 'armor', 'headband', 'cloak', 'ring', 'amulet'] as const,
-  druid: ['armor', 'amulet', 'headband', 'cloak', 'ring', 'weapon'] as const,
-  bard: ['armor', 'headband', 'cloak', 'ring', 'amulet', 'weapon'] as const
+  // Divine casters use WIS - periapt competes with amulet of natural armor!
+  cleric: ['weapon', 'armor', 'periapt', 'cloak', 'ring'] as const,
+  druid: ['armor', 'periapt', 'cloak', 'ring', 'weapon'] as const,
+  // Bards use CHA - charisma-cloak competes with cloak of resistance!
+  bard: ['armor', 'charisma-cloak', 'ring', 'amulet', 'weapon'] as const
 } as const;
 
 // =============================================================================
@@ -514,6 +783,7 @@ export const UTILITY_WONDROUS_ITEMS: Record<string, WondrousItemDefinition> = {
   },
   
   // Pearls of Power (Casters only - recall expended spells)
+  // NOTE: Only ONE pearl should be purchased - the highest level affordable
   'pearl-of-power-1': {
     id: 'OkUi8BK1iST50BMW',
     name: 'Pearl of Power (1st)',
@@ -537,6 +807,54 @@ export const UTILITY_WONDROUS_ITEMS: Record<string, WondrousItemDefinition> = {
     price: 9000,
     bonus: 0,
     description: 'Once per day, recall one 3rd-level spell. Casters only.'
+  },
+  'pearl-of-power-4': {
+    id: '1Hoom9beAdeicAty',
+    name: 'Pearl of Power (4th)',
+    slot: 'slotless',
+    price: 16000,
+    bonus: 0,
+    description: 'Once per day, recall one 4th-level spell. Casters only.'
+  },
+  'pearl-of-power-5': {
+    id: 'cuxQ5ye8cBrEXmFK',
+    name: 'Pearl of Power (5th)',
+    slot: 'slotless',
+    price: 25000,
+    bonus: 0,
+    description: 'Once per day, recall one 5th-level spell. Casters only.'
+  },
+  'pearl-of-power-6': {
+    id: 'MOfw6kpKqIYpd3Jv',
+    name: 'Pearl of Power (6th)',
+    slot: 'slotless',
+    price: 36000,
+    bonus: 0,
+    description: 'Once per day, recall one 6th-level spell. Casters only.'
+  },
+  'pearl-of-power-7': {
+    id: 'U6Y24buGyYRynSiT',
+    name: 'Pearl of Power (7th)',
+    slot: 'slotless',
+    price: 49000,
+    bonus: 0,
+    description: 'Once per day, recall one 7th-level spell. Casters only.'
+  },
+  'pearl-of-power-8': {
+    id: 'TCrp8tLWpmPmWHhF',
+    name: 'Pearl of Power (8th)',
+    slot: 'slotless',
+    price: 64000,
+    bonus: 0,
+    description: 'Once per day, recall one 8th-level spell. Casters only.'
+  },
+  'pearl-of-power-9': {
+    id: 'TfanJynualxaj1SV',
+    name: 'Pearl of Power (9th)',
+    slot: 'slotless',
+    price: 81000,
+    bonus: 0,
+    description: 'Once per day, recall one 9th-level spell. Casters only (requires 9th level slots).'
   }
 } as const;
 
@@ -606,6 +924,78 @@ export const CUSTOM_HANDY_HAVERSACK: CustomContainerItem = {
     carried: true,
     equipped: true,
     containerWeightless: false
+  }
+} as const;
+
+/**
+ * Custom Scarab of Protection
+ * 
+ * The D35E compendium version is missing the changes[] array that applies SR 20.
+ * We create a fixed version directly with the proper mechanics applied.
+ * 
+ * Properties:
+ * - Type: equipment (wondrous item)
+ * - Slot: slotless
+ * - Spell Resistance: 20
+ * - Price: 38,000 gp
+ * - Charges: 12 (absorbs energy drain/death effects/negative energy)
+ * 
+ * Bug Fix: Adds changes array with SR 20 enhancement bonus
+ */
+export interface CustomWondrousItem {
+  name: string;
+  type: 'equipment';
+  img: string;
+  system: {
+    equipmentType: 'misc';
+    equipmentSubtype: 'wondrous';
+    slot: string;
+    price: number;
+    weight: number;
+    description: {
+      value: string;
+      chat: string;
+      unidentified: string;
+    };
+    changes: Array<[string, string, string, string]>;
+    identified: boolean;
+    identifiedName: string;
+    unidentified: {
+      name: string;
+      price: number;
+    };
+    carried: boolean;
+    equipped: boolean;
+  };
+}
+
+export const CUSTOM_SCARAB_OF_PROTECTION: CustomWondrousItem = {
+  name: 'Scarab of Protection',
+  type: 'equipment',
+  img: 'systems/D35E/icons/items/loot/jewelry/jewelry_78.PNG',
+  system: {
+    equipmentType: 'misc',
+    equipmentSubtype: 'wondrous',
+    slot: 'slotless',
+    price: 38000,
+    weight: 0,
+    description: {
+      value: '<div topic="Scarab of Protection" level="8"><p><b>Scarab of Protection:</b> This device appears to be a silver medallion in the shape of a beetle. If it is held for 1 round, an inscription appears on its surface letting the holder know that it is a protective device.</p><p>The scarab\'s possessor gains spell resistance 20. The scarab can also absorb energy-draining attacks, death effects, and negative energy effects. Upon absorbing twelve such attacks, the scarab turns to powder and is destroyed.</p><p>Strong abjuration and necromancy; CL 18th; Craft Wondrous Item, <i>death ward</i>, <i>spell resistance</i>; Price 38,000 gp.</p></div>',
+      chat: '',
+      unidentified: ''
+    },
+    // CRITICAL FIX: Add the changes array that the compendium is missing
+    changes: [
+      ['20', 'misc', 'spellResistance', 'enh']
+    ],
+    identified: true,
+    identifiedName: 'Scarab of Protection',
+    unidentified: {
+      name: 'Scarab',
+      price: 0
+    },
+    carried: true,
+    equipped: true
   }
 } as const;
 

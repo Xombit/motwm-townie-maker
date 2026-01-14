@@ -387,19 +387,61 @@ export const TOWNIE_TEMPLATES: TownieTemplate[] = [
   },
   {
     id: "cleric-priest",
-    name: "Cleric",
-    description: "Divine spellcaster and healer",
+    name: "Battle Cleric",
+    description: "Divine warrior - melee combat with divine magic support",
     icon: "fas fa-church",
     race: "Human",
     classes: [{ name: "Cleric", level: 1 }],
     alignment: "Lawful Good",
-    abilities: { str: 12, dex: 8, con: 12, int: 10, wis: 15, cha: 13 },
+    abilities: { str: 14, dex: 8, con: 13, int: 10, wis: 15, cha: 12 },
     primaryAbility: "wis",
     skills: [
       { name: "coc", ranks: 4, priority: "high" },  // Concentration - PRIMARY
       { name: "kre", ranks: 4, priority: "high" },  // Knowledge (Religion) - PRIMARY
       // Total: 8 ranks (Cleric gets 2+Int(0) = 2 per level, x4 at 1st = 8)
-      // Both skills are equally important, grow together
+    ],
+    feats: [
+      "Combat Casting",       // Cast in melee
+      "Weapon Focus (Mace, Heavy)",  // Better attack rolls
+      "Power Attack",         // Damage boost
+      "Improved Initiative",  // Go first
+      "Extra Turning",        // More turn undead
+      "Divine Might",         // CHA to damage when turning
+      "Divine Shield",        // CHA to AC when turning
+      "Quicken Spell"         // Emergency healing
+    ],
+    startingKit: {
+      weapons: [
+        { name: "Heavy Mace", cost: 12, weight: 8, type: "weapon" }
+      ],
+      armor: { name: "Scale Mail", cost: 50, weight: 30, type: "armor" },
+      shield: { name: "Heavy Wooden Shield", cost: 7, weight: 10, type: "shield" },
+      gear: [
+        { name: "Backpack, Common", cost: 2, weight: 2, type: "gear" },
+        { name: "Bedroll", cost: 0.1, weight: 5, type: "gear" },
+        { name: "Waterskin", cost: 1, weight: 4, type: "gear" },
+        { name: "Rations, Trail", cost: 0.5, weight: 1, quantity: 7, type: "gear" }
+      ],
+      tools: [
+        { name: "Wooden Holy Symbol", cost: 1, weight: 0, type: "tool" },
+        { name: "Spell Component Pouch", cost: 5, weight: 2, type: "tool" }
+      ]
+    }
+  },
+  {
+    id: "cleric-caster",
+    name: "Caster Cleric",
+    description: "Divine spellcaster - healing, buffs, and summoning",
+    icon: "fas fa-praying-hands",
+    race: "Human",
+    classes: [{ name: "Cleric", level: 1 }],
+    alignment: "Neutral Good",
+    abilities: { str: 10, dex: 10, con: 13, int: 10, wis: 16, cha: 14 },
+    primaryAbility: "wis",
+    skills: [
+      { name: "coc", ranks: 4, priority: "high" },  // Concentration - PRIMARY
+      { name: "kre", ranks: 4, priority: "high" },  // Knowledge (Religion) - PRIMARY
+      // Total: 8 ranks (Cleric gets 2+Int(0) = 2 per level, x4 at 1st = 8)
     ],
     feats: [
       "Combat Casting", 
@@ -413,10 +455,10 @@ export const TOWNIE_TEMPLATES: TownieTemplate[] = [
     ],
     startingKit: {
       weapons: [
-        { name: "Heavy Mace", cost: 12, weight: 8, type: "weapon" }
+        { name: "Quarterstaff", cost: 0, weight: 4, type: "weapon" }
       ],
-      armor: { name: "Scale Mail", cost: 50, weight: 30, type: "armor" },
-      shield: { name: "Heavy Wooden Shield", cost: 7, weight: 10, type: "shield" },
+      armor: { name: "Chainmail", cost: 150, weight: 40, type: "armor" },
+      // NO SHIELD - indicates caster build!
       gear: [
         { name: "Backpack, Common", cost: 2, weight: 2, type: "gear" },
         { name: "Bedroll", cost: 0.1, weight: 5, type: "gear" },

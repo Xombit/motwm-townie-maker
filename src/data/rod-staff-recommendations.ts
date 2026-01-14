@@ -640,57 +640,208 @@ export interface RodRecommendation {
 }
 
 /**
+ * Shuffle an array in place using Fisher-Yates algorithm
+ */
+function shuffleArray<T>(array: T[]): T[] {
+  const result = [...array];
+  for (let i = result.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [result[i], result[j]] = [result[j], result[i]];
+  }
+  return result;
+}
+
+/**
  * Get recommended metamagic rods for a caster at a given level and budget
  * 
- * Priority order:
- * 1. Extend (Lesser) - Double buff durations, incredible value at 3,000 gp
- * 2. Empower (Lesser) - +50% damage, great for damage spells
- * 3. Quicken (Lesser) - Swift action casting, game-changing when affordable
- * 4. Normal tier versions as budget allows
- * 5. Greater tier for high levels
+ * Priority order (with randomization):
+ * - 60% chance: Quicken gets top priority (action economy is king)
+ * - 40% chance: Skip Quicken, prioritize other metamagics first
+ * - Within each tier, rods are shuffled for variety
+ * 
+ * This creates interesting variety - sometimes you get the "optimal" Quicken build,
+ * sometimes you get a character who prefers Extend/Empower/Maximize instead.
+ * 
+ * @param forceGreaterQuicken - If true, buy Greater Quicken Rod regardless of budget (from special purchase decision)
  */
 export function selectRods(
   level: number,
   budget: number,
-  characterClass: string
-): { rods: RodRecommendation[]; totalCost: number } {
+  characterClass: string,
+  forceGreaterQuicken: boolean = false
+): { rods: RodRecommendation[]; totalCost: number; overspend: number } {
   const selectedRods: RodRecommendation[] = [];
   let remainingBudget = budget;
+  let overspend = 0;
   
-  // No rods below level 5 (not enough budget to be worthwhile)
-  if (level < 5 || budget < 3000) {
-    return { rods: [], totalCost: 0 };
+  // No rods below level 5 (not enough budget to be worthwhile) - unless forcing Greater Quicken
+  if (!forceGreaterQuicken && (level < 5 || budget < 3000)) {
+    return { rods: [], totalCost: 0, overspend: 0 };
   }
 
-  // Define rod priority by level tier
-  // At each tier, we prefer certain rods based on their value
-  const rodPriorities: { key: string; minLevel: number; priority: number }[] = [
-    // Level 5+: Lesser rods
-    { key: 'extend-lesser', minLevel: 5, priority: 1 },    // 3,000 gp - best value
-    { key: 'empower-lesser', minLevel: 7, priority: 2 },   // 9,000 gp - damage boost
-    { key: 'maximize-lesser', minLevel: 9, priority: 3 },  // 14,000 gp - max damage
-    { key: 'quicken-lesser', minLevel: 11, priority: 4 },  // 35,000 gp - swift action
-    
-    // Level 13+: Normal rods
-    { key: 'extend-normal', minLevel: 13, priority: 5 },   // 11,000 gp
-    { key: 'empower-normal', minLevel: 13, priority: 6 },  // 32,500 gp
-    { key: 'maximize-normal', minLevel: 15, priority: 7 }, // 54,000 gp
-    { key: 'quicken-normal', minLevel: 17, priority: 8 },  // 75,500 gp
-    
-    // Level 17+: Greater rods
-    { key: 'extend-greater', minLevel: 17, priority: 9 },  // 24,500 gp
-    { key: 'empower-greater', minLevel: 17, priority: 10 }, // 73,000 gp
-    { key: 'maximize-greater', minLevel: 19, priority: 11 }, // 121,500 gp
-    { key: 'quicken-greater', minLevel: 20, priority: 12 }  // 170,000 gp (only at L20)
-  ];
+  // SPECIAL PURCHASE: Greater Quicken Rod (if decision was made in selectCasterItems)
+  if (forceGreaterQuicken) {
+    const greaterQuicken = METAMAGIC_RODS['quicken-greater'];
+    if (greaterQuicken) {
+      overspend = Math.max(0, greaterQuicken.price - budget);
+      console.log(`  🎯 SPECIAL PURCHASE: Greater Quicken Rod: ${greaterQuicken.price} gp, Budget: ${budget} gp, Overspend: ${overspend} gp`);
+      
+      selectedRods.push({
+        rod: greaterQuicken,
+        priority: 1,
+        reasoning: 'SPECIAL PURCHASE: Cast ANY spell (up to 9th level) as a swift action, 3/day!'
+      });
+      remainingBudget = Math.max(0, budget - greaterQuicken.price);
+      
+      // Continue buying other rods with remaining budget if any
+      console.log(`  Remaining budget after Greater Quicken: ${remainingBudget} gp`);
+    }
+  }
 
-  // Filter by level and sort by priority
-  const availableRods = rodPriorities
-    .filter(rp => level >= rp.minLevel)
-    .sort((a, b) => a.priority - b.priority);
+  // RANDOMIZATION: Should this character prioritize Quicken?
+  // 60% chance to prioritize Quicken (the "optimal" choice)
+  // 40% chance to skip Quicken entirely and focus on other metamagics
+  // Skip this roll if we already bought Greater Quicken
+  const prioritizeQuicken = forceGreaterQuicken ? false : (Math.random() < 0.60);
+  if (!forceGreaterQuicken) {
+    console.log(`Rod Selection: ${prioritizeQuicken ? 'PRIORITIZING Quicken' : 'SKIPPING Quicken'} (random roll)`);
+  }
 
-  // Select rods within budget, max 2-3 rods
-  const maxRods = level >= 17 ? 3 : (level >= 13 ? 2 : 1);
+  // Define rod pools by tier - each pool is shuffled for variety
+  let rodPools: { tier: number; rods: { key: string; minLevel: number }[] }[] = [];
+  
+  if (level >= 17) {
+    if (prioritizeQuicken) {
+      rodPools = [
+        // Tier 1: Quicken rods (action economy is king)
+        { tier: 1, rods: shuffleArray([
+          { key: 'quicken-greater', minLevel: 20 },
+          { key: 'quicken-normal', minLevel: 17 },
+          { key: 'quicken-lesser', minLevel: 17 }
+        ])},
+        // Tier 2: Greater rods (shuffled for variety)
+        { tier: 2, rods: shuffleArray([
+          { key: 'extend-greater', minLevel: 17 },
+          { key: 'empower-greater', minLevel: 17 },
+          { key: 'maximize-greater', minLevel: 19 }
+        ])},
+        // Tier 3: Normal rods (shuffled)
+        { tier: 3, rods: shuffleArray([
+          { key: 'extend-normal', minLevel: 17 },
+          { key: 'empower-normal', minLevel: 17 },
+          { key: 'maximize-normal', minLevel: 17 }
+        ])},
+        // Tier 4: Lesser rods (shuffled)
+        { tier: 4, rods: shuffleArray([
+          { key: 'extend-lesser', minLevel: 17 },
+          { key: 'empower-lesser', minLevel: 17 },
+          { key: 'maximize-lesser', minLevel: 17 }
+        ])}
+      ];
+    } else {
+      // Skip Quicken - focus on other metamagics
+      rodPools = [
+        // Tier 1: Greater rods first (shuffled)
+        { tier: 1, rods: shuffleArray([
+          { key: 'extend-greater', minLevel: 17 },
+          { key: 'empower-greater', minLevel: 17 },
+          { key: 'maximize-greater', minLevel: 19 }
+        ])},
+        // Tier 2: Normal rods (shuffled)
+        { tier: 2, rods: shuffleArray([
+          { key: 'extend-normal', minLevel: 17 },
+          { key: 'empower-normal', minLevel: 17 },
+          { key: 'maximize-normal', minLevel: 17 }
+        ])},
+        // Tier 3: Lesser rods (shuffled)
+        { tier: 3, rods: shuffleArray([
+          { key: 'extend-lesser', minLevel: 17 },
+          { key: 'empower-lesser', minLevel: 17 },
+          { key: 'maximize-lesser', minLevel: 17 }
+        ])}
+        // NO Quicken rods in this build!
+      ];
+    }
+  } else if (level >= 13) {
+    if (prioritizeQuicken) {
+      rodPools = [
+        // Tier 1: Quicken (if affordable)
+        { tier: 1, rods: [
+          { key: 'quicken-lesser', minLevel: 13 }
+        ]},
+        // Tier 2: Normal rods (shuffled)
+        { tier: 2, rods: shuffleArray([
+          { key: 'extend-normal', minLevel: 13 },
+          { key: 'empower-normal', minLevel: 13 },
+          { key: 'maximize-normal', minLevel: 15 }
+        ])},
+        // Tier 3: Lesser rods (shuffled)
+        { tier: 3, rods: shuffleArray([
+          { key: 'extend-lesser', minLevel: 13 },
+          { key: 'empower-lesser', minLevel: 13 },
+          { key: 'maximize-lesser', minLevel: 13 }
+        ])}
+      ];
+    } else {
+      // Skip Quicken
+      rodPools = [
+        // Tier 1: Normal rods first (shuffled)
+        { tier: 1, rods: shuffleArray([
+          { key: 'extend-normal', minLevel: 13 },
+          { key: 'empower-normal', minLevel: 13 },
+          { key: 'maximize-normal', minLevel: 15 }
+        ])},
+        // Tier 2: Lesser rods (shuffled)
+        { tier: 2, rods: shuffleArray([
+          { key: 'extend-lesser', minLevel: 13 },
+          { key: 'empower-lesser', minLevel: 13 },
+          { key: 'maximize-lesser', minLevel: 13 }
+        ])}
+      ];
+    }
+  } else {
+    // Lower levels: Lesser rods only
+    if (prioritizeQuicken && level >= 11) {
+      rodPools = [
+        // Tier 1: Quicken if you can afford it
+        { tier: 1, rods: [
+          { key: 'quicken-lesser', minLevel: 11 }
+        ]},
+        // Tier 2: Other lesser rods (shuffled for variety)
+        { tier: 2, rods: shuffleArray([
+          { key: 'extend-lesser', minLevel: 5 },
+          { key: 'empower-lesser', minLevel: 7 },
+          { key: 'maximize-lesser', minLevel: 9 }
+        ])}
+      ];
+    } else {
+      // Skip Quicken or too low level
+      rodPools = [
+        // Just other lesser rods (shuffled)
+        { tier: 1, rods: shuffleArray([
+          { key: 'extend-lesser', minLevel: 5 },
+          { key: 'empower-lesser', minLevel: 7 },
+          { key: 'maximize-lesser', minLevel: 9 }
+        ])}
+      ];
+    }
+  }
+
+  // Flatten pools into priority list
+  const availableRods: { key: string; minLevel: number; priority: number }[] = [];
+  let priorityCounter = 1;
+  for (const pool of rodPools) {
+    for (const rod of pool.rods) {
+      if (level >= rod.minLevel) {
+        availableRods.push({ ...rod, priority: priorityCounter++ });
+      }
+    }
+  }
+
+  // Select rods within budget
+  const maxRods = level >= 17 ? 8 : (level >= 13 ? 4 : (level >= 9 ? 2 : 1));
+  
+  console.log(`Rod selection: Level ${level}, Budget ${budget} gp, Max rods ${maxRods}`);
   
   for (const rodPriority of availableRods) {
     if (selectedRods.length >= maxRods) break;
@@ -700,19 +851,76 @@ export function selectRods(
     
     // Check if we can afford it
     if (rod.price <= remainingBudget) {
-      // Don't get lesser version if we already have normal/greater of same feat
-      const hasBetterVersion = selectedRods.some(sr => 
-        sr.rod.metamagicFeat === rod.metamagicFeat && 
-        (sr.rod.tier === 'normal' || sr.rod.tier === 'greater')
+      // Don't get another version of same metamagic feat we already have
+      const hasAnyVersionOfSameFeat = selectedRods.some(sr => 
+        sr.rod.metamagicFeat === rod.metamagicFeat
       );
       
-      if (!hasBetterVersion) {
+      if (!hasAnyVersionOfSameFeat) {
         selectedRods.push({
           rod,
           priority: rodPriority.priority,
           reasoning: getRodReasoning(rod, level)
         });
         remainingBudget -= rod.price;
+        console.log(`  + ${rod.name} (${rod.price} gp), remaining: ${remainingBudget} gp`);
+      }
+    }
+  }
+  
+  // SECOND PASS: If significant budget remaining (> 30%), buy additional rods
+  const budgetThreshold = budget * 0.30;
+  if (remainingBudget > budgetThreshold && selectedRods.length < maxRods) {
+    console.log(`  Second pass: ${remainingBudget} gp remaining, looking for more rods...`);
+    
+    for (const rodPriority of availableRods) {
+      if (selectedRods.length >= maxRods) break;
+      
+      const rod = METAMAGIC_RODS[rodPriority.key];
+      if (!rod || rod.price > remainingBudget) continue;
+      
+      // Check if we already have this exact rod OR any version of same metamagic
+      const alreadyHave = selectedRods.some(sr => sr.rod.name === rod.name);
+      const hasAnyVersionOfSameFeat = selectedRods.some(sr => 
+        sr.rod.metamagicFeat === rod.metamagicFeat
+      );
+      
+      // In second pass, allow buying different tier of same feat (e.g., Lesser Extend if you have Greater Extend)
+      // This gives more uses per day across different spell levels
+      if (!alreadyHave && !hasAnyVersionOfSameFeat) {
+        selectedRods.push({
+          rod,
+          priority: rodPriority.priority,
+          reasoning: getRodReasoning(rod, level)
+        });
+        remainingBudget -= rod.price;
+        console.log(`  + (extra) ${rod.name} (${rod.price} gp), remaining: ${remainingBudget} gp`);
+      }
+    }
+  }
+  
+  // THIRD PASS: For level 17+ with HUGE budgets (>50k remaining), allow duplicate metamagics at different tiers
+  // e.g., Greater Empower for high-level spells AND Lesser Empower for low-level spells
+  if (level >= 17 && remainingBudget > 50000 && selectedRods.length < maxRods) {
+    console.log(`  Third pass (high-level): ${remainingBudget} gp remaining, looking for secondary tier rods...`);
+    
+    for (const rodPriority of availableRods) {
+      if (selectedRods.length >= maxRods) break;
+      
+      const rod = METAMAGIC_RODS[rodPriority.key];
+      if (!rod || rod.price > remainingBudget) continue;
+      
+      // Check if we already have this exact rod
+      const alreadyHave = selectedRods.some(sr => sr.rod.name === rod.name);
+      
+      if (!alreadyHave) {
+        selectedRods.push({
+          rod,
+          priority: rodPriority.priority + 100, // Lower priority for duplicates
+          reasoning: `${getRodReasoning(rod, level)} (secondary tier for versatility)`
+        });
+        remainingBudget -= rod.price;
+        console.log(`  + (secondary tier) ${rod.name} (${rod.price} gp), remaining: ${remainingBudget} gp`);
       }
     }
   }
@@ -724,12 +932,15 @@ export function selectRods(
     for (const sr of selectedRods) {
       console.log(`  ${sr.rod.name} (${sr.rod.price} gp) - ${sr.reasoning}`);
     }
-    console.log(`  Total: ${totalCost} gp`);
+    console.log(`  Total: ${totalCost} gp, Remaining: ${remainingBudget} gp`);
+    if (overspend > 0) {
+      console.log(`  ⚠️ Overspend: ${overspend} gp (from special purchase)`);
+    }
   } else {
     console.log(`  No rods selected (insufficient budget or level)`);
   }
 
-  return { rods: selectedRods, totalCost };
+  return { rods: selectedRods, totalCost, overspend };
 }
 
 function getRodReasoning(rod: MetamagicRodDefinition, level: number): string {
@@ -769,66 +980,178 @@ export interface StaffRecommendation {
  * - Cheap (16,500-28,500): Charming, Fire, Healing
  * - Mid (48,250-65,000): School staffs
  * - High (82,000-101,250): Conjuration, Abjuration, Woodlands
- * - Ultimate (170,500-211,000): Passage, Power
+ * - Ultimate (155,750-211,000): Life, Passage, Power
+ * 
+ * New approach: Buy the most expensive staff you can afford from preferred list.
+ * This gives more variety at high levels instead of always buying Evocation.
+ * 
+ * SPECIAL: Level 20 arcane casters have 50% chance to "decide" on Staff of Power,
+ * purchasing it even if it exceeds the budget. The overspend is tracked and
+ * deducted from final gold.
+ * 
+ * @param forceStaffOfPower - If true, buy Staff of Power regardless of budget (from special purchase decision)
  */
 export function selectStaff(
   level: number,
   budget: number,
-  characterClass: string
-): { staff: StaffRecommendation | null; totalCost: number } {
-  // No staffs below level 10 (not enough budget)
-  if (level < 10 || budget < 16500) {
-    return { staff: null, totalCost: 0 };
+  characterClass: string,
+  forceStaffOfPower: boolean = false
+): { staff: StaffRecommendation | null; totalCost: number; overspend: number } {
+  // Debug: Show incoming budget
+  console.log(`selectStaff called: Level ${level}, Budget ${budget} gp, Class ${characterClass}${forceStaffOfPower ? ' [FORCE STAFF OF POWER]' : ''}`);
+  
+  // No staffs below level 10 (not enough budget) - unless forcing Staff of Power
+  if (!forceStaffOfPower && (level < 10 || budget < 16500)) {
+    return { staff: null, totalCost: 0, overspend: 0 };
   }
 
   const className = characterClass.toLowerCase();
   
-  // Define staff priorities by class
-  let staffPriorities: string[] = [];
+  // SPECIAL PURCHASE: Staff of Power (if decision was made in selectCasterItems)
+  const staffOfPower = STAFFS['power'];
+  if (forceStaffOfPower && staffOfPower) {
+    const overspend = Math.max(0, staffOfPower.price - budget);
+    console.log(`  🎯 SPECIAL PURCHASE: Staff of Power: ${staffOfPower.price} gp, Budget: ${budget} gp, Overspend: ${overspend} gp`);
+    
+    const staffRec: StaffRecommendation = {
+      staff: staffOfPower,
+      priority: 1,
+      reasoning: 'SPECIAL PURCHASE: The ultimate arcane staff - offense, defense, and can break for emergency nuke!'
+    };
+    
+    return { staff: staffRec, totalCost: staffOfPower.price, overspend };
+  }
+  
+  // Define preferred staffs by class - larger lists for more variety
+  // The algorithm will pick the most expensive affordable one from this list
+  let preferredStaffs: string[] = [];
   
   if (className === 'wizard' || className === 'sorcerer') {
-    // Arcane casters prefer offensive/utility staffs
-    staffPriorities = ['evocation', 'fire', 'transmutation', 'power', 'conjuration'];
+    // Arcane casters - wide variety of options
+    // Power > Passage > school staffs > affordable staffs
+    preferredStaffs = [
+      'power',          // 211,000 - ultimate arcane staff
+      'passage',        // 170,500 - teleportation on demand
+      'evocation',      // 65,000 - blaster classics
+      'transmutation',  // 65,000 - polymorph, disintegrate
+      'conjuration',    // 65,000 - cloudkill, summoning
+      'necromancy',     // 65,000 - enervation, circle of death  
+      'enchantment',    // 65,000 - mind control
+      'illusion',       // 65,000 - deception
+      'abjuration',     // 65,000 - protection, dispel
+      'frost',          // 56,250 - cold damage + weapon
+      'fire',           // 17,750 - classic fire spells
+      'charming'        // 16,500 - budget enchantment
+    ];
   } else if (className === 'cleric') {
-    // Clerics prefer healing and defensive staffs
-    staffPriorities = ['healing', 'abjuration', 'necromancy'];
+    // Clerics prefer healing, defense, and necromancy (for evil clerics)
+    preferredStaffs = [
+      'life',           // 155,750 - heal + resurrection!
+      'passage',        // 170,500 - mobility for the party
+      'healing',        // 27,750 - affordable healing
+      'abjuration',     // 65,000 - protection spells
+      'necromancy',     // 65,000 - death effects (some deities)
+      'defense',        // 58,250 - shield spells
+      'illumination'    // 48,250 - sunburst vs undead!
+    ];
   } else if (className === 'druid') {
     // Druids prefer nature-themed staffs
-    staffPriorities = ['woodlands', 'healing', 'conjuration'];
+    preferredStaffs = [
+      'woodlands',      // 101,250 - the druid's best friend
+      'life',           // 155,750 - heal + resurrection
+      'passage',        // 170,500 - mobility
+      'swarmingInsects',// 24,750 - insect plague
+      'healing',        // 27,750 - affordable healing
+      'conjuration',    // 65,000 - summoning
+      'earthAndStone'   // 80,500 - terrain manipulation
+    ];
   } else if (className === 'bard') {
     // Bards prefer enchantment and utility
-    staffPriorities = ['charming', 'enchantment', 'illumination'];
+    preferredStaffs = [
+      'passage',        // 170,500 - mobility
+      'enchantment',    // 65,000 - mass suggestion
+      'illusion',       // 65,000 - deception
+      'charming',       // 16,500 - social encounters
+      'divination',     // 73,500 - true seeing, info gathering
+      'illumination'    // 48,250 - light-based utility
+    ];
   } else {
     // Default priority for other casters
-    staffPriorities = ['fire', 'evocation', 'healing'];
+    preferredStaffs = [
+      'passage',        // 170,500 - universally useful
+      'life',           // 155,750 - if they can use it
+      'evocation',      // 65,000 - damage spells
+      'fire',           // 17,750 - affordable damage
+      'healing'         // 27,750 - if they can use it
+    ];
   }
 
-  // Find best affordable staff
-  for (const staffKey of staffPriorities) {
-    const staff = STAFFS[staffKey];
-    if (!staff) continue;
-    
-    // Check if we can afford it
-    if (staff.price <= budget) {
-      // Level requirements for expensive staffs
-      if (staff.price > 100000 && level < 17) continue;  // Woodlands, Passage, Power
-      if (staff.price > 65000 && level < 15) continue;   // School staffs above base
+  // Filter to staffs this character can afford and meets level requirements for
+  // Level requirements:
+  // - Level 20: Staff of Power (211k) - only at max level
+  // - Level 17+: Staff of Life (155k), Passage (170k), Woodlands (101k)
+  // - Level 15+: School staffs (65k+), Earth and Stone (80k), Divination (73k)
+  // - Level 13+: Defense (58k), Frost (56k), Illumination (48k)
+  // - Level 10+: Fire (17k), Healing (27k), Charming (16k), etc.
+  
+  const affordableStaffs = preferredStaffs
+    .map(key => ({ key, staff: STAFFS[key] }))
+    .filter(({ key, staff }) => {
+      if (!staff) return false;
+      if (staff.price > budget) return false;
+      if (staff.price === 0) return false;  // Artifacts like Staff of the Magi
       
-      const staffRec: StaffRecommendation = {
-        staff,
-        priority: staffPriorities.indexOf(staffKey) + 1,
-        reasoning: getStaffReasoning(staff, characterClass)
-      };
+      // Level gates for expensive staffs
+      if (staff.price >= 200000 && level < 20) return false;  // Power (level 20 only)
+      if (staff.price >= 100000 && level < 17) return false;  // Life, Passage, Woodlands
+      if (staff.price >= 65000 && level < 15) return false;   // School staffs
+      if (staff.price >= 48000 && level < 13) return false;   // Mid-tier
       
-      console.log(`Staff Selection for Level ${level} ${className} (${budget} gp budget):`);
-      console.log(`  ${staff.name} (${staff.price} gp) - ${staffRec.reasoning}`);
-      
-      return { staff: staffRec, totalCost: staff.price };
-    }
+      return true;
+    });
+
+  if (affordableStaffs.length === 0) {
+    console.log(`Staff Selection for Level ${level} ${className}: No affordable staff found within ${budget} gp budget`);
+    return { staff: null, totalCost: 0, overspend: 0 };
   }
 
-  console.log(`Staff Selection for Level ${level} ${className}: No affordable staff found`);
-  return { staff: null, totalCost: 0 };
+  // Sort by price descending
+  affordableStaffs.sort((a, b) => b.staff.price - a.staff.price);
+  
+  // RANDOMIZATION: Don't always pick the most expensive!
+  // - 50% chance to pick the most expensive affordable staff
+  // - 30% chance to pick from the top 3 options (weighted toward expensive)
+  // - 20% chance to pick any affordable staff (true variety)
+  const roll = Math.random();
+  let chosen;
+  
+  if (roll < 0.50 || affordableStaffs.length === 1) {
+    // 50%: Pick the most expensive (optimal choice)
+    chosen = affordableStaffs[0];
+    console.log(`Staff Selection: Rolled optimal (${(roll * 100).toFixed(0)}%) - picking most expensive`);
+  } else if (roll < 0.80 && affordableStaffs.length >= 2) {
+    // 30%: Pick from top 3 (or however many are available)
+    const topChoices = affordableStaffs.slice(0, Math.min(3, affordableStaffs.length));
+    chosen = topChoices[Math.floor(Math.random() * topChoices.length)];
+    console.log(`Staff Selection: Rolled top-tier (${(roll * 100).toFixed(0)}%) - picking from top ${topChoices.length} options`);
+  } else {
+    // 20%: Pick any affordable staff (variety!)
+    chosen = affordableStaffs[Math.floor(Math.random() * affordableStaffs.length)];
+    console.log(`Staff Selection: Rolled variety (${(roll * 100).toFixed(0)}%) - picking randomly from all ${affordableStaffs.length} options`);
+  }
+  
+  const staffRec: StaffRecommendation = {
+    staff: chosen.staff,
+    priority: 1,  // It's our top pick
+    reasoning: getStaffReasoning(chosen.staff, characterClass)
+  };
+  
+  console.log(`Staff Selection for Level ${level} ${className} (${budget} gp budget):`);
+  console.log(`  Chose ${chosen.staff.name} (${chosen.staff.price} gp)`);
+  console.log(`  Reasoning: ${staffRec.reasoning}`);
+  console.log(`  Other affordable options: ${affordableStaffs.filter(s => s !== chosen).map(s => s.staff.name).join(', ') || 'none'}`);
+
+  return { staff: staffRec, totalCost: chosen.staff.price, overspend: 0 };
 }
 
 function getStaffReasoning(staff: StaffDefinition, characterClass: string): string {
@@ -862,6 +1185,7 @@ export interface CasterItemSelection {
   rodsCost: number;
   staffCost: number;
   totalCost: number;
+  overspend: number;  // Amount over budget (e.g., for Staff of Power special purchase)
 }
 
 /**
@@ -871,7 +1195,13 @@ export interface CasterItemSelection {
  * - Levels 5-9: 100% rods (staffs too expensive)
  * - Levels 10-12: 40% rods, 60% staff (get first staff)
  * - Levels 13-16: 50% rods, 50% staff (balance both)
- * - Levels 17+: 40% rods, 60% staff (staff of power priority)
+ * - Levels 17-19: 30% rods, 70% staff (high-end staffs priority)
+ * - Level 20: 40% rods, 60% staff (special purchases handled separately)
+ * 
+ * SPECIAL PURCHASES (Level 20 arcane casters only):
+ * - 50% chance to "decide" on a special purchase
+ * - If yes, randomly choose between Staff of Power OR Greater Quicken Rod
+ * - The overspend is tracked and deducted from final gold
  */
 export function selectCasterItems(
   level: number,
@@ -879,6 +1209,25 @@ export function selectCasterItems(
   characterClass: string
 ): CasterItemSelection {
   console.log(`\n=== CASTER ITEM SELECTION (Level ${level}, ${budget} gp) ===`);
+  
+  const className = characterClass.toLowerCase();
+  const isArcaneCaster = ['wizard', 'sorcerer'].includes(className);
+  
+  // SPECIAL PURCHASE DECISION (Level 20 arcane casters only)
+  // Decide FIRST before any budget splits, so staff and rod selection know what's happening
+  type SpecialPurchase = 'staff-of-power' | 'greater-quicken' | 'none';
+  let specialPurchase: SpecialPurchase = 'none';
+  
+  if (level >= 20 && isArcaneCaster) {
+    const wantsSpecialPurchase = Math.random() < 0.50;
+    if (wantsSpecialPurchase) {
+      // 50/50 between Staff of Power and Greater Quicken Rod
+      specialPurchase = Math.random() < 0.50 ? 'staff-of-power' : 'greater-quicken';
+      console.log(`🎯 Level 20 ${className}: SPECIAL PURCHASE - ${specialPurchase === 'staff-of-power' ? 'Staff of Power' : 'Greater Quicken Rod'}!`);
+    } else {
+      console.log(`Level 20 ${className}: Decided to skip special purchase, buying normally.`);
+    }
+  }
   
   // Determine budget split
   let rodPercent: number;
@@ -896,8 +1245,12 @@ export function selectCasterItems(
     // Balance both
     rodPercent = 0.50;
     staffPercent = 0.50;
+  } else if (level < 20) {
+    // High-end staffs priority (Life, Passage, Woodlands)
+    rodPercent = 0.30;
+    staffPercent = 0.70;
   } else {
-    // Staff of Power priority
+    // Level 20: Normal split - special purchases handled via overspend logic
     rodPercent = 0.40;
     staffPercent = 0.60;
   }
@@ -908,21 +1261,27 @@ export function selectCasterItems(
   console.log(`Budget split: Rods ${rodBudget} gp (${(rodPercent * 100).toFixed(0)}%), Staff ${staffBudget} gp (${(staffPercent * 100).toFixed(0)}%)`);
   
   // Select staff first (more important at higher levels)
-  const staffResult = selectStaff(level, staffBudget, characterClass);
+  // Pass the special purchase decision so it knows whether to buy Staff of Power
+  const staffResult = selectStaff(level, staffBudget, characterClass, specialPurchase === 'staff-of-power');
   
   // Give leftover staff budget to rods
   const leftoverBudget = staffBudget - staffResult.totalCost;
   const actualRodBudget = rodBudget + leftoverBudget;
   
   // Select rods
-  const rodsResult = selectRods(level, actualRodBudget, characterClass);
+  // Pass the special purchase decision so it knows whether to buy Greater Quicken
+  const rodsResult = selectRods(level, actualRodBudget, characterClass, specialPurchase === 'greater-quicken');
   
   const totalCost = rodsResult.totalCost + staffResult.totalCost;
+  const totalOverspend = staffResult.overspend + rodsResult.overspend;
   
   console.log(`\nFinal Selection:`);
   console.log(`  Rods: ${rodsResult.rods.length} items (${rodsResult.totalCost} gp)`);
   console.log(`  Staff: ${staffResult.staff ? staffResult.staff.staff.name : 'None'} (${staffResult.totalCost} gp)`);
   console.log(`  Total: ${totalCost} gp`);
+  if (totalOverspend > 0) {
+    console.log(`  ⚠️ Special purchase overspend: ${totalOverspend} gp (will be deducted from final gold)`);
+  }
   console.log(`  Remaining: ${budget - totalCost} gp`);
   console.log(`=== CASTER ITEM SELECTION COMPLETE ===\n`);
   
@@ -931,7 +1290,8 @@ export function selectCasterItems(
     staff: staffResult.staff,
     rodsCost: rodsResult.totalCost,
     staffCost: staffResult.totalCost,
-    totalCost
+    totalCost,
+    overspend: totalOverspend
   };
 }
 

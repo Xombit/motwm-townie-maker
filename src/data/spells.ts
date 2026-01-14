@@ -299,6 +299,67 @@ export const ARCANE_LEVEL_3: Record<string, SpellDefinition> = {
   }
 };
 
+/**
+ * Level 4 Arcane Spells (for wands - max spell level for wands per SRD)
+ * Wand cost at CL 7: 21,000 gp
+ */
+export const ARCANE_LEVEL_4: Record<string, SpellDefinition> = {
+  STONESKIN: {
+    id: 'LMXJf1pUbMTU5gUt',
+    name: 'Stoneskin',
+    level: 4,
+    minCasterLevel: 7,
+    school: 'abj',
+    description: 'DR 10/adamantine (absorb 10 points/level).',
+    tags: ['defense', 'buff']
+  },
+  GREATER_INVISIBILITY: {
+    id: 'vQ7jR3cF5KuX8nMy',
+    name: 'Greater Invisibility',
+    level: 4,
+    minCasterLevel: 7,
+    school: 'ill',
+    description: 'Invisibility that doesn\'t end when attacking.',
+    tags: ['buff', 'utility']
+  },
+  ENERVATION: {
+    id: 'bX4pN1kQ8uR2mWsZ',
+    name: 'Enervation',
+    level: 4,
+    minCasterLevel: 7,
+    school: 'nec',
+    description: 'Ray deals 1d4 negative levels.',
+    tags: ['damage', 'control']
+  },
+  SOLID_FOG: {
+    id: 'cY5qO2lR9vS3nXtA',
+    name: 'Solid Fog',
+    level: 4,
+    minCasterLevel: 7,
+    school: 'con',
+    description: 'Heavy fog limits movement and attacks.',
+    tags: ['control']
+  },
+  DIMENSION_DOOR: {
+    id: 'qX3P4O9Y5ZxKj3TL',
+    name: 'Dimension Door',
+    level: 4,
+    minCasterLevel: 7,
+    school: 'con',
+    description: 'Teleports you short distance (400ft + 40ft/level).',
+    tags: ['utility', 'movement']
+  },
+  EVARDS_BLACK_TENTACLES: {
+    id: 'dZ6rP3mS0wT4oYuB',
+    name: 'Evard\'s Black Tentacles',
+    level: 4,
+    minCasterLevel: 7,
+    school: 'con',
+    description: 'Tentacles grapple creatures in area.',
+    tags: ['control']
+  }
+};
+
 // ============================================================================
 // DIVINE SPELLS (Cleric/Druid)
 // ============================================================================
@@ -662,22 +723,24 @@ export const ARCANE_SCROLL_LEVEL_7: Record<string, SpellDefinition> = {
 // ============================================================================
 
 /**
- * All arcane spell collections by level (for wands)
+ * All arcane spell collections by level (for wands - up to level 4)
  */
 export const ARCANE_SPELLS_BY_LEVEL = {
   0: ARCANE_CANTRIPS,
   1: ARCANE_LEVEL_1,
   2: ARCANE_LEVEL_2,
-  3: ARCANE_LEVEL_3
+  3: ARCANE_LEVEL_3,
+  4: ARCANE_LEVEL_4
 };
 
 /**
- * All divine spell collections by level (for wands)
+ * All divine spell collections by level (for wands - up to level 4)
  */
 export const DIVINE_SPELLS_BY_LEVEL = {
   1: DIVINE_LEVEL_1,
   2: DIVINE_LEVEL_2,
-  3: DIVINE_LEVEL_3
+  3: DIVINE_LEVEL_3,
+  4: DIVINE_LEVEL_4
 };
 
 /**
@@ -703,25 +766,27 @@ export const DIVINE_SCROLL_SPELLS_BY_LEVEL = {
 };
 
 /**
- * Get all wand spells as a flat array
+ * Get all wand spells as a flat array (up to level 4 - max for wands per SRD)
  */
 export function getAllArcaneSpells(): SpellDefinition[] {
   return [
     ...Object.values(ARCANE_CANTRIPS),
     ...Object.values(ARCANE_LEVEL_1),
     ...Object.values(ARCANE_LEVEL_2),
-    ...Object.values(ARCANE_LEVEL_3)
+    ...Object.values(ARCANE_LEVEL_3),
+    ...Object.values(ARCANE_LEVEL_4)
   ];
 }
 
 /**
- * Get all divine wand spells as a flat array
+ * Get all divine wand spells as a flat array (up to level 4 - max for wands per SRD)
  */
 export function getAllDivineSpells(): SpellDefinition[] {
   return [
     ...Object.values(DIVINE_LEVEL_1),
     ...Object.values(DIVINE_LEVEL_2),
-    ...Object.values(DIVINE_LEVEL_3)
+    ...Object.values(DIVINE_LEVEL_3),
+    ...Object.values(DIVINE_LEVEL_4)
   ];
 }
 

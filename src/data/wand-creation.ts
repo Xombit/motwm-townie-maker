@@ -25,12 +25,14 @@ declare const game: any;
  * @param actor The actor to add the wand to
  * @param spell The spell to create a wand from
  * @param casterLevel The caster level for the wand
+ * @param identifyItems If true, wand will be identified; if false, unidentified
  * @returns The created wand item or null if failed
  */
 export async function createWandFromSpell(
   actor: any,
   spell: SpellDefinition,
-  casterLevel: number
+  casterLevel: number,
+  identifyItems: boolean = false
 ): Promise<any | null> {
   try {
     // Get the spell from the compendium
@@ -62,7 +64,12 @@ export async function createWandFromSpell(
         price: cost,
         quantity: 1,
         weight: 0,
-        identified: true,
+        identified: identifyItems,
+        identifiedName: `Wand of ${spell.name}`,
+        unidentified: {
+          name: 'Wand',
+          price: 0
+        },
         uses: {
           value: 50,
           max: 50,
@@ -113,16 +120,18 @@ export async function createWandFromSpell(
  * 
  * @param actor The actor to add wands to
  * @param wands Array of wand recommendations
+ * @param identifyItems Whether to create items as identified
  * @returns Number of wands successfully created
  */
 export async function addWandsToActor(
   actor: any,
-  wands: WandRecommendation[]
+  wands: WandRecommendation[],
+  identifyItems: boolean = true
 ): Promise<number> {
   let successCount = 0;
   
   for (const wandRec of wands) {
-    const wand = await createWandFromSpell(actor, wandRec.spell, wandRec.casterLevel);
+    const wand = await createWandFromSpell(actor, wandRec.spell, wandRec.casterLevel, identifyItems);
     if (wand) {
       successCount++;
     }

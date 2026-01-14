@@ -9,6 +9,9 @@
 
 import { SpellSelection, SpellItem, isCasterClass } from './spell-selection';
 
+// Declare global game object (Foundry VTT runtime)
+declare const game: any;
+
 /**
  * Configure an actor's spellbook
  * Sets up attributes.spells.spellbooks.primary with proper configuration
@@ -181,6 +184,43 @@ export async function configureSpellbook(actor: any, spellSelection: SpellSelect
 }
 
 /**
+ * Generate alternate spell name formats to search for.
+ * D35E compendium may use "Spell, Greater" instead of "Greater Spell" etc.
+ */
+function getSpellNameVariants(name: string): string[] {
+  const variants: string[] = [name];
+  
+  // Handle "Greater X" -> "X, Greater"
+  if (name.startsWith('Greater ')) {
+    const baseName = name.replace('Greater ', '');
+    variants.push(`${baseName}, Greater`);
+  }
+  // Handle "Lesser X" -> "X, Lesser"
+  if (name.startsWith('Lesser ')) {
+    const baseName = name.replace('Lesser ', '');
+    variants.push(`${baseName}, Lesser`);
+  }
+  // Handle "Mass X" -> "X, Mass"
+  if (name.startsWith('Mass ')) {
+    const baseName = name.replace('Mass ', '');
+    variants.push(`${baseName}, Mass`);
+  }
+  
+  // Also try the reverse: "X, Greater" -> "Greater X"
+  if (name.includes(', Greater')) {
+    variants.push('Greater ' + name.replace(', Greater', ''));
+  }
+  if (name.includes(', Lesser')) {
+    variants.push('Lesser ' + name.replace(', Lesser', ''));
+  }
+  if (name.includes(', Mass')) {
+    variants.push('Mass ' + name.replace(', Mass', ''));
+  }
+  
+  return variants;
+}
+
+/**
  * Add spells to an actor from the D35E.spells compendium
  */
 export async function addSpellsToActor(actor: any, spellSelection: SpellSelection): Promise<void> {
@@ -209,10 +249,16 @@ export async function addSpellsToActor(actor: any, spellSelection: SpellSelectio
   
   for (const spell of spells) {
     try {
-      // Search for spell by name (case-insensitive)
-      const spellEntry = spellPack.index.find((entry: any) => 
-        entry.name.toLowerCase() === spell.name.toLowerCase()
-      );
+      // Search for spell by name (case-insensitive), trying name variants
+      const nameVariants = getSpellNameVariants(spell.name);
+      let spellEntry = null;
+      
+      for (const variant of nameVariants) {
+        spellEntry = spellPack.index.find((entry: any) => 
+          entry.name.toLowerCase() === variant.toLowerCase()
+        );
+        if (spellEntry) break;
+      }
       
       if (!spellEntry) {
         console.warn(`  ⚠ Spell not found in compendium: ${spell.name} (level ${spell.level})`);

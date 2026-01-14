@@ -146,6 +146,14 @@ export interface TownieFormData {
   usePcSheet?: boolean;  // When true (default), use PC sheet; when false, use Simple NPC sheet
   useMaxHpPerHD?: boolean;  // When true, use max HP per hit die instead of rolling
   
+  // Loot options
+  identifyItems?: boolean;  // When true, magic items are identified; when false, they're unidentified for loot
+  extraMoneyInBank?: boolean;  // When true, excess gold becomes a bank deposit slip
+  bankName?: string;  // Name of the bank for deposit slips (default: "The First Bank of Lower Everbrook")
+  
+  // Token options
+  tokenDisposition?: number;  // -1 = Hostile, 0 = Neutral, 1 = Friendly (default: 0)
+  
   // Options
   autoRollHP: boolean;
   folder?: string;

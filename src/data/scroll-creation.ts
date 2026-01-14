@@ -11,17 +11,47 @@ import type { ScrollRecommendation } from './scroll-recommendations.js';
 declare const game: any;
 
 /**
+ * Generate alternate spell name formats to search for.
+ * D35E compendium may use "Spell, Greater" instead of "Greater Spell" etc.
+ */
+function getSpellNameVariants(name: string): string[] {
+  const variants: string[] = [name];
+  
+  // Handle "Greater X" -> "X, Greater"
+  if (name.startsWith('Greater ')) {
+    const baseName = name.replace('Greater ', '');
+    variants.push(`${baseName}, Greater`);
+  }
+  // Handle "Lesser X" -> "X, Lesser"
+  if (name.startsWith('Lesser ')) {
+    const baseName = name.replace('Lesser ', '');
+    variants.push(`${baseName}, Lesser`);
+  }
+  // Handle "Mass X" -> "X, Mass"
+  if (name.startsWith('Mass ')) {
+    const baseName = name.replace('Mass ', '');
+    variants.push(`${baseName}, Mass`);
+  }
+  
+  return variants;
+}
+
+/**
  * Create a scroll item from a spell
  * 
  * @param spellId The compendium ID of the spell
  * @param casterLevel The caster level for the scroll
  * @param scrollType Whether this is an arcane or divine scroll
+ * @param identifyItems Whether to create items as identified
+ * @param spellName Optional spell name for fallback search if ID doesn't work
  * @returns The scroll item data
  */
 export async function createScrollFromSpell(
   spellId: string,
   casterLevel: number,
-  scrollType: 'arcane' | 'divine'
+  scrollType: 'arcane' | 'divine',
+  identifyItems: boolean = true,
+  spellName?: string
 ): Promise<any> {
   // Fetch the spell from the compendium
   const spellsPack = game.packs.get('D35E.spells');
@@ -30,9 +60,29 @@ export async function createScrollFromSpell(
     return null;
   }
   
-  const spell = await spellsPack.getDocument(spellId);
+  // First try by ID
+  let spell = await spellsPack.getDocument(spellId);
+  
+  // If not found by ID and we have a name, try searching by name (with variants)
+  if (!spell && spellName) {
+    await spellsPack.getIndex();
+    
+    // Generate name variants to search (e.g., "Greater Teleport" -> "Teleport, Greater")
+    const nameVariants = getSpellNameVariants(spellName);
+    
+    for (const variant of nameVariants) {
+      const spellEntry = spellsPack.index.find((entry: any) => 
+        entry.name.toLowerCase() === variant.toLowerCase()
+      );
+      if (spellEntry) {
+        spell = await spellsPack.getDocument(spellEntry._id);
+        if (spell) break;
+      }
+    }
+  }
+  
   if (!spell) {
-    console.error(`Spell not found in compendium: ${spellId}`);
+    console.error(`Spell not found in compendium: ${spellName || spellId}`);
     return null;
   }
   
@@ -73,7 +123,12 @@ export async function createScrollFromSpell(
       quantity: 1,
       weight: 0,
       price: price,
-      identified: true,
+      identified: identifyItems,
+      identifiedName: `Scroll of ${spell.name}`,
+      unidentified: {
+        name: 'Scroll',
+        price: 0
+      },
       equipped: true,
       activation: {
         type: 'standard',
@@ -115,10 +170,12 @@ function getAuraStrength(casterLevel: number): string {
  * 
  * @param actor The actor to add scrolls to
  * @param scrolls Array of scroll recommendations
+ * @param identifyItems Whether to create items as identified
  */
 export async function createScrollsForActor(
   actor: any,
-  scrolls: ScrollRecommendation[]
+  scrolls: ScrollRecommendation[],
+  identifyItems: boolean = true
 ): Promise<void> {
   if (scrolls.length === 0) {
     console.log('No scrolls to create');
@@ -133,7 +190,9 @@ export async function createScrollsForActor(
     const scrollData = await createScrollFromSpell(
       scrollRec.spell.id,
       scrollRec.casterLevel,
-      scrollRec.scrollType
+      scrollRec.scrollType,
+      identifyItems,
+      scrollRec.spell.name  // Pass name for fallback lookup
     );
     
     if (scrollData) {

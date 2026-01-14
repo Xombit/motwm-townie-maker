@@ -185,6 +185,59 @@
         </div>
       </div>
 
+      <div class="section-header">Token Options</div>
+      
+      <div class="form-group" style="margin-bottom: 16px;">
+        <label style="font-weight: bold; display: block; margin-bottom: 4px;">Token Disposition</label>
+        <select data-field="tokenDisposition" style="width: 200px; padding: 4px 8px;">
+          <option value="1" {{#if (eq formData.tokenDisposition 1)}}selected{{/if}}>Friendly</option>
+          <option value="0" {{#if (eq formData.tokenDisposition 0)}}selected{{/if}}>Neutral</option>
+          <option value="-1" {{#if (eq formData.tokenDisposition -1)}}selected{{/if}}>Hostile</option>
+        </select>
+        <div style="font-size: 11px; color: var(--color-text-light-6, #999); margin-top: 4px;">
+          Sets the default disposition for tokens placed from this character.<br>
+          Friendly = green border, Neutral = yellow border, Hostile = red border.
+        </div>
+      </div>
+
+      <div class="section-header">Loot Options</div>
+      
+      <div class="form-group" style="margin-bottom: 16px;">
+        <label style="display: flex; align-items: center; gap: 8px; cursor: pointer;">
+          <input type="checkbox" 
+                 data-field="identifyItems" 
+                 {{#if formData.identifyItems}}checked{{/if}}
+                 style="width: 18px; height: 18px;">
+          <span style="font-weight: bold;">Identify Magic Items</span>
+        </label>
+        <div style="font-size: 11px; color: var(--color-text-light-6, #999); margin-left: 26px; margin-top: 4px;">
+          When enabled, magic items are identified and show their full names.<br>
+          When disabled, items appear unidentified (suitable for loot drops).
+        </div>
+      </div>
+      
+      <div class="form-group" style="margin-bottom: 16px;">
+        <label style="display: flex; align-items: center; gap: 8px; cursor: pointer;">
+          <input type="checkbox" 
+                 data-field="extraMoneyInBank" 
+                 {{#if formData.extraMoneyInBank}}checked{{/if}}
+                 style="width: 18px; height: 18px;">
+          <span style="font-weight: bold;">Extra Money in the Bank</span>
+        </label>
+        <div style="font-size: 11px; color: var(--color-text-light-6, #999); margin-left: 26px; margin-top: 4px;">
+          When enabled, excess gold becomes a bank deposit slip with only pocket change remaining.<br>
+          When disabled, all remaining gold is given as coins.
+        </div>
+        <div style="margin-left: 26px; margin-top: 8px;">
+          <label style="font-size: 12px; font-weight: bold; display: block; margin-bottom: 4px;">Bank Name</label>
+          <input type="text" 
+                 data-field="bankName" 
+                 value="{{formData.bankName}}"
+                 placeholder="The First Bank of Lower Everbrook"
+                 style="width: 100%; max-width: 300px; padding: 4px 8px; font-size: 12px;">
+        </div>
+      </div>
+
       {{#if formData.useStandardBudget}}
       <div class="section-header" style="margin-top: 20px;">Magic Item Budget Allocation</div>
       <div style="font-size: 11px; color: var(--color-text-light-6, #999); margin-bottom: 8px; padding: 0 4px;">

@@ -33,6 +33,7 @@ import {
   CLOAK_OF_RESISTANCE,
   RING_OF_PROTECTION,
   AMULET_OF_NATURAL_ARMOR,
+  AMULET_OF_MIGHTY_FISTS,
   getBestAffordableBonus,
   BIG_SIX_PRIORITIES,
   WondrousItemDefinition,
@@ -94,8 +95,8 @@ export const MAGIC_ITEM_BUDGET_ALLOCATION = {
     armor: 0.00,       // 0% - Arcane spell failure - use Bracers of Armor instead
     statItem: 0.22,    // 22% - Mental stat is CRITICAL for spell DCs (boosted)
     resistance: 0.14,  // 14% - Saves are very important for squishy casters
-    protection: 0.14,  // 14% - AC from Ring/Amulet + Bracers (boosted, includes bracers budget)
-    consumables: 0.18, // 18% - Wands/scrolls/potions
+    protection: 0.20,  // 20% - AC from Ring/Amulet/Bracers (boosted from 14% - casters NEED AC)
+    consumables: 0.12, // 12% - Wands/scrolls/potions (reduced from 18% to fund bracers)
     rodsStaves: 0.32   // 32% - Metamagic rods and staffs (replaces weapon+armor)
   },
   // DIVINE CASTERS (Cleric, Druid): Can wear armor but don't need weapons
@@ -119,6 +120,87 @@ export const MAGIC_ITEM_BUDGET_ALLOCATION = {
     protection: 0.04,  // 4% - Ring/Amulet (slightly reduced)
     consumables: 0.06, // 6% - Wands/scrolls/potions (3x more than pure martial)
     rodsStaves: 0.00   // 0% - Paladins/Rangers use weapons, not rods
+  },
+  // MONKS: Unique unarmed fighters who need Amulet of Mighty Fists instead of weapons
+  // No armor (loses AC bonus), need Bracers of Armor for armor bonus
+  // Multiple stat dependencies: STR (attack/damage), DEX (AC), WIS (AC)
+  // Neck slot conflict: Amulet of Mighty Fists > Periapt of Wisdom > Amulet of Natural Armor
+  // 
+  // Monks have specific item needs with caps, but percentages ensure best-in-slot at each level:
+  // - Mighty Fists: +1 (6k) to +5 (150k) - primary offense
+  // - Belt/Gloves: +2 (4k) to +6 (36k each) - STR for damage, DEX for AC
+  // - Ring: +1 (2k) to +5 (50k), Bracers: +1 (1k) to +8 (64k) - AC
+  // - Cloak: +1 (1k) to +5 (25k) - saves
+  // At high levels, monks naturally have leftover gold (frugal living is thematic!)
+  monk: {
+    weapon: 0.00,      // 0% - Monks use unarmed strikes, not weapons
+    armor: 0.00,       // 0% - Monks lose AC bonus if wearing armor
+    mightyFists: 0.30, // 30% - Amulet of Mighty Fists (primary offense, expensive!)
+    statItem: 0.25,    // 25% - Belt of STR + Gloves of DEX (both important)
+    protection: 0.25,  // 25% - Ring of Protection + Bracers of Armor (main AC sources)
+    resistance: 0.08,  // 8% - Cloak of Resistance
+    consumables: 0.12, // 12% - Potions (standard martial amount)
+    rodsStaves: 0.00   // 0% - Monks don't use rods/staves
+  },
+  
+  // ==========================================================================
+  // CLERIC VARIANTS: Melee vs Caster focus
+  // Both can wear heavy armor, use shields, and need Periapt of Wisdom
+  // ==========================================================================
+  
+  // CLERIC (MELEE): Battle cleric with weapon and shield focus
+  // Like a martial but with WIS stat item and some utility casting
+  clericMelee: {
+    weapon: 0.30,      // 30% - Good weapon enhancement (+3 to +4)
+    armor: 0.32,       // 32% - Heavy armor + shield (shield can have abilities!)
+    statItem: 0.15,    // 15% - Periapt of Wisdom for spell DCs
+    resistance: 0.08,  // 8% - Cloak of Resistance
+    protection: 0.07,  // 7% - Ring of Protection (no amulet - neck has periapt)
+    consumables: 0.08, // 8% - Wands/scrolls/potions for utility
+    rodsStaves: 0.00   // 0% - Battle clerics use weapons, not rods
+  },
+  
+  // CLERIC (CASTER): Spell-focused cleric with metamagic rods
+  // Still wears armor (no spell failure), but focuses on spellcasting
+  clericCaster: {
+    weapon: 0.00,      // 0% - Caster clerics don't focus on melee
+    armor: 0.28,       // 28% - Still wear armor (no arcane spell failure!)
+    statItem: 0.18,    // 18% - Periapt of Wisdom is crucial for DCs
+    resistance: 0.12,  // 12% - Saves matter for frontline casters
+    protection: 0.10,  // 10% - Ring of Protection
+    consumables: 0.12, // 12% - Wands/scrolls/potions
+    rodsStaves: 0.20   // 20% - Metamagic rods for Extend/Maximize buffs
+  },
+  
+  // ==========================================================================
+  // DRUID VARIANTS: Wildshape vs Caster focus
+  // Both limited to non-metal armor (hide, leather, dragonhide)
+  // ==========================================================================
+  
+  // DRUID (WILDSHAPE): Melee via animal forms
+  // Like monks - need Amulet of Mighty Fists for natural attacks!
+  // Wild armor is expensive but worth it
+  druidWildshape: {
+    weapon: 0.00,      // 0% - Use claws/bites in wildshape, not weapons
+    armor: 0.20,       // 20% - Wild armor (melds with form) - dragonhide if possible
+    mightyFists: 0.28, // 28% - Amulet of Mighty Fists for natural attacks!
+    statItem: 0.18,    // 18% - Periapt of Wisdom for spells + Wild Empathy
+    protection: 0.12,  // 12% - Ring + natural armor varies by form
+    resistance: 0.10,  // 10% - Saves
+    consumables: 0.12, // 12% - Potions work in wildshape!
+    rodsStaves: 0.00   // 0% - Can't use rods in animal form
+  },
+  
+  // DRUID (CASTER): Spell-focused druid with summons/control
+  // Non-metal armor, metamagic rods for Extend/Empower summons
+  druidCaster: {
+    weapon: 0.00,      // 0% - Caster druids don't focus on weapons
+    armor: 0.22,       // 22% - Non-metal armor (hide, dragonhide)
+    statItem: 0.20,    // 20% - Periapt of Wisdom is critical
+    resistance: 0.12,  // 12% - Saves
+    protection: 0.10,  // 10% - Ring/Amulet (can use amulet if no mighty fists)
+    consumables: 0.14, // 14% - Wands/scrolls/potions for utility
+    rodsStaves: 0.22   // 22% - Extend rod for summons, Empower for damage spells
   }
 } as const;
 
@@ -217,6 +299,7 @@ export interface MagicItemSelection {
   shieldEnhancement: { bonus: number; abilities: (string | EnhancementAbility)[] } | null;  // Shield enhancements (uses armor mechanics)
   wondrousItems: WondrousItemDefinition[];
   hasHandyHaversack: boolean;  // Flag to create custom Handy Haversack (not in compendium)
+  hasScarabOfProtection: boolean;  // Flag to create custom Scarab of Protection (D35E compendium missing SR 20)
   wands: WandRecommendation[];  // Wands for casters
   scrolls: ScrollRecommendation[];  // Scrolls for casters
   potions: PotionRecommendation[];  // Potions for everyone
@@ -234,6 +317,7 @@ export interface MagicItemSelection {
   rodsCost: number;  // Cost of metamagic rods
   staffCost: number;  // Cost of staff
   totalCost: number;
+  overspend: number;  // Amount spent over budget (e.g., Staff of Power special purchase), deduct from final gold
 }
 
 /**
@@ -261,6 +345,8 @@ function normalizeClassName(className: string): CharacterClass {
  *   - ringPercent: % of protection budget for Ring of Protection (default: 0.60)
  *   - amuletPercent: % of protection budget for Amulet of Natural Armor (default: 0.40)
  * All percentages fall back to hardcoded defaults if not specified in template
+ * @param strScore - Character's STR score (used to determine if Bag of Holding is appropriate)
+ * @param hasShield - Whether the character's starting kit has a shield (used to detect melee vs caster build)
  */
 export async function selectMagicItems(
   level: number,
@@ -272,10 +358,12 @@ export async function selectMagicItems(
     secondaryWeaponPercent?: number;
     ringPercent?: number;
     amuletPercent?: number;
-  }
+  },
+  strScore: number = 10,
+  hasShield: boolean = false  // From template.startingKit.shield
 ): Promise<MagicItemSelection> {
   console.log(`\n=== MAGIC ITEM SELECTION ===`);
-  console.log(`Level: ${level}, Class: ${characterClass}, Budget: ${totalBudget} gp`);
+  console.log(`Level: ${level}, Class: ${characterClass}, Budget: ${totalBudget} gp, STR: ${strScore}`);
 
   // Don't buy magic items below level 3 (not enough wealth)
   if (level < 3) {
@@ -287,6 +375,7 @@ export async function selectMagicItems(
       shieldEnhancement: null,
       wondrousItems: [],
       hasHandyHaversack: false,
+      hasScarabOfProtection: false,
       wands: [],
       scrolls: [],
       potions: [],
@@ -302,7 +391,8 @@ export async function selectMagicItems(
       potionsCost: 0,
       rodsCost: 0,
       staffCost: 0,
-      totalCost: 0
+      totalCost: 0,
+      overspend: 0
     };
   }
 
@@ -310,12 +400,14 @@ export async function selectMagicItems(
   const classType = getClassType(characterClass);
   
   // Determine budget type based on class
+  // - Monks: Unique unarmed fighters, need Amulet of Mighty Fists
   // - Pure casters (wizard/sorcerer): Skip weapons entirely, use rods/staves
   // - Divine casters (cleric/druid): Skip weapons, but can wear armor
   // - Partial caster martials (paladin/ranger): Frontline fighters who can cast
   // - Martials: Pure weapon/armor focus
   // - Generic casters (bard): Some weapon use
   const normalizedClassLower = characterClass.toLowerCase();
+  const isMonk = normalizedClassLower === 'monk';
   const isPaladinOrRanger = normalizedClassLower === 'paladin' || normalizedClassLower === 'ranger';
   const isPure = isPureCaster(characterClass);
   const isDivine = isDivineCaster(characterClass);
@@ -331,15 +423,47 @@ export async function selectMagicItems(
     protection: number;
     consumables: number;
     rodsStaves: number;
+    mightyFists?: number;  // Monks and wildshape druids
   };
   let budgetTypeName: string;
+  let usesMightyFists = false;  // Track whether this build uses Amulet of Mighty Fists
   
-  if (isPure) {
+  if (isMonk) {
+    budgetAllocation = MAGIC_ITEM_BUDGET_ALLOCATION.monk;
+    budgetTypeName = 'Monk (Unarmed Fighter)';
+    usesMightyFists = true;
+  } else if (isPure) {
     budgetAllocation = MAGIC_ITEM_BUDGET_ALLOCATION.pureCaster;
     budgetTypeName = 'Pure Caster (Wizard/Sorcerer)';
+  } else if (normalizedClassLower === 'cleric') {
+    // CLERIC BUILD DETECTION: Shield in kit = War Cleric, No shield = Caster Cleric
+    // Similar to how ranger combat style is detected from weapon loadout
+    if (hasShield) {
+      budgetAllocation = MAGIC_ITEM_BUDGET_ALLOCATION.clericMelee;
+      budgetTypeName = 'Cleric (Battle/Melee)';
+      console.log(`🛡️ CLERIC BUILD: Battle Cleric (has shield) - focusing on weapon + armor`);
+    } else {
+      budgetAllocation = MAGIC_ITEM_BUDGET_ALLOCATION.clericCaster;
+      budgetTypeName = 'Cleric (Caster)';
+      console.log(`📖 CLERIC BUILD: Caster Cleric (no shield) - focusing on spells + metamagic rods`);
+    }
+  } else if (normalizedClassLower === 'druid') {
+    // DRUID BUILD DETECTION: Shield in kit = Wildshape Druid, No shield = Caster Druid
+    // Wildshape druids need Amulet of Mighty Fists for their natural attacks!
+    if (hasShield) {
+      budgetAllocation = MAGIC_ITEM_BUDGET_ALLOCATION.druidWildshape;
+      budgetTypeName = 'Druid (Wildshape)';
+      usesMightyFists = true;  // Wildshape druids use Mighty Fists for natural attacks!
+      console.log(`🐻 DRUID BUILD: Wildshape Druid (has shield) - focusing on Amulet of Mighty Fists`);
+    } else {
+      budgetAllocation = MAGIC_ITEM_BUDGET_ALLOCATION.druidCaster;
+      budgetTypeName = 'Druid (Caster)';
+      console.log(`🌿 DRUID BUILD: Caster Druid (no shield) - focusing on summons + metamagic rods`);
+    }
   } else if (isDivine) {
-    budgetAllocation = MAGIC_ITEM_BUDGET_ALLOCATION.divineCaster;
-    budgetTypeName = 'Divine Caster (Cleric/Druid)';
+    // Fallback for any other divine casters (shouldn't happen with current classes)
+    budgetAllocation = MAGIC_ITEM_BUDGET_ALLOCATION.clericCaster;
+    budgetTypeName = 'Divine Caster';
   } else if (isPaladinOrRanger) {
     budgetAllocation = MAGIC_ITEM_BUDGET_ALLOCATION.partialCasterMartial;
     budgetTypeName = 'Partial Caster Martial (Paladin/Ranger)';
@@ -351,8 +475,47 @@ export async function selectMagicItems(
     budgetTypeName = 'Caster (Bard)';
   }
   
+  // ==========================================================================
+  // SELF-INVESTMENT DECISION (Level 5+)
+  // 50% chance to spend extra on weapons, armor, or rods/staves
+  // Investment amount: 75% of expected leftover (conservatively estimated at 15% of wealth)
+  // ==========================================================================
+  let investmentOverspend = 0;
+  let investmentTarget: 'weapon' | 'armor' | 'rodsStaves' | 'none' = 'none';
+  
+  if (level >= 5) {
+    const wantsToInvest = Math.random() < 0.50;
+    
+    if (wantsToInvest) {
+      // Conservative estimate: 15% of budget typically left over
+      // Investment uses 75% of that = 11.25% of total budget
+      investmentOverspend = Math.floor(totalBudget * 0.15 * 0.75);
+      
+      // Determine target based on class type (B3: random selection)
+      if (isPure) {
+        // Pure casters (Wizard/Sorcerer): 100% to rods/staves
+        investmentTarget = 'rodsStaves';
+      } else if (isDivine) {
+        // Divine casters (Cleric/Druid): 50/50 armor or rods/staves
+        investmentTarget = Math.random() < 0.50 ? 'armor' : 'rodsStaves';
+      } else {
+        // Martials (Fighter, Barbarian, Paladin, Ranger, etc.): 50/50 weapon or armor
+        investmentTarget = Math.random() < 0.50 ? 'weapon' : 'armor';
+      }
+      
+      console.log(`💰 SELF-INVESTMENT: Spending ${investmentOverspend} gp extra on ${investmentTarget}!`);
+    } else {
+      console.log(`Level ${level}: Decided to save gold rather than invest in gear.`);
+    }
+  }
+  
+  // Calculate investment boosts for each category
+  const weaponBudgetBoost = investmentTarget === 'weapon' ? investmentOverspend : 0;
+  const armorBudgetBoost = investmentTarget === 'armor' ? investmentOverspend : 0;
+  const rodsStavesBudgetBoost = investmentTarget === 'rodsStaves' ? investmentOverspend : 0;
+  
   // Calculate rod/staff budget for casters (before weapon/armor, so we can skip them)
-  const rodsStavesBudget = Math.floor(totalBudget * budgetAllocation.rodsStaves);
+  const rodsStavesBudget = Math.floor(totalBudget * budgetAllocation.rodsStaves) + rodsStavesBudgetBoost;
   
   // LEVEL-BASED BUDGET ADJUSTMENT FOR MARTIALS
   // Early levels (3-7): Weapon is CRITICAL, boost weapon budget so they can afford their first magic weapon
@@ -376,13 +539,16 @@ export async function selectMagicItems(
     console.log(`Level ${level} Martial: Moderate weapon budget boost to 40%`);
   }
   
-  // Allocate budget based on class type and level adjustments
-  const weaponBudget = Math.floor(totalBudget * adjustedWeaponPercent);
-  const armorBudget = Math.floor(totalBudget * adjustedArmorPercent);
+  // Allocate budget based on class type and level adjustments (+ investment boosts)
+  const weaponBudget = Math.floor(totalBudget * adjustedWeaponPercent) + weaponBudgetBoost;
+  const armorBudget = Math.floor(totalBudget * adjustedArmorPercent) + armorBudgetBoost;
   const statItemBudget = Math.floor(totalBudget * budgetAllocation.statItem);
   const resistanceBudget = Math.floor(totalBudget * budgetAllocation.resistance);
   const protectionBudget = Math.floor(totalBudget * budgetAllocation.protection);
   const consumablesBudget = Math.floor(totalBudget * budgetAllocation.consumables);
+  
+  // MONK/WILDSHAPE DRUID: Amulet of Mighty Fists budget (replaces weapon budget)
+  const mightyFistsBudget = usesMightyFists ? Math.floor(totalBudget * (budgetAllocation.mightyFists || 0)) : 0;
   
   // Split consumables budget by class type
   const consumableSplit = CONSUMABLE_SPLITS[classType];
@@ -391,7 +557,11 @@ export async function selectMagicItems(
   const potionsBudget = Math.floor(consumablesBudget * consumableSplit.potions);
 
   console.log(`Budget Type: ${budgetTypeName} (${classType})`);
-  console.log(`Weapon Budget: ${weaponBudget} gp (${(budgetAllocation.weapon * 100).toFixed(0)}%)`);
+  if (usesMightyFists) {
+    console.log(`Mighty Fists Budget: ${mightyFistsBudget} gp (${((budgetAllocation.mightyFists || 0) * 100).toFixed(0)}%)`);
+  } else {
+    console.log(`Weapon Budget: ${weaponBudget} gp (${(budgetAllocation.weapon * 100).toFixed(0)}%)`);
+  }
   console.log(`Armor Budget: ${armorBudget} gp (${(budgetAllocation.armor * 100).toFixed(0)}%)`);
   console.log(`Rods/Staves Budget: ${rodsStavesBudget} gp (${(budgetAllocation.rodsStaves * 100).toFixed(0)}%)`);
   console.log(`Stat Item Budget: ${statItemBudget} gp (${(budgetAllocation.statItem * 100).toFixed(0)}%)`);
@@ -405,31 +575,45 @@ export async function selectMagicItems(
   // Get recommendations from the enhancement-recommendations system
   const normalizedClass = normalizeClassName(characterClass);
   
-  // PURE CASTERS: Skip weapon enhancements entirely, select rods/staves instead
-  // DIVINE CASTERS: Skip weapons, but can use armor
-  // OTHER CLASSES: Normal weapon selection
+  // Weapon selection logic:
+  // - Pure casters (wizard/sorcerer): weapon budget 0%, select rods/staves
+  // - Caster clerics/druids: weapon budget 0%, select rods/staves
+  // - Battle clerics: weapon budget 30%, get weapon enhancement
+  // - Wildshape druids: weapon budget 0%, use Amulet of Mighty Fists
+  // - Monks: weapon budget 0%, use Amulet of Mighty Fists
+  // - Martials: weapon budget 30-38%, get weapon enhancement
   let weaponRec = null;
   let casterItemSelection = null;
   
-  if (isPure || isDivine) {
-    // Select rods and staves for casters
+  // Check if this build uses rods/staves instead of weapons
+  const usesRodsStaves = budgetAllocation.rodsStaves > 0;
+  
+  if (isPure || (usesRodsStaves && !usesMightyFists)) {
+    // Pure casters or caster-focused divine casters get rods/staves
     console.log(`${budgetTypeName}: Skipping weapon enhancements, selecting rods/staves instead`);
     casterItemSelection = selectCasterItems(level, rodsStavesBudget, characterClass);
-  } else {
-    // Normal weapon selection for martial/partial caster
+  } else if (usesMightyFists) {
+    // Monks and wildshape druids use Amulet of Mighty Fists instead of weapons
+    console.log(`${budgetTypeName}: Skipping weapon enhancements, using Amulet of Mighty Fists instead`);
+  } else if (weaponBudget > 0) {
+    // Battle clerics, martials, partial casters with weapon budget
     console.log(`DEBUG: Normalized class for weapon selection: ${normalizedClass}, budget: ${weaponBudget} gp`);
     weaponRec = getBestWeaponEnhancementForCharacter(level, normalizedClass, weaponBudget);
     console.log(`DEBUG: Weapon recommendation result: ${weaponRec ? `+${weaponRec.enhancementBonus} (${weaponRec.totalCost} gp)` : 'NULL'}`);
+  } else {
+    console.log(`${budgetTypeName}: No weapon budget allocated`);
   }
   
   // Calculate armor/shield budget split FIRST
   // At high levels (17+), give shields MORE budget for expensive abilities like Reflecting
   // These can be overridden by template.magicItemBudgets
   // PURE CASTERS: Skip armor entirely (arcane spell failure), they use Bracers of Armor
+  // MONKS: Skip armor entirely (lose AC bonus), they use Bracers of Armor
+  const skipArmor = isPure || isMonk;
   const shieldBudgetPercent = templateBudgets?.shieldPercent ?? (level >= 17 ? 0.50 : 0.40);
   const armorBudgetPercent = templateBudgets?.armorPercent ?? (level >= 17 ? 0.50 : 0.60);
-  const shieldBudget = isPure ? 0 : Math.floor(armorBudget * shieldBudgetPercent);
-  const armorOnlyBudget = isPure ? 0 : Math.floor(armorBudget * armorBudgetPercent);
+  const shieldBudget = skipArmor ? 0 : Math.floor(armorBudget * shieldBudgetPercent);
+  const armorOnlyBudget = skipArmor ? 0 : Math.floor(armorBudget * armorBudgetPercent);
   
   if (templateBudgets?.shieldPercent !== undefined || templateBudgets?.armorPercent !== undefined) {
     console.log(`Using template budget overrides: Shield ${(shieldBudgetPercent * 100).toFixed(0)}%, Armor ${(armorBudgetPercent * 100).toFixed(0)}%`);
@@ -437,18 +621,20 @@ export async function selectMagicItems(
   
   if (isPure) {
     console.log(`${budgetTypeName}: Skipping armor enhancements (arcane spell failure). Will use Bracers of Armor from wondrous items.`);
+  } else if (isMonk) {
+    console.log(`${budgetTypeName}: Skipping armor enhancements (lose AC bonus). Will use Bracers of Armor from wondrous items.`);
   }
   
   // Get armor enhancement first (needed for shield conflict checking)
-  // Skip for pure casters who can't wear armor
-  const armorRec = isPure ? null : getBestArmorEnhancementForCharacter(level, normalizedClass, armorOnlyBudget);
+  // Skip for pure casters and monks who can't wear armor
+  const armorRec = skipArmor ? null : getBestArmorEnhancementForCharacter(level, normalizedClass, armorOnlyBudget);
   
   // Shield enhancement (gets 40% of armor budget, armor gets 60%)
   // Shields are prioritized BEFORE secondary weapons
   // Shields use armor enhancement mechanics (same as armor)
   // IMPORTANT: Pass armorRec to avoid resistance conflicts!
-  // Skip for pure casters
-  const shieldRec = (isPure || level < 4) 
+  // Skip for pure casters and monks
+  const shieldRec = (skipArmor || level < 4) 
     ? null 
     : getBestShieldEnhancementForCharacter(level, normalizedClass, shieldBudget, armorRec);
   
@@ -456,10 +642,10 @@ export async function selectMagicItems(
   // Used for backup weapons, off-hand weapons, or two-weapon fighting builds
   // This comes AFTER shields as per user's priority requirement
   // Can be overridden by template.magicItemBudgets
-  // Skip for pure casters and divine casters (they use rods/staves instead)
+  // Skip for pure casters, divine casters (they use rods/staves instead), and monks
   const secondaryWeaponPercent = templateBudgets?.secondaryWeaponPercent ?? 0.50;
   const secondaryWeaponBudget = Math.floor(weaponBudget * secondaryWeaponPercent);
-  const secondaryWeaponRec = (isPure || isDivine || level < 5) 
+  const secondaryWeaponRec = (isPure || isDivine || isMonk || level < 5) 
     ? null
     : getBestWeaponEnhancementForCharacter(level, normalizedClass, secondaryWeaponBudget);
 
@@ -491,11 +677,15 @@ export async function selectMagicItems(
     statItemBudget,
     resistanceBudget,
     protectionBudget,
-    templateBudgets
+    templateBudgets,
+    strScore,  // Pass STR to filter Bag of Holding by weight capacity
+    mightyFistsBudget,  // For monks/wildshape druids: Amulet of Mighty Fists
+    usesMightyFists  // Flag: this build uses Amulet of Mighty Fists
   );
 
   const wondrousItems = wondrousResult.wondrousItems;
   const hasHandyHaversack = wondrousResult.hasHandyHaversack;
+  const hasScarabOfProtection = wondrousResult.hasScarabOfProtection;
   const wondrousCost = wondrousItems.reduce((sum, item) => sum + item.price, 0) + (hasHandyHaversack ? 2000 : 0);
   
   // Select consumables based on class type
@@ -607,7 +797,23 @@ export async function selectMagicItems(
   }
 
   const totalCost = weaponCost + secondaryWeaponCost + armorCost + shieldCost + wondrousCost + wandsCost + scrollsCost + potionsCost + rodsCost + staffCost;
+  // Get overspend from caster items (e.g., Staff of Power special purchase)
+  // NOTE: investmentOverspend is NOT added here - it's already reflected in the higher
+  // category budgets and thus already included in the item costs above.
+  // Only special purchase overspend (items that exceed even the boosted budget) counts.
+  const casterOverspend = casterItemSelection?.overspend ?? 0;
+  const overspend = casterOverspend;  // Only special purchase overspend, NOT investment
+  
   console.log(`\nTotal Magic Item Cost: ${totalCost} gp`);
+  if (investmentOverspend > 0) {
+    console.log(`💰 Self-investment: ${investmentOverspend} gp added to ${investmentTarget} budget (already included in costs above)`);
+  }
+  if (casterOverspend > 0) {
+    console.log(`⚠️ Special purchase overspend: ${casterOverspend} gp (will be deducted from final gold)`);
+  }
+  if (overspend > 0) {
+    console.log(`📊 Total overspend: ${overspend} gp (will be deducted from final gold)`);
+  }
   console.log(`Remaining Budget: ${totalBudget - totalCost} gp`);
   console.log(`=== MAGIC ITEM SELECTION COMPLETE ===\n`);
 
@@ -630,6 +836,7 @@ export async function selectMagicItems(
     } : null,
     wondrousItems,
     hasHandyHaversack,
+    hasScarabOfProtection,
     wands: wandSelection.wands,
     scrolls: scrollSelection.scrolls,
     potions: potionSelection.potions,
@@ -645,13 +852,17 @@ export async function selectMagicItems(
     potionsCost,
     rodsCost,
     staffCost,
-    totalCost
+    totalCost,
+    overspend
   };
 }
 
 /**
  * Select wondrous items (Big Six) based on class, level, and available budgets
  * Returns both the wondrous items array and a flag for custom Handy Haversack
+ * @param strScore - Character's STR score (used to determine if Bag of Holding is appropriate)
+ * @param mightyFistsBudget - Budget for Amulet of Mighty Fists (monks and wildshape druids)
+ * @param usesMightyFists - Whether this build uses Amulet of Mighty Fists
  */
 function selectWondrousItems(
   level: number,
@@ -662,24 +873,83 @@ function selectWondrousItems(
   templateBudgets?: {
     ringPercent?: number;
     amuletPercent?: number;
-  }
-): { wondrousItems: WondrousItemDefinition[]; hasHandyHaversack: boolean } {
+    bracersPercent?: number;
+  },
+  strScore: number = 10,
+  mightyFistsBudget: number = 0,  // Monks and wildshape druids: Amulet of Mighty Fists budget
+  usesMightyFists: boolean = false  // Whether this build uses Mighty Fists (monk or wildshape druid)
+): { wondrousItems: WondrousItemDefinition[]; hasHandyHaversack: boolean; hasScarabOfProtection: boolean } {
   const selectedItems: WondrousItemDefinition[] = [];
   let spentBudget = 0;
-  const totalBudget = statItemBudget + resistanceBudget + protectionBudget;
+  const totalBudget = statItemBudget + resistanceBudget + protectionBudget + mightyFistsBudget;
+  let hasScarabOfProtection = false;
+  const isMonk = characterClass === 'monk';
 
   // Get class priorities from wondrous-items.ts
   const priorities = BIG_SIX_PRIORITIES[characterClass] || BIG_SIX_PRIORITIES.fighter;
 
+  // ========== AMULET OF MIGHTY FISTS (Monks & Wildshape Druids) ==========
+  // This is THE signature item for unarmed/natural attack builds
+  // Uses neck slot, so these builds can't use Periapt or Amulet of Natural Armor
+  if (usesMightyFists && mightyFistsBudget >= 6000) {
+    const buildType = isMonk ? 'Monk' : 'Wildshape Druid';
+    console.log(`\n${buildType} Amulet of Mighty Fists Selection:`);
+    console.log(`  Budget: ${mightyFistsBudget} gp`);
+    const mightyFists = getBestAffordableBonus('mighty-fists', mightyFistsBudget);
+    if (mightyFists) {
+      selectedItems.push(mightyFists);
+      spentBudget += mightyFists.price;
+      const attackType = isMonk ? 'unarmed strikes' : 'natural attacks (claws/bites)';
+      console.log(`  ✓ Added ${mightyFists.name} (${mightyFists.price} gp) - Enhancement to ${attackType}!`);
+      console.log(`    NOTE: Uses neck slot - no Periapt or Amulet of Natural Armor!`);
+    }
+  }
+
   // ========== BIG SIX PRIORITY ITEMS ==========
 
-  // 1. Stat Item (STR for martials via belt/gauntlets, INT for wizards via headband)
+  // 1. Stat Item (based on class primary stat)
+  // - STR for martials via belt/gauntlets
+  // - INT for wizards via headband
+  // - WIS for clerics/druids via periapt (neck slot - competes with amulet!)
+  // - CHA for sorcerers/bards/paladins via cloak of charisma (shoulders slot - competes with cloak of resistance!)
+  // - DEX for rangers via gloves (hands slot - no conflicts)
+  // - MONKS: Get BOTH Belt (STR) AND Gloves (DEX) from their expanded stat budget!
   if (statItemBudget >= 4000) {
-    // Check if class prioritizes belt (STR) or headband (INT)
     const usesBelt = (priorities as readonly string[]).includes('belt');
     const usesHeadband = (priorities as readonly string[]).includes('headband');
+    const usesPeriapt = (priorities as readonly string[]).includes('periapt');
+    const usesCharismaCloak = (priorities as readonly string[]).includes('charisma-cloak');
+    const usesGloves = (priorities as readonly string[]).includes('gloves');
     
-    if (usesBelt) {
+    // MONKS: Special handling - they need BOTH Belt (STR) AND Gloves (DEX)
+    // Split their stat budget: 55% Belt (STR more important for damage), 45% Gloves
+    if (isMonk && usesBelt && usesGloves) {
+      console.log(`\nMonk Stat Items (Belt + Gloves):`);
+      const beltBudget = Math.floor(statItemBudget * 0.55);
+      const glovesBudget = Math.floor(statItemBudget * 0.45);
+      console.log(`  Belt Budget (STR): ${beltBudget} gp (55%)`);
+      console.log(`  Gloves Budget (DEX): ${glovesBudget} gp (45%)`);
+      
+      // Belt of Giant Strength for attack/damage
+      const belt = getBestAffordableBonus('belt', beltBudget);
+      if (belt) {
+        selectedItems.push(belt);
+        spentBudget += belt.price;
+        console.log(`  ✓ Added ${belt.name} (${belt.price} gp) - STR for unarmed attack/damage`);
+      } else if (beltBudget >= 4000) {
+        selectedItems.push(GAUNTLETS_OF_OGRE_POWER);
+        spentBudget += GAUNTLETS_OF_OGRE_POWER.price;
+        console.log(`  ✓ Added Gauntlets of Ogre Power (4000 gp) - STR +2`);
+      }
+      
+      // Gloves of Dexterity for AC and initiative
+      const gloves = getBestAffordableBonus('gloves', glovesBudget);
+      if (gloves) {
+        selectedItems.push(gloves);
+        spentBudget += gloves.price;
+        console.log(`  ✓ Added ${gloves.name} (${gloves.price} gp) - DEX for AC & initiative`);
+      }
+    } else if (usesBelt) {
       // Choose between Gauntlets (+2, 4000 gp) and Belt (+4/+6, 16k/36k gp)
       const belt = getBestAffordableBonus('belt', statItemBudget);
       if (belt) {
@@ -691,31 +961,86 @@ function selectWondrousItems(
         spentBudget += GAUNTLETS_OF_OGRE_POWER.price;
       }
     } else if (usesHeadband) {
-      // Headband of Intellect for wizards/sorcerers
+      // Headband of Intellect for wizards
       const headband = getBestAffordableBonus('headband', statItemBudget);
       if (headband) {
         selectedItems.push(headband);
         spentBudget += headband.price;
       }
+    } else if (usesGloves) {
+      // Gloves of Dexterity for rangers (DEX for ranged attacks and AC)
+      const gloves = getBestAffordableBonus('gloves', statItemBudget);
+      if (gloves) {
+        selectedItems.push(gloves);
+        spentBudget += gloves.price;
+        console.log(`  ✓ Added Gloves of Dexterity: ${gloves.name} (${gloves.price} gp) - DEX for ranged attacks & AC`);
+      }
+    } else if (usesPeriapt) {
+      // Periapt of Wisdom for clerics, druids
+      // NOTE: This uses the neck slot, which competes with Amulet of Natural Armor!
+      const periapt = getBestAffordableBonus('periapt', statItemBudget);
+      if (periapt) {
+        selectedItems.push(periapt);
+        spentBudget += periapt.price;
+        console.log(`  ✓ Added Periapt of Wisdom: ${periapt.name} (${periapt.price} gp) - WIS for spell DCs`);
+        console.log(`    NOTE: Uses neck slot - no Amulet of Natural Armor!`);
+      }
+    } else if (usesCharismaCloak) {
+      // Cloak of Charisma for sorcerers, bards, paladins
+      // NOTE: This uses the shoulders slot, which competes with Cloak of Resistance!
+      const charismaCloak = getBestAffordableBonus('charisma-cloak', statItemBudget);
+      if (charismaCloak) {
+        selectedItems.push(charismaCloak);
+        spentBudget += charismaCloak.price;
+        console.log(`  ✓ Added Cloak of Charisma: ${charismaCloak.name} (${charismaCloak.price} gp) - CHA for spell DCs`);
+        console.log(`    NOTE: Uses shoulders slot - no Cloak of Resistance!`);
+      }
     }
   }
 
-  // 2. Cloak of Resistance (+saves)
-  if (resistanceBudget >= 1000) {
+  // 2. Cloak of Resistance (+saves) - SKIP if class already has Cloak of Charisma
+  const hasCharismaCloak = selectedItems.some(item => item.name.includes('Cloak of Charisma'));
+  if (resistanceBudget >= 1000 && !hasCharismaCloak) {
     const cloak = getBestAffordableBonus('cloak', resistanceBudget);
     if (cloak) {
       selectedItems.push(cloak);
       spentBudget += cloak.price;
     }
+  } else if (hasCharismaCloak) {
+    console.log(`  SKIPPED Cloak of Resistance - already has Cloak of Charisma in shoulders slot`);
   }
 
-  // 3. Ring of Protection AND/OR Amulet of Natural Armor
-  // Split protection budget between ring and amulet
+  // 3. Ring of Protection, Amulet of Natural Armor, AND Bracers of Armor (pure casters only)
+  // Split protection budget between ring, amulet, and bracers
+  // Pure casters: 40% Ring, 30% Amulet, 30% Bracers
+  // Monks: 50% Ring, 50% Bracers (no Amulet - neck slot used by Mighty Fists!)
+  // Others: 60% Ring, 40% Amulet (no bracers, they wear actual armor)
   // Can be overridden by template.magicItemBudgets
-  const ringPercent = templateBudgets?.ringPercent ?? 0.6;
-  const amuletPercent = templateBudgets?.amuletPercent ?? 0.4;
+  const isPure = isPureCaster(characterClass);
+  const hasMightyFists = selectedItems.some(item => item.name.includes('Amulet of Mighty Fists'));
+  
+  // Monks: Split between Ring and Bracers only (no amulet due to neck conflict)
+  let ringPercent: number;
+  let amuletPercent: number;
+  let bracersPercent: number;
+  
+  if (isMonk) {
+    ringPercent = templateBudgets?.ringPercent ?? 0.50;
+    amuletPercent = 0;  // Can't use - Mighty Fists occupies neck
+    bracersPercent = templateBudgets?.bracersPercent ?? 0.50;
+  } else if (isPure) {
+    ringPercent = templateBudgets?.ringPercent ?? 0.4;
+    amuletPercent = templateBudgets?.amuletPercent ?? 0.3;
+    bracersPercent = templateBudgets?.bracersPercent ?? 0.3;
+  } else {
+    ringPercent = templateBudgets?.ringPercent ?? 0.6;
+    amuletPercent = templateBudgets?.amuletPercent ?? 0.4;
+    bracersPercent = templateBudgets?.bracersPercent ?? 0.0;
+  }
+  
   const ringBudget = Math.floor(protectionBudget * ringPercent);
   const amuletBudget = Math.floor(protectionBudget * amuletPercent);
+  const bracersBudget = Math.floor(protectionBudget * bracersPercent);
 
   if (ringBudget >= 2000) {
     const ring = getBestAffordableBonus('ring', ringBudget);
@@ -725,11 +1050,31 @@ function selectWondrousItems(
     }
   }
 
-  if (amuletBudget >= 2000) {
+  // Amulet of Natural Armor - SKIP if class already has Periapt of Wisdom or Amulet of Mighty Fists (both use neck slot)
+  const hasPeriapt = selectedItems.some(item => item.name.includes('Periapt of Wisdom'));
+  if (amuletBudget >= 2000 && !hasPeriapt && !hasMightyFists) {
     const amulet = getBestAffordableBonus('amulet', amuletBudget);
     if (amulet) {
       selectedItems.push(amulet);
       spentBudget += amulet.price;
+    }
+  } else if (hasPeriapt) {
+    console.log(`  SKIPPED Amulet of Natural Armor - already has Periapt of Wisdom in neck slot`);
+  } else if (hasMightyFists) {
+    console.log(`  SKIPPED Amulet of Natural Armor - already has Amulet of Mighty Fists in neck slot`);
+  }
+
+  // Bracers of Armor for pure casters and monks (no armor wearing)
+  if (bracersBudget >= 1000 && (isPure || isMonk)) {
+    const bracerType = isMonk ? 'Monk' : 'Pure caster';
+    console.log(`  Bracers Budget: ${bracersBudget} gp (${bracerType} AC)`);
+    const bracers = getBestAffordableBonus('bracers', bracersBudget);
+    if (bracers) {
+      selectedItems.push(bracers);
+      spentBudget += bracers.price;
+      console.log(`  ✓ Added Bracers of Armor: ${bracers.name} (${bracers.price} gp) - ${bracerType} AC`);
+    } else {
+      console.log(`  ⚠ No bracers affordable with budget ${bracersBudget} gp`);
     }
   }
 
@@ -778,9 +1123,17 @@ function selectWondrousItems(
       { key: 'boots-of-striding-and-springing', minLevel: 5 }, // +10 ft speed (5.5k)
       { key: 'slippers-of-spider-climbing', minLevel: 5 },     // Wall climbing (4.8k)
       { key: 'eyes-of-the-eagle', minLevel: 3 },      // +5 Spot (2.5k)
-      { key: 'pearl-of-power-3', minLevel: 11 },      // Casters only
-      { key: 'pearl-of-power-2', minLevel: 8 },
-      { key: 'pearl-of-power-1', minLevel: 5 }
+      // Pearls of Power - Buy ONE, the highest level affordable
+      // Ordered from highest to lowest so we get the best one first
+      { key: 'pearl-of-power-9', minLevel: 17 },      // 81k - 9th level spells (casters only)
+      { key: 'pearl-of-power-8', minLevel: 15 },      // 64k - 8th level spells
+      { key: 'pearl-of-power-7', minLevel: 13 },      // 49k - 7th level spells  
+      { key: 'pearl-of-power-6', minLevel: 11 },      // 36k - 6th level spells
+      { key: 'pearl-of-power-5', minLevel: 9 },       // 25k - 5th level spells
+      { key: 'pearl-of-power-4', minLevel: 7 },       // 16k - 4th level spells
+      { key: 'pearl-of-power-3', minLevel: 5 },       // 9k - 3rd level spells
+      { key: 'pearl-of-power-2', minLevel: 3 },       // 4k - 2nd level spells
+      { key: 'pearl-of-power-1', minLevel: 1 }        // 1k - 1st level spells
     ];
 
     // Class-specific utility priorities
@@ -812,19 +1165,42 @@ function selectWondrousItems(
       .filter(p => UTILITY_WONDROUS_ITEMS[p.key].price <= utilityBudgetAfterHaversack)
       .map(p => UTILITY_WONDROUS_ITEMS[p.key]);
 
-    // Remove pearls for non-casters
+    // Remove pearls for non-casters (pearls require prepared spell slots)
     if (!isCaster) {
       affordableUtility = affordableUtility.filter(item => 
-        !item.id.startsWith('OkUi8BK1') && 
-        !item.id.startsWith('sClvvjs3') && 
-        !item.id.startsWith('J4071uAI')
+        !item.name.includes('Pearl of Power')
       );
+    }
+    
+    // Remove Gloves of DEX for classes that use Periapt of Wisdom or already have stat gloves
+    // Clerics/Druids use Periapt - they don't need DEX
+    // Monks already have stat item budget for both Belt + Gloves
+    // Rangers use Gloves from Big Six, so hands slot is filled
+    const usesPeriapt = (priorities as readonly string[]).includes('periapt');
+    const isWisdomCaster = ['cleric', 'druid'].includes(characterClass.toLowerCase());
+    if (usesPeriapt || isWisdomCaster || isMonk) {
+      affordableUtility = affordableUtility.filter(item => 
+        !item.name.includes('Gloves of Dexterity')
+      );
+      if (usesPeriapt || isWisdomCaster) {
+        console.log(`  Excluding Gloves of DEX: ${characterClass} uses Periapt of Wisdom instead`);
+      }
     }
 
     // Buy utility items with remaining budget, respecting slot conflicts
     // Track special categories to prevent duplicates
     let utilityBudget = utilityBudgetAfterHaversack;
     let hasBagOfHolding = false;  // Only buy ONE bag of holding (highest affordable type)
+    let hasPearlOfPower = false;  // Only buy ONE pearl of power (highest level affordable)
+    
+    // Bag of Holding weight requirements:
+    // Type 1: 15 lbs (STR 10+), Type 2: 25 lbs (STR 12+), Type 3: 35 lbs (STR 12+), Type 4: 60 lbs (STR 14+)
+    const canCarryBagType4 = strScore >= 14;  // 60 lbs
+    const canCarryBagType3 = strScore >= 12;  // 35 lbs
+    const canCarryBagType2 = strScore >= 12;  // 25 lbs
+    const canCarryBagType1 = strScore >= 10;  // 15 lbs
+    
+    console.log(`  STR ${strScore}: Can carry Bag Type 4: ${canCarryBagType4}, Type 3: ${canCarryBagType3}, Type 2: ${canCarryBagType2}, Type 1: ${canCarryBagType1}`);
     
     for (const item of affordableUtility) {
       // Check slot conflict
@@ -833,18 +1209,57 @@ function selectWondrousItems(
       }
       
       // Only allow ONE bag of holding (the first affordable one in priority list is the highest type)
+      // AND only if character's STR can handle the weight!
       if (item.name.includes('Bag of Holding')) {
         if (hasBagOfHolding) {
           continue; // Skip additional bags
         }
+        
+        // Check if character can carry this bag type
+        const isBagType4 = item.name.includes('Type 4') || item.name.includes('Type IV');
+        const isBagType3 = item.name.includes('Type 3') || item.name.includes('Type III');
+        const isBagType2 = item.name.includes('Type 2') || item.name.includes('Type II');
+        
+        if (isBagType4 && !canCarryBagType4) {
+          console.log(`  SKIPPED: ${item.name} - STR ${strScore} too low for 60 lb bag`);
+          continue;
+        }
+        if (isBagType3 && !canCarryBagType3) {
+          console.log(`  SKIPPED: ${item.name} - STR ${strScore} too low for 35 lb bag`);
+          continue;
+        }
+        if (isBagType2 && !canCarryBagType2) {
+          console.log(`  SKIPPED: ${item.name} - STR ${strScore} too low for 25 lb bag`);
+          continue;
+        }
+        if (!canCarryBagType1) {
+          console.log(`  SKIPPED: ${item.name} - STR ${strScore} too low for any bag`);
+          continue;
+        }
+        
         hasBagOfHolding = true; // Mark that we're buying a bag
         console.log(`  Added EXTRA: ${item.name} (${item.price} gp) - for party loot!`);
+      }
+      
+      // Only allow ONE Pearl of Power (the first affordable one is the highest level)
+      if (item.name.includes('Pearl of Power')) {
+        if (hasPearlOfPower) {
+          continue; // Skip additional pearls
+        }
+        hasPearlOfPower = true;
+        console.log(`  Added Pearl: ${item.name} (${item.price} gp) - recall one spell/day!`);
+      }
+      
+      // Track if Scarab of Protection was selected (needs custom version for D35E bug fix)
+      if (item.name.includes('Scarab of Protection')) {
+        hasScarabOfProtection = true;
+        console.log(`  Added Scarab: ${item.name} (${item.price} gp) - SR 20 + death ward!`);
       }
       
       if (item.price <= utilityBudget) {
         selectedItems.push(item);
         utilityBudget -= item.price;
-        if (!item.name.includes('Bag of Holding')) {
+        if (!item.name.includes('Bag of Holding') && !item.name.includes('Pearl of Power') && !item.name.includes('Scarab of Protection')) {
           console.log(`  Added: ${item.name} (${item.price} gp)`);
         }
         
@@ -859,7 +1274,7 @@ function selectWondrousItems(
     }
   }
 
-  return { wondrousItems: selectedItems, hasHandyHaversack };
+  return { wondrousItems: selectedItems, hasHandyHaversack, hasScarabOfProtection };
 }
 
 
@@ -929,12 +1344,14 @@ function calculateArmorEnhancementCost(
  * @param itemData - The base weapon item data from compendium
  * @param enhancementBonus - The base enhancement bonus (+1 to +5)
  * @param specialAbilities - Array of special ability keys (e.g., ['flaming', 'keen'])
+ * @param identifyItems - If true, item will be identified; if false, unidentified
  * @returns Enhanced item data ready to be created
  */
 export async function applyWeaponEnhancements(
   itemData: any,
   enhancementBonus: number,
-  specialAbilities: string[] = []
+  specialAbilities: string[] = [],
+  identifyItems: boolean = false
 ): Promise<any> {
   console.log(`\nApplying weapon enhancements: +${enhancementBonus} ${specialAbilities.join(', ')}`);
   
@@ -1023,6 +1440,12 @@ export async function applyWeaponEnhancements(
 
   enhanced.name = newName;
   enhanced.system.identifiedName = newName;
+  
+  // Set unidentified name to base item type (e.g., "Longsword", "Dagger")
+  enhanced.system.unidentified = {
+    name: baseName,
+    price: 0
+  };
   console.log(`  New name: ${newName}`);
 
   // 7. Update price manually (D35E's updatePrice doesn't seem to work reliably)
@@ -1031,8 +1454,8 @@ export async function applyWeaponEnhancements(
   enhanced.system.price = originalPrice + enhancementCost;
   console.log(`  Price: ${originalPrice} (base) + ${enhancementCost} (enhancement) = ${enhanced.system.price} gp`);
   
-  // Mark as identified to prevent D35E from recalculating
-  enhanced.system.identified = true;
+  // Set identified status based on parameter (default unidentified for loot)
+  enhanced.system.identified = identifyItems;
 
   return enhanced;
 }
@@ -1043,12 +1466,14 @@ export async function applyWeaponEnhancements(
  * @param itemData - The base armor item data from compendium
  * @param enhancementBonus - The base enhancement bonus (+1 to +5)
  * @param specialAbilities - Array of special abilities (strings or EnhancementAbility objects with levels)
+ * @param identifyItems - If true, item will be identified; if false, unidentified
  * @returns Enhanced item data ready to be created
  */
 export async function applyArmorEnhancements(
   itemData: any,
   enhancementBonus: number,
-  specialAbilities: (string | EnhancementAbility)[] = []
+  specialAbilities: (string | EnhancementAbility)[] = [],
+  identifyItems: boolean = false
 ): Promise<any> {
   console.log(`\nApplying armor enhancements: +${enhancementBonus} ${specialAbilities.map(a => typeof a === 'string' ? a : `${a.key}(level ${a.level})`).join(', ')}`);
   
@@ -1164,6 +1589,12 @@ export async function applyArmorEnhancements(
 
   enhanced.name = newName;
   enhanced.system.identifiedName = newName;
+  
+  // Set unidentified name to base item type (e.g., "Full Plate", "Heavy Steel Shield")
+  enhanced.system.unidentified = {
+    name: baseName,
+    price: 0
+  };
   console.log(`  New name: ${newName}`);
 
   // 7. Update price manually (D35E's updatePrice doesn't seem to work reliably)
@@ -1172,18 +1603,20 @@ export async function applyArmorEnhancements(
   enhanced.system.price = originalPrice + enhancementCost;
   console.log(`  Price: ${originalPrice} (base) + ${enhancementCost} (enhancement) = ${enhanced.system.price} gp`);
   
-  // Mark as identified to prevent D35E from recalculating
-  enhanced.system.identified = true;
+  // Set identified status based on parameter (default unidentified for loot)
+  enhanced.system.identified = identifyItems;
 
   return enhanced;
 }
 
 /**
  * Add wondrous items from the D35E.magicitems compendium to an actor
+ * @param identifyItems - If true, items will be identified; if false, unidentified
  */
 export async function addWondrousItemsToActor(
   actor: any,
-  wondrousItems: WondrousItemDefinition[]
+  wondrousItems: WondrousItemDefinition[],
+  identifyItems: boolean = false
 ): Promise<void> {
   if (wondrousItems.length === 0) {
     console.log("No wondrous items to add");
@@ -1216,10 +1649,39 @@ export async function addWondrousItemsToActor(
       if (itemData.system && itemData.system.slot) {
         itemData.system.equipped = true;
       }
+      
+      // Set identified status (default unidentified for loot)
+      itemData.system.identified = identifyItems;
+      
+      // Set unidentified name based on slot
+      const slotToName: Record<string, string> = {
+        'headband': 'Headband',
+        'head': 'Helm',
+        'eyes': 'Goggles',
+        'neck': 'Amulet',
+        'shoulders': 'Cloak',
+        'chest': 'Vest',
+        'body': 'Robe',
+        'armor': 'Armor',
+        'belt': 'Belt',
+        'wrists': 'Bracers',
+        'hands': 'Gloves',
+        'ring': 'Ring',
+        'ring1': 'Ring',
+        'ring2': 'Ring',
+        'feet': 'Boots',
+        'slotless': 'Wondrous Item'
+      };
+      const unidentifiedName = slotToName[itemData.system?.slot] || 'Wondrous Item';
+      itemData.system.identifiedName = itemData.name;
+      itemData.system.unidentified = {
+        name: unidentifiedName,
+        price: 0
+      };
 
       // Create the item on the actor
       await actor.createEmbeddedDocuments("Item", [itemData]);
-      console.log(`  ✓ Added ${itemDef.name} (${itemDef.price} gp)`);
+      console.log(`  ✓ Added ${itemDef.name} (${itemDef.price} gp)${identifyItems ? '' : ' [unidentified]'}`);
     } catch (error) {
       console.error(`Failed to add ${itemDef.name}:`, error);
     }

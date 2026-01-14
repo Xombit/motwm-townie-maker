@@ -45,7 +45,8 @@ async function getItemById(itemId: string): Promise<any | null> {
  */
 export async function createMetamagicRod(
   actor: any,
-  rodDef: MetamagicRodDefinition
+  rodDef: MetamagicRodDefinition,
+  identifyItems: boolean = true
 ): Promise<any | null> {
   console.log(`Adding metamagic rod: ${rodDef.name}`);
   
@@ -58,7 +59,12 @@ export async function createMetamagicRod(
       system: {
         ...rodData.system,
         quantity: 1,
-        identified: true,
+        identified: identifyItems,
+        identifiedName: rodData.name,
+        unidentified: {
+          name: 'Rod',
+          price: 0
+        },
         carried: true
       }
     };
@@ -77,7 +83,8 @@ export async function createMetamagicRod(
  */
 export async function createStaff(
   actor: any,
-  staffDef: StaffDefinition
+  staffDef: StaffDefinition,
+  identifyItems: boolean = true
 ): Promise<any | null> {
   console.log(`Adding staff: ${staffDef.name}`);
   
@@ -90,7 +97,12 @@ export async function createStaff(
       system: {
         ...staffData.system,
         quantity: 1,
-        identified: true,
+        identified: identifyItems,
+        identifiedName: staffData.name,
+        unidentified: {
+          name: 'Staff',
+          price: 0
+        },
         carried: true,
         equipped: false,
         uses: {
@@ -116,11 +128,13 @@ export async function createStaff(
  * @param actor The actor to add items to
  * @param rods Array of rod recommendations to add
  * @param staff Optional staff recommendation to add
+ * @param identifyItems Whether to create items as identified
  */
 export async function addRodsAndStaffToActor(
   actor: any,
   rods: RodRecommendation[],
-  staff: StaffRecommendation | null
+  staff: StaffRecommendation | null,
+  identifyItems: boolean = true
 ): Promise<void> {
   console.log('\n=== ADDING RODS AND STAFF ===');
   
@@ -128,7 +142,7 @@ export async function addRodsAndStaffToActor(
   if (rods.length > 0) {
     console.log(`Adding ${rods.length} metamagic rod(s)...`);
     for (const rodRec of rods) {
-      await createMetamagicRod(actor, rodRec.rod);
+      await createMetamagicRod(actor, rodRec.rod, identifyItems);
     }
   } else {
     console.log('No metamagic rods to add');
@@ -137,10 +151,46 @@ export async function addRodsAndStaffToActor(
   // Add staff
   if (staff) {
     console.log(`Adding staff: ${staff.staff.name}...`);
-    await createStaff(actor, staff.staff);
+    const createdStaff = await createStaff(actor, staff.staff, identifyItems);
+    
+    // If we successfully added a magic staff, remove the mundane quarterstaff
+    // The magic staff IS a quarterstaff (for combat purposes) but better!
+    if (createdStaff) {
+      await removeMundaneQuarterstaff(actor);
+    }
   } else {
     console.log('No staff to add');
   }
   
   console.log('=== RODS AND STAFF COMPLETE ===\n');
+}
+
+/**
+ * Remove mundane quarterstaff from actor's inventory
+ * Called after adding a magic staff (which can be used as a quarterstaff but is better)
+ */
+async function removeMundaneQuarterstaff(actor: any): Promise<void> {
+  // Find the mundane quarterstaff
+  // Match: "Quarterstaff" but NOT magic variants like "Staff of Power", "+1 Quarterstaff", etc.
+  const quarterstaff = actor.items.find((item: any) => {
+    const name = item.name?.toLowerCase() || '';
+    const itemType = item.type?.toLowerCase() || '';
+    
+    // Must be a weapon (not a magic staff which is "equipment" type)
+    if (itemType !== 'weapon') return false;
+    
+    // Must be named exactly "Quarterstaff" or "quarterstaff"
+    // Don't match "+1 Quarterstaff" or "Magic Quarterstaff" etc.
+    if (name === 'quarterstaff') return true;
+    
+    return false;
+  });
+  
+  if (quarterstaff) {
+    console.log(`Removing mundane Quarterstaff (replaced by magic staff)`);
+    await actor.deleteEmbeddedDocuments("Item", [quarterstaff.id]);
+    console.log(`✓ Removed ${quarterstaff.name}`);
+  } else {
+    console.log('No mundane Quarterstaff found to remove');
+  }
 }

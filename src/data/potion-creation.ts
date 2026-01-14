@@ -11,9 +11,10 @@ import { POTION_DEFINITIONS } from './potion-recommendations';
  * 
  * @param potionName - Name of the potion (e.g., "Cure Light Wounds")
  * @param quantity - Number of this potion to create
+ * @param identifyItems - Whether to create items as identified
  * @returns Potion item data for D35E system
  */
-export function createPotionFromName(potionName: string, quantity: number = 1): any {
+export function createPotionFromName(potionName: string, quantity: number = 1, identifyItems: boolean = true): any {
   // Find the potion definition
   const potionEntry = Object.entries(POTION_DEFINITIONS).find(
     ([_, def]) => def.name === potionName
@@ -49,7 +50,12 @@ export function createPotionFromName(potionName: string, quantity: number = 1): 
       quantity: quantity,
       weight: 0.1, // Potions weigh approximately 0.1 lb each
       price: potion.cost,
-      identified: true,
+      identified: identifyItems,
+      identifiedName: `Potion of ${potion.name}`,
+      unidentified: {
+        name: 'Potion',
+        price: 0
+      },
       consumableType: 'potion',
       uses: {
         value: 0,
@@ -87,8 +93,9 @@ function getAuraStrength(casterLevel: number): string {
  * 
  * @param actor - The D35E actor to add potions to
  * @param potions - Array of potion recommendations
+ * @param identifyItems - Whether to create items as identified
  */
-export async function createPotionsForActor(actor: any, potions: PotionRecommendation[]): Promise<void> {
+export async function createPotionsForActor(actor: any, potions: PotionRecommendation[], identifyItems: boolean = true): Promise<void> {
   if (!potions || potions.length === 0) {
     return;
   }
@@ -97,7 +104,7 @@ export async function createPotionsForActor(actor: any, potions: PotionRecommend
   
   const potionItems = [];
   for (const potion of potions) {
-    const potionData = createPotionFromName(potion.name, potion.quantity);
+    const potionData = createPotionFromName(potion.name, potion.quantity, identifyItems);
     if (potionData) {
       console.log(`  - ${potion.quantity}x ${potionData.name} (${potion.cost} gp each, ${potion.cost * potion.quantity} gp total)`);
       potionItems.push(potionData);

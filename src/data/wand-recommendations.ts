@@ -33,13 +33,42 @@ export interface WandRecommendation {
  * - Sorcerers: Combat and utility wands (Magic Missile, Scorching Ray)
  * - Clerics: Healing and buff wands (CLW, Bless, Shield of Faith)
  * - Druids: Similar to clerics with nature focus
+ * 
+ * Higher-level casters should have MORE wands and higher-level wands
+ * Wands can contain spells up to 4th level (per SRD)
  */
 export const WAND_PRIORITIES_BY_CLASS: Record<string, string[]> = {
-  wizard: ['MAGE_ARMOR', 'SHIELD', 'INVISIBILITY', 'MIRROR_IMAGE', 'HASTE', 'FLY', 'DISPEL_MAGIC'],
-  sorcerer: ['MAGE_ARMOR', 'SHIELD', 'MAGIC_MISSILE', 'SCORCHING_RAY', 'INVISIBILITY', 'FIREBALL'],
-  cleric: ['CURE_LIGHT_WOUNDS', 'CURE_MODERATE_WOUNDS', 'SHIELD_OF_FAITH', 'BLESS', 'DIVINE_FAVOR', 'BULLS_STRENGTH', 'CURE_SERIOUS_WOUNDS'],
-  druid: ['CURE_LIGHT_WOUNDS', 'CURE_MODERATE_WOUNDS', 'RESIST_ENERGY', 'BULLS_STRENGTH', 'CURE_SERIOUS_WOUNDS'],
-  bard: ['CURE_LIGHT_WOUNDS', 'INVISIBILITY', 'GLITTERDUST', 'HASTE'],
+  // Wizards want lots of utility wands - include 4th level spells for high-level characters
+  wizard: [
+    'MAGE_ARMOR', 'SHIELD', 'INVISIBILITY', 'MIRROR_IMAGE', 'HASTE', 'FLY', 'DISPEL_MAGIC',
+    'SCORCHING_RAY', 'MAGIC_MISSILE', 'DISPLACEMENT', 'FIREBALL', 'LIGHTNING_BOLT',
+    // 4th level spells (max for wands)
+    'STONESKIN', 'GREATER_INVISIBILITY', 'ENERVATION', 'DIMENSION_DOOR', 'EVARDS_BLACK_TENTACLES', 'SOLID_FOG'
+  ],
+  // Sorcerers prefer damage and utility
+  sorcerer: [
+    'MAGE_ARMOR', 'SHIELD', 'MAGIC_MISSILE', 'SCORCHING_RAY', 'INVISIBILITY', 'FIREBALL',
+    'HASTE', 'FLY', 'MIRROR_IMAGE', 'LIGHTNING_BOLT', 'DISPLACEMENT',
+    // 4th level spells
+    'STONESKIN', 'GREATER_INVISIBILITY', 'ENERVATION', 'DIMENSION_DOOR', 'EVARDS_BLACK_TENTACLES'
+  ],
+  // Clerics need LOTS of healing wands - include 4th level for high-level clerics
+  cleric: [
+    'CURE_LIGHT_WOUNDS', 'CURE_MODERATE_WOUNDS', 'CURE_SERIOUS_WOUNDS',
+    'SHIELD_OF_FAITH', 'BLESS', 'DIVINE_FAVOR', 'BULLS_STRENGTH',
+    'RESIST_ENERGY', 'REMOVE_FEAR', 'REMOVE_PARALYSIS', 'REMOVE_DISEASE',
+    // 4th level divine spells
+    'CURE_CRITICAL_WOUNDS', 'NEUTRALIZE_POISON', 'DEATH_WARD', 'RESTORATION'
+  ],
+  // Druids get nature-themed healing and buffs
+  druid: [
+    'CURE_LIGHT_WOUNDS', 'CURE_MODERATE_WOUNDS', 'CURE_SERIOUS_WOUNDS',
+    'RESIST_ENERGY', 'BULLS_STRENGTH', 'BARKSKIN', 'CATS_GRACE',
+    // 4th level divine spells
+    'CURE_CRITICAL_WOUNDS', 'NEUTRALIZE_POISON', 'DEATH_WARD'
+  ],
+  // Bards need utility and some healing
+  bard: ['CURE_LIGHT_WOUNDS', 'INVISIBILITY', 'GLITTERDUST', 'HASTE', 'MIRROR_IMAGE'],
   // Paladins have limited spell list - only spells they can actually cast
   paladin: ['CURE_LIGHT_WOUNDS', 'BLESS', 'DIVINE_FAVOR'],  // 1st level only for wands
   ranger: ['CURE_LIGHT_WOUNDS', 'RESIST_ENERGY']
@@ -79,16 +108,18 @@ export function getWandRecommendations(
   // Create a map of spell keys to spells
   const spellMap: Record<string, SpellDefinition> = {};
   
-  // Map arcane spells
+  // Map arcane spells (levels 0-4, max for wands per SRD)
   Object.entries(Spells.ARCANE_CANTRIPS).forEach(([key, spell]) => spellMap[key] = spell);
   Object.entries(Spells.ARCANE_LEVEL_1).forEach(([key, spell]) => spellMap[key] = spell);
   Object.entries(Spells.ARCANE_LEVEL_2).forEach(([key, spell]) => spellMap[key] = spell);
   Object.entries(Spells.ARCANE_LEVEL_3).forEach(([key, spell]) => spellMap[key] = spell);
+  Object.entries(Spells.ARCANE_LEVEL_4).forEach(([key, spell]) => spellMap[key] = spell);
   
-  // Map divine spells
+  // Map divine spells (levels 1-4, max for wands per SRD)
   Object.entries(Spells.DIVINE_LEVEL_1).forEach(([key, spell]) => spellMap[key] = spell);
   Object.entries(Spells.DIVINE_LEVEL_2).forEach(([key, spell]) => spellMap[key] = spell);
   Object.entries(Spells.DIVINE_LEVEL_3).forEach(([key, spell]) => spellMap[key] = spell);
+  Object.entries(Spells.DIVINE_LEVEL_4).forEach(([key, spell]) => spellMap[key] = spell);
   
   // Generate recommendations based on priorities
   priorities.forEach((spellKey, index) => {
@@ -141,6 +172,7 @@ export function getWandRecommendations(
  * - Buy most expensive (highest CL) version we can afford
  * - Move to next priority if current wand is too expensive
  * - Stop when budget is exhausted
+ * - HIGH-LEVEL CHARACTERS: Buy more wands, including duplicates of essential wands
  * 
  * @param characterClass The character's class
  * @param characterLevel The character's level
@@ -157,34 +189,74 @@ export function selectWands(
   const selectedWands: WandRecommendation[] = [];
   let remainingBudget = budget;
   
-  // Strategy: Buy wands in priority order, one of each type
+  // Determine max wands based on level and budget
+  // Higher level characters can have MORE wands
+  // Level 5-8: 2-3 wands, Level 9-12: 3-5 wands, Level 13-16: 4-7 wands, Level 17+: 5-10 wands
+  const maxWands = characterLevel >= 17 ? 10 : (characterLevel >= 13 ? 7 : (characterLevel >= 9 ? 5 : 3));
+  
+  console.log(`Wand selection: Level ${characterLevel}, Budget ${budget} gp, Max wands ${maxWands}`);
+  
+  // Strategy: Buy wands in priority order, one of each type first
   for (const wand of recommendations) {
+    if (selectedWands.length >= maxWands) break;
+    
     if (wand.cost <= remainingBudget) {
       // Check if we already have a wand of this spell
       const alreadyHave = selectedWands.some(w => w.spell.id === wand.spell.id);
       if (!alreadyHave) {
         selectedWands.push(wand);
         remainingBudget -= wand.cost;
+        console.log(`  + ${wand.spell.name} (${wand.cost} gp), remaining: ${remainingBudget} gp`);
       }
     }
   }
   
-  // If we have budget left and few wands, consider buying duplicates of important wands
-  if (selectedWands.length < 3 && remainingBudget > 1000) {
-    // Look for healing or buff wands to duplicate
-    const importantWands = selectedWands.filter(w =>
-      w.spell.tags.includes('healing') ||
-      w.spell.tags.includes('buff')
-    );
+  // SECOND PASS: If we have significant budget left (> 20% of original), buy duplicates
+  // High-level casters benefit from extra healing wands, buff wands, etc.
+  const budgetThreshold = budget * 0.2;
+  if (remainingBudget > budgetThreshold && selectedWands.length < maxWands) {
+    console.log(`  Second pass: ${remainingBudget} gp remaining, looking for duplicates...`);
     
-    for (const wand of importantWands) {
+    // Priority for duplicates: healing > buff > utility
+    const duplicatePriority = selectedWands
+      .filter(w => w.spell.tags.includes('healing') || w.spell.tags.includes('buff'))
+      .sort((a, b) => {
+        // Healing first
+        const aHealing = a.spell.tags.includes('healing') ? 0 : 1;
+        const bHealing = b.spell.tags.includes('healing') ? 0 : 1;
+        return aHealing - bHealing;
+      });
+    
+    for (const wand of duplicatePriority) {
+      if (selectedWands.length >= maxWands) break;
       if (wand.cost <= remainingBudget) {
         selectedWands.push({ ...wand }); // Add duplicate
         remainingBudget -= wand.cost;
-        break; // Only one duplicate for now
+        console.log(`  + (duplicate) ${wand.spell.name} (${wand.cost} gp), remaining: ${remainingBudget} gp`);
       }
     }
   }
+  
+  // THIRD PASS: If still lots of budget left, buy even more wands
+  // This handles cases where we have massive budgets at high levels
+  if (remainingBudget > budgetThreshold && selectedWands.length < maxWands) {
+    console.log(`  Third pass: ${remainingBudget} gp remaining, buying more wands...`);
+    
+    for (const wand of recommendations) {
+      if (selectedWands.length >= maxWands) break;
+      if (wand.cost <= remainingBudget) {
+        // Allow buying a second copy of ANY wand if we have the budget
+        const existingCount = selectedWands.filter(w => w.spell.id === wand.spell.id).length;
+        if (existingCount < 2) {  // Max 2 of each wand type
+          selectedWands.push({ ...wand });
+          remainingBudget -= wand.cost;
+          console.log(`  + (extra) ${wand.spell.name} (${wand.cost} gp), remaining: ${remainingBudget} gp`);
+        }
+      }
+    }
+  }
+  
+  console.log(`Wand selection complete: ${selectedWands.length} wands, ${budget - remainingBudget} gp spent`);
   
   return {
     wands: selectedWands,
