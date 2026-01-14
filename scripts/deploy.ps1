@@ -1,18 +1,41 @@
 # PowerShell script to deploy module to Foundry for testing
 # Only copies necessary runtime files, not source code
 
+param(
+    # Optional override. If omitted, common Foundry module locations are tried.
+    [string]$FoundryModulesPath
+)
+
 $moduleName = "motwm-townie-maker"
-$foundryModulesPath = "C:\Users\User\AppData\Local\FoundryVTT\Data\modules"
+
+# Prefer an explicit path, then common defaults.
+$candidatePaths = @(
+    $FoundryModulesPath,
+    "E:\foundrytest\foundrydata\Data\modules",
+    "C:\Users\User\AppData\Local\FoundryVTT\Data\modules"
+) | Where-Object { $_ -and $_.Trim() -ne "" } | Select-Object -Unique
+
+$foundryModulesPath = $null
+foreach ($p in $candidatePaths) {
+    if (Test-Path $p) {
+        $foundryModulesPath = $p
+        break
+    }
+}
+
+if (-not $foundryModulesPath) {
+    Write-Host "Error: Foundry modules directory not found." -ForegroundColor Red
+    Write-Host "Tried:" -ForegroundColor Yellow
+    $candidatePaths | ForEach-Object { Write-Host "  - $_" -ForegroundColor Yellow }
+    Write-Host "Provide a path via: .\\scripts\\deploy.ps1 -FoundryModulesPath <path>" -ForegroundColor Yellow
+    exit 1
+}
+
 $targetPath = Join-Path $foundryModulesPath $moduleName
 
 Write-Host "Deploying $moduleName to Foundry VTT..." -ForegroundColor Cyan
 
-# Check if Foundry modules directory exists
-if (-not (Test-Path $foundryModulesPath)) {
-    Write-Host "Error: Foundry modules directory not found at: $foundryModulesPath" -ForegroundColor Red
-    Write-Host "Please verify your Foundry installation path." -ForegroundColor Yellow
-    exit 1
-}
+Write-Host "Foundry modules directory: $foundryModulesPath" -ForegroundColor DarkCyan
 
 # Build first
 Write-Host "Building module..." -ForegroundColor Yellow

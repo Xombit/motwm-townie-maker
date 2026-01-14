@@ -49,6 +49,33 @@ const SUPPORTED_CLASSES: Array<{ id: string; name: string }> = [
 
 export class D35EAdapter {
   /**
+   * D35E git builds can crash during actor updates if system.traits.tokenSize is unset
+   * and the system tries to resolve a missing CONFIG.D35E.tokenSizes["actor"].
+   *
+   * This keeps tokenSize pinned to the actor's current size key (e.g. "med", "sm").
+   */
+  static async ensureTokenSizeIsSet(actor: Actor): Promise<void> {
+    const traits = (actor as any)?.system?.traits;
+    const currentTokenSize: string | undefined = traits?.tokenSize;
+    const actorSize: string | undefined = traits?.size;
+
+    let desired = currentTokenSize;
+    if (!desired || desired === "actor") {
+      desired = actorSize || "med";
+    }
+
+    const tokenSizes = (CONFIG as any)?.D35E?.tokenSizes;
+    if (tokenSizes && desired && !tokenSizes[desired]) {
+      desired = "med";
+    }
+
+    if (desired && desired !== currentTokenSize) {
+      await actor.update({ "system.traits.tokenSize": desired });
+      console.log(`D35EAdapter | Set tokenSize to '${desired}' for ${actor.name}`);
+    }
+  }
+
+  /**
    * Get available races (hardcoded to those with image support)
    */
   static async getRaces(): Promise<Array<{ id: string; name: string }>> {
@@ -124,12 +151,19 @@ export class D35EAdapter {
     // Use provided disposition or default to Neutral (0)
     const disposition = data.tokenDisposition ?? 0;
 
-    // Create the actor with portrait and token images
+    // Create the actor with portrait and token images.
+    // Also set a safe default for D35E's token sizing to avoid D35E git-build crashes
+    // when CONFIG.D35E.tokenSizes["actor"] is missing.
     const actor = await Actor.create({
       name: data.name,
       type: data.type,
       folder: folderId,
       img: portraitImg,
+      system: {
+        traits: {
+          tokenSize: "med"
+        }
+      } as any,
       prototypeToken: {
         texture: {
           src: tokenImg
@@ -496,6 +530,7 @@ export class D35EAdapter {
         if (raceDoc) {
           await actor.createEmbeddedDocuments('Item', [raceDoc.toObject()]);
           console.log(`D35EAdapter | Added race ${raceName} to ${actor.name} (by ID)`);
+          await D35EAdapter.ensureTokenSizeIsSet(actor);
           return;
         }
       }
@@ -518,6 +553,7 @@ export class D35EAdapter {
       // Add to actor
       await actor.createEmbeddedDocuments('Item', [raceDoc.toObject()]);
       console.log(`D35EAdapter | Added race ${raceName} to ${actor.name} (by name)`);
+      await D35EAdapter.ensureTokenSizeIsSet(actor);
     } catch (error) {
       console.error(`D35EAdapter | Failed to add race ${raceName}:`, error);
       throw error;
