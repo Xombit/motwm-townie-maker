@@ -127,19 +127,18 @@ export async function addWandsToActor(
   actor: any,
   wands: WandRecommendation[],
   identifyItems: boolean = true
-): Promise<number> {
-  let successCount = 0;
+): Promise<string[]> {
+  const createdIds: string[] = [];
   
   for (const wandRec of wands) {
     const wand = await createWandFromSpell(actor, wandRec.spell, wandRec.casterLevel, identifyItems);
     if (wand) {
-      successCount++;
+      createdIds.push(wand.id);
     }
   }
   
-  console.log(`Added ${successCount} of ${wands.length} wands to ${actor.name}`);
-  
-  return successCount;
+  console.log(`Added ${createdIds.length} of ${wands.length} wands to ${actor.name}`);
+  return createdIds;
 }
 
 /**

@@ -95,9 +95,9 @@ function getAuraStrength(casterLevel: number): string {
  * @param potions - Array of potion recommendations
  * @param identifyItems - Whether to create items as identified
  */
-export async function createPotionsForActor(actor: any, potions: PotionRecommendation[], identifyItems: boolean = true): Promise<void> {
+export async function createPotionsForActor(actor: any, potions: PotionRecommendation[], identifyItems: boolean = true): Promise<string[]> {
   if (!potions || potions.length === 0) {
-    return;
+    return [];
   }
   
   console.log(`Creating ${potions.length} different types of potions for ${actor.name}:`);
@@ -112,7 +112,10 @@ export async function createPotionsForActor(actor: any, potions: PotionRecommend
   }
   
   if (potionItems.length > 0) {
-    await actor.createEmbeddedDocuments('Item', potionItems);
+    const created = await actor.createEmbeddedDocuments('Item', potionItems);
     console.log(`Successfully added ${potionItems.length} types of potions to ${actor.name}`);
+    return (created || []).map((i: any) => i.id).filter(Boolean);
   }
+
+  return [];
 }

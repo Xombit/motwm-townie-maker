@@ -176,10 +176,10 @@ export async function createScrollsForActor(
   actor: any,
   scrolls: ScrollRecommendation[],
   identifyItems: boolean = true
-): Promise<void> {
+): Promise<string[]> {
   if (scrolls.length === 0) {
     console.log('No scrolls to create');
-    return;
+    return [];
   }
   
   console.log(`Creating ${scrolls.length} scrolls for ${actor.name}...`);
@@ -203,7 +203,10 @@ export async function createScrollsForActor(
   
   // Add all scrolls to the actor at once
   if (scrollItems.length > 0) {
-    await actor.createEmbeddedDocuments('Item', scrollItems);
+    const created = await actor.createEmbeddedDocuments('Item', scrollItems);
     console.log(`Added ${scrollItems.length} scrolls to ${actor.name}`);
+    return (created || []).map((i: any) => i.id).filter(Boolean);
   }
+
+  return [];
 }

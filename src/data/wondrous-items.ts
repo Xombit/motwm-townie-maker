@@ -892,6 +892,7 @@ export interface CustomContainerItem {
     weight: number;
     constantWeight: boolean;
     price: number;
+    containerCanUseItems: boolean;
     description: {
       value: string;
       chat: string;
@@ -915,6 +916,7 @@ export const CUSTOM_HANDY_HAVERSACK: CustomContainerItem = {
     weight: 5,      // Always weighs 5 lbs when filled
     constantWeight: true,
     price: 2000,
+    containerCanUseItems: true,
     description: {
       value: '<div topic="Handy Haversack" level="8"><p><b>Handy Haversack:</b> A backpack of this sort appears to be well made, well used, and quite ordinary. It is constructed of finely tanned leather, and the straps have brass hardware and buckles. It has two side pouches, each of which appears large enough to hold about a quart of material. In fact, each is like a <i>bag of holding</i> and can actually hold material of as much as 2 cubic feet in volume or 20 pounds in weight. The large central portion of the pack can contain up to 8 cubic feet or 80 pounds of material. Even when so filled, the backpack always weighs only 5 pounds.</p><p>While such storage is useful enough, the pack has an even greater power in addition. When the wearer reaches into it for a specific item, that item is always on top. Thus, no digging around and fumbling is ever necessary to find what a haversack contains. Retrieving any specific item from a haversack is a move action, but it does not provoke the attacks of opportunity that retrieving a stored item usually does.</p><p>Moderate conjuration; CL 9th; Craft Wondrous Item, <i>secret chest</i>; Price 2,000 gp; Weight 5 lb.</p></div>',
       chat: '',

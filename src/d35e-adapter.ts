@@ -48,6 +48,34 @@ const SUPPORTED_CLASSES: Array<{ id: string; name: string }> = [
 ];
 
 export class D35EAdapter {
+  private static ensurePendingContainerMoves(actor: any): { backpackId?: string; itemIds: string[]; haversackOnlyItemIds: string[] } {
+    const existing = (actor as any)._pendingContainerMoves;
+    const pending = existing && typeof existing === 'object' ? existing : {};
+
+    if (!Array.isArray(pending.itemIds)) pending.itemIds = [];
+    if (!Array.isArray(pending.haversackOnlyItemIds)) pending.haversackOnlyItemIds = [];
+
+    (actor as any)._pendingContainerMoves = pending;
+    return pending;
+  }
+
+  private static appendPendingContainerMoves(actor: any, itemIds: string[], backpackId?: string): void {
+    if (!itemIds || itemIds.length === 0) return;
+
+    const pending = this.ensurePendingContainerMoves(actor);
+    if (backpackId && !pending.backpackId) pending.backpackId = backpackId;
+
+    const merged = new Set<string>([...pending.itemIds, ...itemIds].filter(Boolean));
+    pending.itemIds = Array.from(merged);
+  }
+
+  private static appendPendingHaversackOnlyMoves(actor: any, itemIds: string[]): void {
+    if (!itemIds || itemIds.length === 0) return;
+
+    const pending = this.ensurePendingContainerMoves(actor);
+    const merged = new Set<string>([...pending.haversackOnlyItemIds, ...itemIds].filter(Boolean));
+    pending.haversackOnlyItemIds = Array.from(merged);
+  }
   /**
    * D35E git builds can crash during actor updates if system.traits.tokenSize is unset
    * and the system tries to resolve a missing CONFIG.D35E.tokenSizes["actor"].
@@ -1562,6 +1590,7 @@ export class D35EAdapter {
           ...CUSTOM_HANDY_HAVERSACK,
           system: {
             ...CUSTOM_HANDY_HAVERSACK.system,
+            containerCanUseItems: true,
             identified: identifyItems,
             identifiedName: CUSTOM_HANDY_HAVERSACK.name,
             unidentified: {
@@ -1607,19 +1636,25 @@ export class D35EAdapter {
       // Step 6c: Add wands for casters
       if (magicItems.wands && magicItems.wands.length > 0) {
         const { addWandsToActor } = await import('./data/wand-creation');
-        await addWandsToActor(actor, magicItems.wands, identifyItems);
+        const wandIds = await addWandsToActor(actor, magicItems.wands, identifyItems);
+        // Consumables should ONLY be moved into a Handy Haversack (and left alone otherwise)
+        this.appendPendingHaversackOnlyMoves(actor, wandIds);
       }
       
       // Step 6d: Add scrolls for casters
       if (magicItems.scrolls && magicItems.scrolls.length > 0) {
         const { createScrollsForActor } = await import('./data/scroll-creation');
-        await createScrollsForActor(actor, magicItems.scrolls, identifyItems);
+        const scrollIds = await createScrollsForActor(actor, magicItems.scrolls, identifyItems);
+        // Consumables should ONLY be moved into a Handy Haversack (and left alone otherwise)
+        this.appendPendingHaversackOnlyMoves(actor, scrollIds);
       }
       
       // Step 6e: Add potions for all characters
       if (magicItems.potions && magicItems.potions.length > 0) {
         const { createPotionsForActor } = await import('./data/potion-creation');
-        await createPotionsForActor(actor, magicItems.potions, identifyItems);
+        const potionIds = await createPotionsForActor(actor, magicItems.potions, identifyItems);
+        // Consumables should ONLY be moved into a Handy Haversack (and left alone otherwise)
+        this.appendPendingHaversackOnlyMoves(actor, potionIds);
       }
       
       // Step 6f: Add rods and staves for casters
@@ -2039,14 +2074,12 @@ export class D35EAdapter {
           
           if (itemsToMove.length > 0) {
             console.log(`D35EAdapter | ${itemsToMove.length} items will be moved into backpack after character creation`);
-            
-            // Store the move data for later execution
-            // We'll return this info so the calling code can complete the move
-            // after the character is fully saved
-            (actor as any)._pendingContainerMoves = {
-              backpackId,
-              itemIds: itemsToMove.map((item: any) => item.id)
-            };
+
+            this.appendPendingContainerMoves(
+              actor,
+              itemsToMove.map((item: any) => item.id),
+              backpackId
+            );
           }
         }
       } catch (error) {
@@ -2199,12 +2232,21 @@ export class D35EAdapter {
       return;
     }
 
+    const generalItemIds: string[] = Array.isArray(pending.itemIds) ? pending.itemIds : [];
+    const haversackOnlyItemIds: string[] = Array.isArray(pending.haversackOnlyItemIds) ? pending.haversackOnlyItemIds : [];
+
+    if (generalItemIds.length === 0 && haversackOnlyItemIds.length === 0) {
+      delete (actor as any)._pendingContainerMoves;
+      console.log(`D35EAdapter | Pending container moves empty - nothing to do`);
+      return;
+    }
+
     console.log(`D35EAdapter | === Completing pending container moves ===`);
     
     // Find the best container - prefer magical containers over backpack
     // Priority: Handy Haversack > Bag of Holding > Backpack
-    let targetContainerId = pending.backpackId;
-    let containerName = "backpack";
+    let targetContainerId: string | undefined = pending.backpackId;
+    let containerName = targetContainerId ? "backpack" : "(none)";
     
     // Check character's strength score (for Bag of Holding weight)
     const strScore = actor.system?.abilities?.str?.total ?? actor.system?.abilities?.str?.value ?? 10;
@@ -2251,38 +2293,69 @@ export class D35EAdapter {
         }
       }
     }
+
+    if (!targetContainerId) {
+      console.warn(`D35EAdapter | No valid container found - skipping ${pending.itemIds.length} move(s)`);
+      delete (actor as any)._pendingContainerMoves;
+      return;
+    }
     
-    console.log(`D35EAdapter | Moving ${pending.itemIds.length} items into ${containerName} (${targetContainerId})`);
+    // 1) General moves: use best available container (haversack/bag/backpack)
+    const generalMoveIds = generalItemIds.filter(Boolean);
+    if (generalMoveIds.length > 0) {
+      console.log(`D35EAdapter | Moving ${generalMoveIds.length} items into ${containerName} (${targetContainerId})`);
 
-    // Build updates array
-    const updates = pending.itemIds.map((itemId: string) => {
-      const item = actor.items.get(itemId);
-      console.log(`D35EAdapter | → Moving "${item?.name}" (${itemId})`);
-      return {
-        _id: itemId,
-        "system.container": targetContainerId,
-        "system.containerId": targetContainerId  // CRITICAL: D35E requires BOTH fields
-      };
-    });
+      const updates = generalMoveIds.map((itemId: string) => {
+        const item = actor.items.get(itemId);
+        console.log(`D35EAdapter | → Moving "${item?.name}" (${itemId})`);
+        return {
+          _id: itemId,
+          "system.container": targetContainerId,
+          "system.containerId": targetContainerId  // CRITICAL: D35E requires BOTH fields
+        };
+      });
 
-    // Execute the batch update
-    await actor.updateEmbeddedDocuments("Item", updates);
-    console.log(`D35EAdapter | ✓ Completed moving ${updates.length} items into ${containerName}`);
+      await actor.updateEmbeddedDocuments("Item", updates);
+      console.log(`D35EAdapter | ✓ Completed moving ${updates.length} items into ${containerName}`);
 
-    // CRITICAL: Wait for Foundry to commit changes to database
-    // updateEmbeddedDocuments is async but returns before DB commit completes
-    console.log(`D35EAdapter | → Waiting for database commit...`);
-    await new Promise(resolve => setTimeout(resolve, 250));
-    console.log(`D35EAdapter | ✓ Database commit complete`);
+      console.log(`D35EAdapter | → Waiting for database commit...`);
+      await new Promise(resolve => setTimeout(resolve, 250));
+      console.log(`D35EAdapter | ✓ Database commit complete`);
+
+      const itemsInContainer = actor.items.filter((i: any) => i.system?.container === targetContainerId);
+      console.log(`D35EAdapter | ✓ Final verification: ${itemsInContainer.length} items in ${containerName}`);
+    }
+
+    // 2) Haversack-only moves: ONLY move if a Handy Haversack exists
+    const haversackOnlyIds = haversackOnlyItemIds.filter(Boolean);
+    if (haversackOnlyIds.length > 0) {
+      if (handyHaversack) {
+        const haversackId = handyHaversack.id;
+        console.log(`D35EAdapter | Moving ${haversackOnlyIds.length} consumable(s) into Handy Haversack (${haversackId})`);
+
+        const updates = haversackOnlyIds.map((itemId: string) => {
+          const item = actor.items.get(itemId);
+          console.log(`D35EAdapter | → (Haversack-only) Moving "${item?.name}" (${itemId})`);
+          return {
+            _id: itemId,
+            "system.container": haversackId,
+            "system.containerId": haversackId
+          };
+        });
+
+        await actor.updateEmbeddedDocuments("Item", updates);
+        console.log(`D35EAdapter | ✓ Completed moving ${updates.length} consumable(s) into Handy Haversack`);
+
+        console.log(`D35EAdapter | → Waiting for database commit...`);
+        await new Promise(resolve => setTimeout(resolve, 250));
+        console.log(`D35EAdapter | ✓ Database commit complete`);
+      } else {
+        console.log(`D35EAdapter | No Handy Haversack found - leaving ${haversackOnlyIds.length} consumable(s) uncontained`);
+      }
+    }
 
     // Clean up the pending data
     delete (actor as any)._pendingContainerMoves;
-
-    // Verify the move worked
-    const itemsInContainer = actor.items.filter((i: any) => 
-      i.system?.container === targetContainerId
-    );
-    console.log(`D35EAdapter | ✓ Final verification: ${itemsInContainer.length} items in ${containerName}`);
   }
 
   /**
