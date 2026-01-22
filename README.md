@@ -37,13 +37,13 @@ That’s it, enjoy your new townie!
 - [Overview](#overview)
 - [Features](#features)
 - [Installation](#installation)
-- [Beta Status / Known Limitations](#beta-status--known-limitations)
+- [Beta Status and Known Limitations](#beta-status-and-known-limitations)
 - [Quick Start](#quick-start)
 - [Character Templates](#character-templates)
 - [Adding Custom Templates](#adding-custom-templates)
 - [Core Systems](#core-systems)
   - [Ability Scores](#ability-scores)
-  - [Class & Level](#class--level)
+  - [Class and Level](#class-and-level)
   - [Race Selection](#race-selection)
   - [Skill Allocation](#skill-allocation)
   - [Feat Selection](#feat-selection)
@@ -52,7 +52,7 @@ That’s it, enjoy your new townie!
   - [Spell System](#spell-system)
   - [Consumables](#consumables)
 - [Configuration Options](#configuration-options)
-- [Loot & Token Options](#loot--token-options)
+- [Loot and Token Options](#loot-and-token-options)
 - [Development](#development)
 - [Technical Details](#technical-details)
 - [License](#license)
@@ -124,7 +124,7 @@ The goal is to create NPCs that feel like real townfolk who could plausibly exis
 
 ---
 
-## Beta Status / Known Limitations
+## Beta Status and Known Limitations
 
 - Output depends on the D35E compendium content and IDs; if you use a different D35E version than expected, some items/spells may not be found.
 - Some class-specific edge cases are still being refined (e.g. specialist wizard slot handling).
@@ -640,7 +640,7 @@ All ability scores can be manually adjusted in the Character tab after selecting
 
 ---
 
-### Class & Level
+### Class and Level
 
 #### Supported Classes
 
@@ -904,7 +904,7 @@ Fine-tune magic item budget allocation:
 
 ---
 
-## Loot & Token Options
+## Loot and Token Options
 
 ### Loot Options
 
