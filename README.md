@@ -109,7 +109,7 @@ The goal is to create NPCs that feel like real townfolk who could plausibly exis
 2. Click **"Install Module"**
 3. Paste the manifest URL:
    ```
-  https://raw.githubusercontent.com/Xombit/motwm-townie-maker/main/module.json
+   https://raw.githubusercontent.com/Xombit/motwm-townie-maker/main/module.json
    ```
 4. Click **"Install"**
 
