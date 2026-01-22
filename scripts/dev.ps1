@@ -13,9 +13,11 @@ $candidatePaths = @(
     "C:\Users\User\AppData\Local\FoundryVTT\Data\modules"
 ) | Where-Object { $_ -and $_.Trim() -ne "" } | Select-Object -Unique
 
+$existingCandidatePaths = @()
 $foundryModulesPath = $null
 foreach ($p in $candidatePaths) {
     if (Test-Path $p) {
+        $existingCandidatePaths += $p
         $foundryModulesPath = $p
         break
     }
@@ -32,6 +34,11 @@ if (-not $foundryModulesPath) {
 $targetPath = Join-Path $foundryModulesPath $moduleName
 
 Write-Host "Starting development mode for $moduleName..." -ForegroundColor Cyan
+if (-not $FoundryModulesPath -and $existingCandidatePaths.Count -gt 1) {
+    Write-Host "Warning: Multiple Foundry module directories exist. Using the first match." -ForegroundColor Yellow
+    $existingCandidatePaths | ForEach-Object { Write-Host "  - Found: $_" -ForegroundColor Yellow }
+    Write-Host "Tip: pass an explicit path: .\\scripts\\dev.ps1 -FoundryModulesPath <path>" -ForegroundColor Yellow
+}
 Write-Host "Module will be deployed to: $targetPath" -ForegroundColor Yellow
 Write-Host ""
 
@@ -50,6 +57,7 @@ Write-Host "========================================" -ForegroundColor Cyan
 Write-Host "Watching for changes in:" -ForegroundColor Yellow
 Write-Host "  - dist/" -ForegroundColor White
 Write-Host "  - templates/" -ForegroundColor White
+Write-Host "  - data/" -ForegroundColor White
 Write-Host "  - lang/" -ForegroundColor White
 Write-Host "  - images/" -ForegroundColor White
 Write-Host "  - module.json" -ForegroundColor White
@@ -85,6 +93,15 @@ function Deploy-Files {
                 New-Item -ItemType Directory -Path $templatesTarget -Force | Out-Null
             }
             Copy-Item "templates\*" $templatesTarget -Recurse -Force
+        }
+
+        # Copy data assets
+        if (Test-Path "data") {
+            $dataTarget = Join-Path $targetPath "data"
+            if (-not (Test-Path $dataTarget)) {
+                New-Item -ItemType Directory -Path $dataTarget -Force | Out-Null
+            }
+            Copy-Item "data\*" $dataTarget -Recurse -Force
         }
         
         # Copy lang
@@ -138,7 +155,7 @@ $action = {
     }
     
     # Only watch files we actually deploy
-    if ($name -notmatch "^(dist|templates|lang|images|module\\.json)") {
+    if ($name -notmatch "^(dist|templates|data|lang|images|module\\.json)") {
         return
     }
     

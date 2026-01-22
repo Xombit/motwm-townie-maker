@@ -1,4 +1,4 @@
-# Testing Guide - MOTWM Townie Maker
+# Beta Testing Guide - MOTWM Townie Maker
 
 ## 🧪 Core Functionality Testing
 
@@ -7,38 +7,36 @@
 2. ✅ MOTWM Townie Maker module enabled
 3. ✅ Module deployed (latest build)
 
+Tip: Run the tests with the browser console open (F12) so you can capture errors and `D35EAdapter | ...` logs.
+
 ---
 
-## Test 1: Simple Human Fighter
+## Test 1: Simple Martial (sanity check)
 
 ### Goal
-Create a basic level 1 Human Fighter to test all core functions.
+Create a basic level 1 martial to confirm the full creation pipeline completes.
 
 ### Steps
 1. Open Foundry VTT
 2. Go to **Actor Directory**
 3. Click the **Townie Maker** button
 4. Fill in the form:
-   - **Template**: Select "Town Guard" (or any Fighter template)
-   - **Name**: "Test Fighter"
-   - **Race**: "Human"
-   - **Class**: Fighter, Level 1
+   - **Template**: Select a martial template (e.g., Town Guard)
+   - **Name**: "Test Martial"
+   - **Sheet Type**: PC Sheet (Full Features)
    - **Abilities**: Use Standard Array or roll
 5. Click **Create NPC**
 
 ### Expected Results
 - ✅ Actor created in Actor Directory
 - ✅ Actor sheet opens automatically
-- ✅ **Race tab** shows "Human" with racial features
-- ✅ **Class tab** shows "Fighter" at level 1
-- ✅ **Abilities** match what you entered
-- ✅ **HP** is rolled (d10 + CON mod for Fighter)
-- ✅ **BAB** is +1 (Fighter is high BAB)
-- ✅ **Saves** calculated: Fort high, Ref/Will low
-- ✅ **Skills** show Fighter class skills
+- ✅ Abilities match what you entered
+- ✅ Race + class items exist on the actor (sheet shows them somewhere appropriate for D35E)
+- ✅ If **Auto-Roll HP** is enabled, HP is non-zero for PC sheets
+- ✅ No uncaught errors in the console
 
 ### Check Console (F12)
-Look for these log messages:
+Look for log messages like:
 ```
 D35EAdapter | Added race Human to Test Fighter
 D35EAdapter | Added class Fighter level 1 to Test Fighter
@@ -55,52 +53,43 @@ D35EAdapter | Rolled HP for Test Fighter: X
 
 ---
 
-## Test 2: Elf Wizard (Different Race/Class)
+## Test 2: Caster (spells + consumables)
 
 ### Goal
-Test with a different race and spellcasting class.
+Verify caster configuration runs without errors (spells, consumables, inventory organization).
 
 ### Steps
 1. Click **Townie Maker** button again
 2. Fill in:
-   - **Name**: "Test Wizard"
-   - **Race**: "Elf"
-   - **Class**: Wizard, Level 1
-   - **Abilities**: High INT (15+)
+   - **Template**: Select a caster template (e.g., Wizard/Cleric)
+   - **Name**: "Test Caster"
+   - **Sheet Type**: PC Sheet (Full Features)
 3. Create
 
 ### Expected Results
-- ✅ Elf racial traits applied
-- ✅ Wizard class with d4 HD
-- ✅ Low BAB (+0)
-- ✅ Will save high, Fort/Ref low
-- ✅ Spellcasting section appears (even if empty)
+- ✅ Actor is created and opens
+- ✅ No uncaught errors in the console
+- ✅ If the template generates spells/scrolls/wands/potions, they exist in inventory
 
 ---
 
-## Test 3: Multi-Class Character
+## Test 3: Higher-level build (budgets + magic items)
 
 ### Goal
-Test if multiple classes work.
+Exercise the budget and equipment logic by creating a mid/high-level NPC.
 
 ### Steps
-1. Create new NPC:
-   - **Name**: "Test Multiclass"
-   - **Race**: "Human"
-   - **Classes**: 
-     - Fighter, Level 2
-     - Rogue, Level 1
-   - (You may need to modify templates or add this manually)
+1. Create a new NPC using a template that supports higher levels.
+2. Set a level like 10 or 15.
 
 ### Expected Results
-- ✅ Both classes appear
-- ✅ HP calculated from both (2d10 + 1d6 + CON×3)
-- ✅ BAB calculated correctly
-- ✅ Best saves from each class
+- ✅ Equipment is created and equipped appropriately
+- ✅ Magic weapon/armor enhancements appear when expected
+- ✅ Any remaining wealth is applied as coins/items as designed
 
 ---
 
-## Test 4: Auto-Roll HP Setting
+## Test 4: Auto-Roll HP setting
 
 ### Goal
 Test the "Auto Roll HP" setting.
@@ -110,26 +99,25 @@ Test the "Auto Roll HP" setting.
 2. Find "MOTWM Townie Maker" settings
 3. Toggle **Auto Roll HP** to OFF
 4. Create a new NPC
-5. Check if HP is 0 or not rolled
+5. Create a new PC-sheet actor; check if HP is left unrolled/unchanged
 
 Then:
 6. Toggle **Auto Roll HP** to ON
 7. Create another NPC
-8. Check if HP is rolled automatically
+8. Create another PC-sheet actor; check if HP is rolled automatically
 
 ---
 
-## Test 5: Different Actor Types
+## Test 5: Sheet Type behavior
 
 ### Goal
-Test NPC vs Character actor types.
+Test PC Sheet vs Simple NPC Sheet behavior.
 
 ### Steps
 1. In **Module Settings**:
-   - Set **Default Actor Type** to "NPC"
-2. Create an actor - check if it's NPC type
-3. Change to "Character"
-4. Create an actor - check if it's PC type
+   - Set **Default Sheet Type** to "Simple NPC Sheet (Manual HP)"
+2. Create an actor; confirm it uses the simple NPC sheet flow
+3. Switch **Default Sheet Type** back to "PC Sheet (Full Features)" and create another actor
 
 ---
 
@@ -201,22 +189,11 @@ Verify HD, BAB, and saves for each.
 
 ---
 
-## Success Criteria
+## What “pass” looks like for beta
 
-### Minimum Viable Product ✅
-- [x] Create actor with name
-- [x] Set ability scores
-- [x] Add race from compendium
-- [x] Add class from compendium with level
-- [x] Roll HP based on class HD
-- [ ] **Actor appears functional in D35E system**
-
-### Stretch Goals
-- [ ] Add starting feats
-- [ ] Add equipment from templates
-- [ ] Add class features
-- [ ] Support multiclassing properly
-- [ ] Add spells for casters
+- Creation completes without uncaught errors.
+- Actor opens and is usable in D35E sheets.
+- Major expected content appears (race/class items, ability scores, equipment; spells/consumables when applicable).
 
 ---
 
@@ -244,7 +221,7 @@ When reporting bugs, please include:
 ### If Tests Fail ❌
 1. Document which test failed
 2. Copy console errors
-3. Check D35E_STRUCTURE.md for data format
+3. If you need deep system structure notes, see `archive/D35E_STRUCTURE.md`
 4. Debug and fix issues
 5. Re-test
 

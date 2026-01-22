@@ -1,6 +1,7 @@
 // MOTWM Townie Maker - Main Entry Point
 import { registerSettings } from "./settings";
 import { TownieMakerApp } from "./ui/TownieMakerApp";
+import { loadTemplates } from "./data/template-loader";
 import "./styles/styles.css";
 
 declare global {
@@ -21,6 +22,9 @@ Hooks.once("init", () => {
 
 Hooks.once("ready", () => {
   console.log("motwm-townie-maker | Ready");
+
+  // Warm template loading early so JSON issues are visible even before opening the UI.
+  loadTemplates().catch((e) => console.error("motwm-townie-maker | Failed to load templates on ready", e));
   
   if (!game.user?.isGM) {
     console.log("motwm-townie-maker | Non-GM user, limited features available");

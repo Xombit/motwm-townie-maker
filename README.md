@@ -1,14 +1,46 @@
 # MOTWM Townie Maker
 
-A comprehensive NPC and adversary creation tool for Foundry VTT's D35E (D&D 3.5e) system. Generate fully-equipped, combat-ready characters in seconds using intelligent templates and automated systems.
+In D&D terms, a “townie” isn’t an insult, it’s a job description. They are the people who actually live here. They remember what used to be where that new building is, know every petty feud within three blocks, and can tell you exactly when “things started going downhill” (usually right after the old inn burned down).
+
+They’re the ones who know which alley is “technically safe,” which merchant waters down the ale, and why you absolutely do not ask Old Man Harven about the scarecrow incident.
+
+Adventurers are the opposite: they roll in from Somewhere Else, turn local problems into XP, and leave with a suspicious amount of your town’s “unclaimed” treasure.
+
+Townies keep the setting running. Adventurers keep the encounter tables employed.
+
+Townie Maker helps you generate the regular locals *and* the troublemakers — and even when you ask for “adventurers,” you’re really getting townie adventurers.
+
+**MOTWM Townie Maker** is a comprehensive NPC and adversary creation tool for Foundry VTT’s D35E (D&D 3.5e) system. Generate fully-equipped, combat-ready characters in seconds using intelligent templates and automated systems.
+
+> **Beta release note:** This module is in active development. Core NPC generation works, but some areas (template coverage, edge-case rules, and advanced automation) may still change.
+
+## Quick Start (With Pictures)
+
+1. Open the **Actors** tab and click the **Townie Maker** button ("user-plus" icon) in the Actors Directory header (GM-only).
+2. Select the template you want to use.
+
+![Select a template](images/townie1.webp)
+
+3. Change the level (and any other details you want).
+
+![Adjust level and options](images/townie2.webp)
+
+4. Click **Create NPC** and Townie Maker will generate the actor and open the sheet.
+
+![Actor creation and sheet](images/townie3.webp)
+
+That’s it, enjoy your new townie!
 
 ## Table of Contents
 
+- [Quick Start (With Pictures)](#quick-start-with-pictures)
 - [Overview](#overview)
 - [Features](#features)
 - [Installation](#installation)
+- [Beta Status / Known Limitations](#beta-status--known-limitations)
 - [Quick Start](#quick-start)
 - [Character Templates](#character-templates)
+- [Adding Custom Templates](#adding-custom-templates)
 - [Core Systems](#core-systems)
   - [Ability Scores](#ability-scores)
   - [Class & Level](#class--level)
@@ -22,8 +54,10 @@ A comprehensive NPC and adversary creation tool for Foundry VTT's D35E (D&D 3.5e
 - [Configuration Options](#configuration-options)
 - [Loot & Token Options](#loot--token-options)
 - [Development](#development)
+- [Technical Details](#technical-details)
 - [License](#license)
 - [Credits](#credits)
+- [Support](#support)
 
 ---
 
@@ -39,7 +73,7 @@ A comprehensive NPC and adversary creation tool for Foundry VTT's D35E (D&D 3.5e
 - Consumables (wands, scrolls, potions) based on character type
 - Randomized wealth in realistic coin denominations
 
-The goal is to create NPCs that feel like real adventurers who could plausibly exist in your game world.
+The goal is to create NPCs that feel like real townfolk who could plausibly exist in your game world.
 
 ## Features
 
@@ -75,7 +109,7 @@ The goal is to create NPCs that feel like real adventurers who could plausibly e
 2. Click **"Install Module"**
 3. Paste the manifest URL:
    ```
-   https://github.com/Xombit/motwm-townie-maker/releases/latest/download/module.json
+  https://raw.githubusercontent.com/Xombit/motwm-townie-maker/main/module.json
    ```
 4. Click **"Install"**
 
@@ -90,10 +124,19 @@ The goal is to create NPCs that feel like real adventurers who could plausibly e
 
 ---
 
+## Beta Status / Known Limitations
+
+- Output depends on the D35E compendium content and IDs; if you use a different D35E version than expected, some items/spells may not be found.
+- Some class-specific edge cases are still being refined (e.g. specialist wizard slot handling).
+- Inventory organization: the module uses D35E container fields and performs a delayed “organize inventory” pass after creation. If you have custom systems/modules that modify items during creation, container moves may behave differently.
+- Templates are loaded from `data/templates.json` at runtime. There is no in-Foundry template editor yet; edit the JSON file directly (see [Adding Custom Templates](#adding-custom-templates)).
+
+---
+
 ## Quick Start
 
 1. **Enable the module** in your world's Module Settings
-2. **Click the anvil icon** (🔨) in the scene controls sidebar
+2. Open the **Actors Directory** and click **Townie Maker** ("user-plus" icon) in the directory header (GM-only)
 3. **Select a template** from the gallery (e.g., "Town Guard")
 4. **Adjust level** to desired character level
 5. **Click "Create NPC"** to generate the character
@@ -109,27 +152,32 @@ The character will be created with:
 
 ## Character Templates
 
+### Built-in Templates (Current)
+
 Templates provide pre-configured character concepts with appropriate class, race, ability scores, skills, feats, and starting equipment.
 
-### Martial Templates
+The current built-in templates are defined in `data/templates.json`.
+
+### Martial / Adventurer Templates
 
 | Template | Class | Race | Description |
 |----------|-------|------|-------------|
-| **Town Guard** | Warrior (NPC) | Human | City watch, gate guards, patrol officers |
-| **Bandit** | Rogue | Human | Highway robber, camp raider |
+| **Town Guard** | Fighter | Human | Basic city guard or soldier |
+| **Bandit** | Warrior (NPC) | Human | Highway robber or outlaw |
 | **Tribal Warrior** | Barbarian | Half-Orc | Fierce wilderness warrior |
 | **Holy Knight** | Paladin | Human | Righteous champion of good |
-| **Ranger Scout** | Ranger | Human | Wilderness tracker and archer |
+| **Ranger Scout** | Ranger | Elf, High | Wilderness guide/tracker (archery style) |
 | **Monastery Disciple** | Monk | Human | Martial artist and ascetic |
+| **Street Thief** | Rogue | Halfling, Lightfoot | Pickpocket or burglar |
 
 ### Caster Templates
 
 | Template | Class | Race | Description |
 |----------|-------|------|-------------|
-| **Arcane Scholar** | Wizard | Elf | Academic magic-user |
-| **Temple Priest** | Cleric | Human | Divine spellcaster |
-| **Village Healer** | Cleric | Human | Healing-focused divine caster |
-| **Forest Hermit** | Druid | Human | Nature guardian |
+| **Wizard** | Wizard | Human | Scholar of arcane magic |
+| **Battle Cleric** | Cleric | Human | Melee + divine support (has shield) |
+| **Caster Cleric** | Cleric | Human | Spell-focused cleric (no shield) |
+| **Forest Hermit** | Druid | Human | Guardian of nature and the wild |
 | **Born Spellcaster** | Sorcerer | Human | Innate magic wielder |
 | **Traveling Minstrel** | Bard | Half-Elf | Entertainer and storyteller |
 
@@ -138,20 +186,435 @@ Templates provide pre-configured character concepts with appropriate class, race
 | Template | Class | Race | Description |
 |----------|-------|------|-------------|
 | **Merchant** | Expert (NPC) | Human | Shopkeeper, trader |
-| **Tavern Keeper** | Expert (NPC) | Human | Innkeeper, bartender |
-| **Blacksmith** | Expert (NPC) | Human | Weaponsmith, armorer |
-| **Innkeeper** | Expert (NPC) | Halfling | Hospitality professional |
-| **Farmer** | Commoner (NPC) | Human | Agricultural worker |
-| **Street Urchin** | Rogue | Halfling | Street-smart survivor |
-| **Fortune Teller** | Adept (NPC) | Human | Mystic, seer |
-| **Noble** | Aristocrat (NPC) | Human | Lord, lady, courtier |
-| **Cultist** | Adept (NPC) | Human | Dark magic practitioner |
+| **Tavern Keeper** | Commoner (NPC) | Human | Inn or tavern proprietor |
+| **Blacksmith** | Expert (NPC) | Dwarf, Mountain | Skilled metalworker and craftsman |
+| **Innkeeper** | Commoner (NPC) | Halfling, Lightfoot | Welcoming host and local gossip |
+| **Farmer** | Commoner (NPC) | Human | Hardworking field laborer |
+| **Street Urchin** | Commoner (NPC) | Human | Poor orphan surviving by wits |
+| **Fortune Teller** | Adept (NPC) | Half-Elf | Mystic seer of fates and futures |
+| **Noble** | Aristocrat (NPC) | Human | Aristocrat or wealthy merchant |
+| **Village Healer** | Adept (NPC) | Human | Simple divine caster (NPC class) |
+| **Dark Cultist** | Adept (NPC) | Human | Devotee of sinister powers |
 
-### Specialized Templates
+---
 
-| Template | Class | Race | Description |
-|----------|-------|------|-------------|
-| **Street Thief** | Rogue | Halfling | Urban sneak thief |
+## Adding Custom Templates
+
+Templates are loaded from an external JSON file at runtime.
+
+If you want to add or modify templates:
+
+1. Edit `data/templates.json`.
+2. Reload Foundry (or refresh the page) and re-open Townie Maker.
+
+Important: `data/templates.json` must be **strict JSON**.
+
+- No comments (`//` or `/* ... */`)
+- No trailing commas
+
+If the JSON fails to load/parse, Townie Maker will fall back to a minimal “Blank Character” template and show an error banner in the **Templates** tab.
+
+Note (beta workflow): this file currently lives inside the module folder, so updating the module may overwrite it.
+
+### Example Templates (Copy/Paste)
+
+Each template in `data/templates.json` is a plain JSON object inside the top-level array.
+
+These examples are designed to be copied into the array as-is (adjust item names/races to match your world’s compendiums).
+
+#### Example: Fighter (Frontline Soldier)
+
+```json
+{
+  "id": "example-fighter",
+  "name": "Example Fighter",
+  "description": "Frontline soldier with heavy armor and a shield",
+  "icon": "fas fa-shield-alt",
+  "race": "Human",
+  "alignment": "Lawful Neutral",
+  "classes": [{ "name": "Fighter", "level": 1 }],
+  "primaryAbility": "str",
+  "abilities": { "str": 15, "dex": 12, "con": 14, "int": 10, "wis": 10, "cha": 8 },
+  "skills": [
+    { "name": "clm", "ranks": 2, "priority": "medium" },
+    { "name": "jmp", "ranks": 2, "priority": "medium" },
+    { "name": "int", "ranks": 2, "priority": "medium" },
+    { "name": "rid", "ranks": 2, "priority": "low" }
+  ],
+  "feats": [
+    "Power Attack",
+    "Cleave",
+    { "name": "Weapon Focus (No Weapon Selected)", "displayName": "Weapon Focus (Longsword)", "config": { "weaponGroup": "Longsword" } }
+  ],
+  "startingKit": {
+    "weapons": [{ "name": "Longsword", "cost": 15, "weight": 4, "type": "weapon" }],
+    "armor": [
+      { "minLevel": 1, "item": { "name": "Scale Mail", "cost": 50, "weight": 30, "type": "armor" } },
+      { "minLevel": 11, "item": { "name": "Full Plate", "cost": 1500, "weight": 50, "type": "armor" } }
+    ],
+    "shield": { "name": "Heavy Steel Shield", "cost": 20, "weight": 15, "type": "shield" },
+    "gear": [
+      { "name": "Backpack, Common", "cost": 2, "weight": 2, "type": "gear" },
+      { "name": "Waterskin", "cost": 1, "weight": 4, "type": "gear" },
+      { "name": "Rations, Trail", "cost": 0.5, "weight": 1, "quantity": 7, "type": "gear" }
+    ]
+  },
+  "usePcSheet": true,
+  "useStandardBudget": true,
+  "useMaxHpPerHD": false
+}
+```
+
+#### Example: Wizard (Arcane Scholar)
+
+```json
+{
+  "id": "example-wizard",
+  "name": "Example Wizard",
+  "description": "Arcane caster with a simple kit and spell-focused feats",
+  "icon": "fas fa-hat-wizard",
+  "race": "Human",
+  "alignment": "Neutral",
+  "classes": [{ "name": "Wizard", "level": 1 }],
+  "primaryAbility": "int",
+  "abilities": { "str": 8, "dex": 14, "con": 12, "int": 16, "wis": 10, "cha": 10 },
+  "skills": [
+    { "name": "spl", "ranks": 4, "priority": "high" },
+    { "name": "coc", "ranks": 4, "priority": "high" },
+    { "name": "kar", "ranks": 4, "priority": "medium" },
+    { "name": "khi", "ranks": 2, "priority": "low" }
+  ],
+  "feats": [
+    "Improved Initiative",
+    { "name": "Spell Focus (No Spell School Selected)", "displayName": "Spell Focus (Evocation)", "config": { "spellSchool": "evo" } },
+    "Combat Casting"
+  ],
+  "startingKit": {
+    "weapons": [
+      { "name": "Quarterstaff", "cost": 0, "weight": 4, "type": "weapon" },
+      { "name": "Light Crossbow", "cost": 35, "weight": 4, "type": "weapon" }
+    ],
+    "ammo": [{ "name": "Crossbow Bolt", "cost": 0.1, "weight": 0.1, "quantity": 20, "type": "ammo" }],
+    "tools": [
+      { "name": "Spellbook", "cost": 15, "weight": 3, "type": "tool" },
+      { "name": "Spell Component Pouch", "cost": 5, "weight": 2, "type": "tool" }
+    ],
+    "gear": [
+      { "name": "Backpack, Common", "cost": 2, "weight": 2, "type": "gear" },
+      { "name": "Ink", "cost": 8, "weight": 0, "type": "gear" },
+      { "name": "Inkpen", "cost": 0.1, "weight": 0, "type": "gear" }
+    ]
+  },
+  "personality": "Curious, impatient, always taking notes.",
+  "background": "Trained under a reclusive master; now cataloging local ruins.",
+  "usePcSheet": true,
+  "useStandardBudget": true
+}
+```
+
+#### Example: Rogue (Street Thief)
+
+```json
+{
+  "id": "example-rogue",
+  "name": "Example Rogue",
+  "description": "Stealth-focused rogue with thief tools",
+  "icon": "fas fa-mask",
+  "race": "Halfling, Lightfoot",
+  "alignment": "Chaotic Neutral",
+  "classes": [{ "name": "Rogue", "level": 1 }],
+  "primaryAbility": "dex",
+  "abilities": { "str": 8, "dex": 16, "con": 12, "int": 12, "wis": 10, "cha": 10 },
+  "skills": [
+    { "name": "hid", "ranks": 4, "priority": "high" },
+    { "name": "mos", "ranks": 4, "priority": "high" },
+    { "name": "opl", "ranks": 4, "priority": "high" },
+    { "name": "dev", "ranks": 4, "priority": "medium" },
+    { "name": "slt", "ranks": 2, "priority": "medium" }
+  ],
+  "feats": ["Weapon Finesse", "Dodge", "Mobility"],
+  "rogueSpecialAbilities": ["Crippling Strike", "Opportunist"],
+  "startingKit": {
+    "weapons": [
+      { "name": "Rapier", "cost": 20, "weight": 2, "type": "weapon" },
+      { "name": "Shortbow", "cost": 30, "weight": 2, "type": "weapon" }
+    ],
+    "armor": { "name": "Studded Leather", "cost": 25, "weight": 20, "type": "armor" },
+    "ammo": [{ "name": "Arrow", "cost": 0.05, "weight": 0.15, "quantity": 40, "type": "ammo" }],
+    "tools": [{ "name": "Thieves' Tools", "cost": 30, "weight": 1, "type": "tool" }],
+    "gear": [{ "name": "Backpack, Common", "cost": 2, "weight": 2, "type": "gear" }]
+  },
+  "useStandardBudget": true
+}
+```
+
+#### Example: Ranger (Scout, Archery Style)
+
+```json
+{
+  "id": "example-ranger",
+  "name": "Example Ranger",
+  "description": "Wilderness tracker with archery combat style",
+  "icon": "fas fa-tree",
+  "race": "Elf, High",
+  "alignment": "Neutral Good",
+  "classes": [{ "name": "Ranger", "level": 1 }],
+  "primaryAbility": "dex",
+  "abilities": { "str": 12, "dex": 16, "con": 12, "int": 10, "wis": 14, "cha": 8 },
+  "rangerCombatStyle": "archery",
+  "favoredEnemies": ["Humanoid (Orc)", "Giant"],
+  "skills": [
+    { "name": "sur", "ranks": 4, "priority": "high" },
+    { "name": "lis", "ranks": 4, "priority": "high" },
+    { "name": "spt", "ranks": 4, "priority": "high" },
+    { "name": "kna", "ranks": 2, "priority": "medium" },
+    { "name": "hid", "ranks": 2, "priority": "medium" }
+  ],
+  "feats": ["Track", "Point Blank Shot", "Precise Shot"],
+  "startingKit": {
+    "weapons": [
+      { "name": "Longbow", "cost": 75, "weight": 3, "type": "weapon" },
+      { "name": "Longsword", "cost": 15, "weight": 4, "type": "weapon" }
+    ],
+    "armor": { "name": "Studded Leather", "cost": 25, "weight": 20, "type": "armor" },
+    "ammo": [{ "name": "Arrow", "cost": 0.05, "weight": 0.15, "quantity": 40, "type": "ammo" }],
+    "gear": [
+      { "name": "Backpack, Common", "cost": 2, "weight": 2, "type": "gear" },
+      { "name": "Rations, Trail", "cost": 0.5, "weight": 1, "quantity": 14, "type": "gear" }
+    ]
+  },
+  "magicItemBudgets": {
+    "shieldPercent": 0.4,
+    "armorPercent": 0.6,
+    "secondaryWeaponPercent": 0.5,
+    "ringPercent": 0.6,
+    "amuletPercent": 0.4
+  }
+}
+```
+
+### Template Schema
+
+The template object shape is `TownieTemplate` in `src/types.d.ts`.
+
+This section documents the fields the generator actually consumes today.
+
+#### Template Fields Reference
+
+**Metadata (shown in the Template picker)**
+
+- `id` (string, required): Unique template id.
+- `name` / `description` (string, required): Display name/description.
+- `icon` (string, required): Font Awesome class (e.g. `"fas fa-shield-alt"`).
+
+**Core build inputs**
+
+- `race` (string): Race name as it appears in the D35E race compendium.
+- `alignment` (string): Written directly to the actor.
+- `classes` (array of `{ name, level }`): Used to pre-fill the form.
+  - Current limitation: only `classes[0]` is used for actual creation.
+- `abilities` (object): The *actual ability scores* to set on the actor (not modifiers).
+  - Recommendation: provide all six abilities to avoid carrying values over from a previously-selected template.
+- `primaryAbility` (`"str" | "dex" | "con" | "int" | "wis" | "cha"`): Used during HP/level processing (when auto-rolling HP) to decide which ability gets the level-based increases.
+
+**Skills**
+
+- `skills` (array of `{ name, ranks, priority? }`): Adds skills after class/HP are set.
+  - `name` is a D35E skill id like `"clm"`, `"dip"`, etc.
+  - Subskills are supported on the **PC sheet** path using `"crf1:Weaponsmithing"` / `"pro1:Sailor"` / `"prf1:Sing"`.
+  - `priority` controls allocation (`high`/`medium`/`low`). If omitted, that entry currently gets 0 points.
+  - Current limitation: `ranks` is currently ignored by the allocator (priority drives the distribution).
+  - Current limitation: subskills are not implemented on the **Simple NPC sheet** path.
+
+<details>
+<summary>Skill ID reference (D35E internal skill keys)</summary>
+
+These IDs are the keys under `actor.system.skills` in the D35E system.
+
+| ID | Skill name |
+|---|---|
+| `apr` | Appraise |
+| `aut` | Autohypnosis |
+| `blc` | Balance |
+| `blf` | Bluff |
+| `clm` | Climb |
+| `coc` | Concentration |
+| `crf` | Craft (base skill; use subskills like `crf1:Armorsmithing`) |
+| `dev` | Disable Device |
+| `dip` | Diplomacy |
+| `dis` | Disguise |
+| `dsc` | Decipher Script |
+| `esc` | Escape Artist |
+| `fog` | Forgery |
+| `gif` | Gather Information |
+| `han` | Handle Animal |
+| `hea` | Heal |
+| `hid` | Hide |
+| `int` | Intimidate |
+| `jmp` | Jump |
+| `kar` | Knowledge (Arcana) |
+| `kdu` | Knowledge (Dungeoneering) |
+| `ken` | Knowledge (Engineering) |
+| `kge` | Knowledge (Geography) |
+| `khi` | Knowledge (History) |
+| `klo` | Knowledge (Local) |
+| `kna` | Knowledge (Nature) |
+| `kno` | Knowledge (Nobility) |
+| `kpl` | Knowledge (Planes) |
+| `kps` | Knowledge (Psionics) |
+| `kre` | Knowledge (Religion) |
+| `lis` | Listen |
+| `mos` | Move Silently |
+| `opl` | Open Lock |
+| `prf` | Perform (base skill; use subskills like `prf1:Sing`) |
+| `pro` | Profession (base skill; use subskills like `pro1:Sailor`) |
+| `psi` | Psicraft |
+| `rid` | Ride |
+| `sen` | Sense Motive |
+| `slt` | Sleight of Hand |
+| `spk` | Speak Language |
+| `spl` | Spellcraft |
+| `spt` | Spot |
+| `src` | Search |
+| `sur` | Survival |
+| `swm` | Swim |
+| `tmb` | Tumble |
+| `umd` | Use Magic Device |
+| `upd` | Use Psionic Device |
+| `uro` | Use Rope |
+
+</details>
+
+**Feats**
+
+- `feats` (array): Either feat name strings, or configured feat objects (`FeatConfig`).
+  - Ordering matters: the allocator consumes the list in order (class bonus feats first, then general feats).
+
+The `feats` list supports two forms:
+
+- **Simple feat**: a string with the exact feat name as it appears in your D35E feat compendium.
+- **Configured feat (`FeatConfig`)**: use this when the feat requires a choice (spell school, weapon, or skill).
+
+Important: for configured feats, `FeatConfig.name` must still match a real compendium feat name (it’s the lookup key). In practice, that means using the system’s “placeholder” version like `"Spell Focus (No Spell School Selected)"`.
+
+#### FeatConfig: Spell schools (`config.spellSchool`)
+
+Used for **Spell Focus** and **Greater Spell Focus**.
+
+- `config.spellSchool` is a D35E school code:
+
+| Code | School |
+|---|---|
+| `abj` | Abjuration |
+| `con` | Conjuration |
+| `div` | Divination |
+| `enc` | Enchantment |
+| `evo` | Evocation |
+| `ill` | Illusion |
+| `nec` | Necromancy |
+| `trs` | Transmutation |
+
+Example:
+
+```json
+{
+  "name": "Spell Focus (No Spell School Selected)",
+  "config": { "spellSchool": "evo" }
+}
+```
+
+#### FeatConfig: Weapon choice (`config.weaponGroup`)
+
+Used for weapon-based feats like **Weapon Focus**, **Weapon Specialization**, **Greater Weapon Focus**, **Greater Weapon Specialization**, and **Improved Critical**.
+
+- Despite the property name, `weaponGroup` is treated as a **weapon name** and written into the feat’s "Weapon Name" field.
+- Use the exact weapon name your D35E content uses (e.g., `"Longsword"`, `"Shortbow"`, etc.).
+
+Example:
+
+```json
+{
+  "name": "Weapon Focus (No Weapon Selected)",
+  "config": { "weaponGroup": "Longsword" }
+}
+```
+
+#### FeatConfig: Skill choice (`config.skill`)
+
+Used for **Skill Focus**.
+
+- `config.skill` uses D35E skill IDs (like `"dip"`). See the "Skill ID reference" table above.
+- Subskills are supported (Craft/Profession/Perform):
+  - `"crf1:Armorsmithing"`
+  - `"pro1:Sailor"`
+  - `"prf1:Sing"`
+
+Examples:
+
+```json
+{
+  "name": "Skill Focus (undefined)",
+  "config": { "skill": "dip" }
+}
+```
+
+```json
+{
+  "name": "Skill Focus (undefined)",
+  "config": { "skill": "prf1:Sing" }
+}
+```
+
+Notes:
+- `FeatConfig.displayName` exists in the schema for readability, but the current generator primarily uses `name` for compendium lookup and then applies configuration; don’t rely on `displayName` to change what gets created.
+- If you’re unsure of the correct `name` string for a configured feat, open your D35E feat compendium and copy the exact entry name (the one that contains “No Weapon Selected” / “No Spell School Selected” / etc.).
+
+**Starting equipment**
+
+- `startingKit` (`StartingKit`): The starting equipment kit (see [Equipment System](#equipment-system)).
+  - Each entry is an `EquipmentOption`, which can be:
+    - a single `EquipmentItem`
+    - an array of `EquipmentItem[]` (random choice)
+    - an array of `{ minLevel, item }[]` (level-scaled choice)
+  - `EquipmentItem.name` must match the D35E compendium item name you have installed.
+  - `EquipmentItem.cost` is in gp and is used for budget math.
+
+**Magic item configuration**
+
+- `useStandardBudget` (boolean, default: `true`):
+  - When `false`, the NPC gets no magic items (and only a small “token gold” amount).
+- `magicItemBudgets` (object): Optional overrides for budget splits used by the magic item system.
+  - Values are stored as fractions (e.g. `0.4` = 40%).
+  - `shieldPercent` / `armorPercent`: Splits the “armor budget” between shield vs armor.
+  - `secondaryWeaponPercent`: Splits the “weapon budget” between primary vs secondary weapon.
+  - `ringPercent` / `amuletPercent`: Splits the “protection budget” between ring vs amulet.
+
+**Sheet / HP configuration**
+
+- `usePcSheet` (boolean, default: `true`): When `false`, use the Simple NPC sheet path.
+- `useMaxHpPerHD` (boolean, default: `false`): When enabled and auto-roll HP is on, uses max HP per hit die.
+
+**Class-specific fields**
+
+- `rangerCombatStyle` (`"archery" | "two-weapon"`): If set and the class is Ranger, adds combat-style feats at levels 2/6/11.
+- `favoredEnemies` (string[]): If present on a Ranger template, entries are applied at 1/5/10/15/20.
+- `rogueSpecialAbilities` (string[]): If present on a Rogue template, entries are applied at 10/13/16/19.
+
+**Flavor**
+
+- `personality` / `background` (string): Optional text used to build Biography sections.
+
+### Subtleties To Know (Templates Drive Behavior)
+
+- Cleric/Druid “melee vs caster” detection: the magic item system uses whether `startingKit.shield` exists to decide which variant budget to use.
+  - If you want a spell-focused Cleric/Druid, omit the shield in `startingKit`.
+  - If you want a 2H-style build, omit the shield (the generator does not try to reconcile incompatible kits).
+- Ranger combat style feats are only added when the template defines `rangerCombatStyle`.
+- Weapon-specific feats (Fighter/Paladin/etc): for feats like Weapon Focus / Improved Critical, use `FeatConfig` with `config.weaponGroup`.
+  - The system will set the D35E “Weapon Name” custom attribute and rename the feat to match.
+- Feat ordering matters: the feat allocator consumes your `feats` list in order, assigning class bonus feats first (e.g., Fighter) and then standard feats.
+
+Template notes: templates are currently loaded from `data/templates.json` at runtime (no rebuild required).
 
 ---
 
@@ -214,7 +677,7 @@ Equipment and wealth scale automatically with level:
 
 | Race | Ability Adjustments |
 |------|---------------------|
-| Human | +2 to any |
+| Human | None |
 | Elf, High | +2 DEX, -2 CON |
 | Elf, Wood | +2 STR, -2 INT |
 | Elf, Drow | +2 DEX, -2 CON |
@@ -237,8 +700,8 @@ Skills are allocated using a priority system:
 
 #### Priority Levels
 - **High Priority**: Receives maximum possible ranks (level + 3)
-- **Medium Priority**: Receives moderate ranks
-- **Low Priority**: Receives minimal ranks
+- **Medium Priority**: Receives moderate ranks (half growth)
+- **Low Priority**: Receives minimal ranks (quarter growth)
 
 #### Class Skill Points
 Skill points are calculated correctly per class:
@@ -251,7 +714,7 @@ First level characters receive 4× skill points as per 3.5e rules.
 
 #### Template Skills
 Each template defines appropriate skills for the character concept:
-- **Town Guard**: Spot (high), Listen (high), Intimidate (medium)
+- **Town Guard**: Climb (medium), Intimidate (medium), Jump (medium), Ride (medium)
 - **Street Thief**: Hide (high), Move Silently (high), Open Lock (high)
 - **Wizard**: Spellcraft (high), Concentration (high), Knowledge (Arcana) (medium)
 
@@ -271,10 +734,11 @@ Humans receive a bonus feat at level 1.
 
 #### Feat Configurations
 Feats requiring choices are automatically configured:
-- **Weapon Focus**: Configured for template's primary weapon
-- **Spell Focus**: Configured for appropriate school
-- **Skill Focus**: Configured for class-appropriate skill
-- **Improved Critical**: Configured for primary weapon
+- **Weapon Focus / Weapon Specialization / Improved Critical**: Configured when the template uses a configured feat entry (`FeatConfig`) with `config.weaponGroup`
+- **Spell Focus**: Configured when the template uses `FeatConfig` with `config.spellSchool` (school codes: `abj/con/div/enc/evo/ill/nec/trs`)
+- **Skill Focus**: Configured when the template uses `FeatConfig` with `config.skill` (use a skill id like `"dip"` or a subskill like `"prf1:Sing"`)
+
+Ranger combat style feats are added only when the selected template defines `rangerCombatStyle`.
 
 Example: A Fighter template with a longsword gets:
 - `Weapon Focus (Longsword)`
@@ -297,10 +761,13 @@ Tools: Rope, Flint and Steel
 ```
 
 #### Level Scaling
-Some equipment scales with level:
-- Level 1-4: Leather armor
-- Level 5-9: Chain shirt
-- Level 10+: Breastplate or full plate
+Starting-kit items support three option types:
+
+- **Single item**: a single equipment entry
+- **Random choice**: an array of items (one is chosen at random)
+- **Level-scaled**: an array of `{ minLevel, item }` entries (highest applicable tier is chosen)
+
+Level-scaling is per-item (e.g., a template might use Scale Mail at low levels and Full Plate at higher levels).
 
 #### Equipment Categories
 - **Weapons**: Primary and secondary weapons
@@ -318,37 +785,15 @@ The magic item system allocates budget based on the "Big Six" priority system us
 
 #### Budget Allocation by Class Type
 
-**Martial Classes** (Fighter, Barbarian, etc.)
-| Category | Budget |
-|----------|--------|
-| Weapon Enhancement | 38% |
-| Armor Enhancement | 34% |
-| Stat Booster | 12% |
-| Cloak of Resistance | 7% |
-| Ring/Amulet (AC) | 7% |
-| Consumables | 2% |
+Magic item budget allocation varies by class type.
 
-**Divine Casters** (Cleric, Druid)
-| Category | Budget |
-|----------|--------|
-| Weapon Enhancement | 0% |
-| Armor Enhancement | 28% |
-| Stat Booster | 18% |
-| Cloak of Resistance | 12% |
-| Ring/Amulet (AC) | 10% |
-| Consumables | 12% |
-| Rods/Staves | 20% |
+Examples of default allocations:
 
-**Arcane Casters** (Wizard, Sorcerer)
-| Category | Budget |
-|----------|--------|
-| Weapon Enhancement | 0% |
-| Armor Enhancement | 0% |
-| Stat Booster | 22% |
-| Cloak of Resistance | 14% |
-| Ring/Amulet (AC) | 14% |
-| Consumables | 18% |
-| Rods/Staves | 32% |
+- **Martial**: heavy emphasis on weapon + armor (including shield enhancements if a shield exists)
+- **Pure arcane casters (Wizard/Sorcerer)**: no weapon/armor budget; more budget goes to protection + rods/staves
+- **Divine casters (Cleric/Druid)**: no weapon budget; armor budget remains; weapon budget is redirected to rods/staves
+
+Clerics and Druids have multiple variants (e.g. melee vs caster) based on the template’s loadout (notably whether a shield is present).
 
 #### Big Six Items
 
@@ -411,6 +856,8 @@ Spell slots are calculated correctly including:
 ---
 
 ### Consumables
+
+If the character receives a **Handy Haversack**, the module will move newly-created consumables (wands/scrolls/potions) into it during the delayed **Organizing inventory** step. If no Handy Haversack exists, consumables are left uncontained.
 
 #### Wands
 Selected based on class spell list:
@@ -482,7 +929,7 @@ This is perfect for creating NPCs whose equipment will become player loot.
 
 The deposit slip is a Loot-type item containing:
 - Remaining gold after equipment purchases
-- Pocket change (random 50-100% of level 1 starting wealth)
+- Pocket change (random 50-100% of level 1 starting wealth) will remain in the inventory
 
 #### Bank Name
 Customizable bank name for deposit slips.
@@ -526,6 +973,8 @@ npm run deploy         # Deploy to Foundry
 .\scripts\pack.ps1     # Create distribution .zip
 ```
 
+The output zip is written to `packages/motwm-townie-maker.zip` (unversioned).
+
 For more details, see [DEVELOPMENT.md](DEVELOPMENT.md).
 
 ---
@@ -548,14 +997,21 @@ The module uses these D35E compendiums:
 - `D35E.enhancements` - Weapon/armor enhancements
 
 ### Image Requirements
-Character portraits and tokens are loaded from:
+Character portraits and tokens are loaded at runtime from:
 ```
 modules/motwm-townie-maker/images/artwork/[class]/[race]/[gender]/[portraits|tokens]/
 ```
 
-File naming convention:
-- `femalehumanfighterportrait01.webp`
+You can **add new images or replace existing ones** by dropping files into those folders (no rebuild needed).
+
+Rules enforced by the loader:
+- **Tokens** are discovered by scanning the `tokens/` folder each time you create a character.
+- A file is treated as a token only if its **filename ends with `.webp`** and **contains `token`** (lowercase) somewhere in the filename.
+- The matching portrait path is generated by **replacing `token` → `portrait`** in the token filename and looking in the `portraits/` folder (the code does not verify the portrait exists).
+
+Recommended naming convention:
 - `femalehumanfightertoken01.webp`
+- `femalehumanfighterportrait01.webp`
 
 Portrait and token with matching numbers are paired sets.
 
@@ -581,22 +1037,31 @@ MIT License - See [LICENSE](LICENSE) file for details.
 ## Credits
 
 ### Created By
-**Xombit**
 
-### Special Thanks
-- The D35E development team for the excellent 3.5e implementation
-- The Foundry VTT community for inspiration and support
+Created for **Melody of the Weirding Mover: Ahvindamahdorah’s Demise** by **Xombit the Zombie**.
+
+### Acknowledgements
+
+- **Foundry VTT** — for the platform that makes this possible.
+- **Rughalt** — for the **D35E (D&D 3.5e) system for Foundry VTT** that this module targets.
+- **Gary Gygax, Dave Arneson**, and **TSR** — for creating the original game of Dungeons & Dragons.
+- **Wizards of the Coast** — for continuing to publish Dungeons & Dragons, and the **d20 System Reference Document (SRD)** that the D35E system implements.
 
 ### Art Credits
-Character portraits and tokens should be attributed according to their individual licenses.
+
+All included character portraits and tokens in this repository are **created using generative AI technology** and are licensed under the **same license as this module**.
+
+You are free to use the included art as you see fit.
 
 ---
 
 ## Support
 
 - **Issues**: Report bugs on [GitHub Issues](https://github.com/Xombit/motwm-townie-maker/issues)
-- **Discussion**: Join the conversation on the Foundry VTT Discord
+
+For discussion, feedback, and community support, you can also check:
+
+- **LotD / 3.5 SRD for FVTT** Discord
+- **MOTWM (Melody of the Weirding Mover)** Discord
 
 ---
-
-*MOTWM Townie Maker is not affiliated with, endorsed, sponsored, or specifically approved by Wizards of the Coast LLC. This module is for use with the D35E game system, which implements the d20 System Reference Document under the Open Game License.*

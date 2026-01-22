@@ -15,9 +15,11 @@ $candidatePaths = @(
     "E:\foundrytest\foundrydata\Data\modules"
 ) | Where-Object { $_ -and $_.Trim() -ne "" } | Select-Object -Unique
 
+$existingCandidatePaths = @()
 $foundryModulesPath = $null
 foreach ($p in $candidatePaths) {
     if (Test-Path $p) {
+        $existingCandidatePaths += $p
         $foundryModulesPath = $p
         break
     }
@@ -35,7 +37,14 @@ $targetPath = Join-Path $foundryModulesPath $moduleName
 
 Write-Host "Deploying $moduleName to Foundry VTT..." -ForegroundColor Cyan
 
+if (-not $FoundryModulesPath -and $existingCandidatePaths.Count -gt 1) {
+    Write-Host "Warning: Multiple Foundry module directories exist. Using the first match." -ForegroundColor Yellow
+    $existingCandidatePaths | ForEach-Object { Write-Host "  - Found: $_" -ForegroundColor Yellow }
+    Write-Host "Tip: pass an explicit path: .\\scripts\\deploy.ps1 -FoundryModulesPath <path>" -ForegroundColor Yellow
+}
+
 Write-Host "Foundry modules directory: $foundryModulesPath" -ForegroundColor DarkCyan
+Write-Host "Deploy target: $targetPath" -ForegroundColor DarkCyan
 
 # Build first
 Write-Host "Building module..." -ForegroundColor Yellow
@@ -76,6 +85,15 @@ if (Test-Path "templates") {
         Remove-Item $templatesTarget -Recurse -Force
     }
     Copy-Item "templates" $templatesTarget -Recurse -Force
+}
+
+# Runtime data assets (e.g., external JSON templates)
+if (Test-Path "data") {
+    $dataTarget = Join-Path $targetPath "data"
+    if (Test-Path $dataTarget) {
+        Remove-Item $dataTarget -Recurse -Force
+    }
+    Copy-Item "data" $dataTarget -Recurse -Force
 }
 
 # Language files

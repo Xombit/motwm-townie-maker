@@ -1,13 +1,16 @@
 {
   "name": "motwm-townie-maker",
   "version": "0.1.0",
-  "description": "MOTWM Townie Maker - Quick NPC and Adversary creation tool for Foundry VTT D35E",
+  "private": true,
+  "type": "module",
+  "description": "Quick NPC and Adversary creation tool - create D&D 3.5e NPCs using PC or NPC character sheets with a streamlined workflow",
   "scripts": {
     "build": "vite build",
     "watch": "vite build --watch",
     "dev": "vite build --watch",
     "deploy": "powershell -ExecutionPolicy Bypass -File ./scripts/deploy.ps1",
-    "dev:foundry": "powershell -ExecutionPolicy Bypass -File ./scripts/dev.ps1"
+    "dev:foundry": "powershell -ExecutionPolicy Bypass -File ./scripts/dev.ps1",
+    "pack-win": "powershell -ExecutionPolicy Bypass -File ./scripts/pack.ps1"
   },
   "author": "Xombit",
   "license": "MIT",

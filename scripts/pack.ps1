@@ -1,6 +1,8 @@
 # PowerShell script to package the Townie Maker module for distribution
 $moduleName = "motwm-townie-maker"
 
+$packagesDir = "packages"
+
 # Validate module.json exists and is valid JSON
 if (-not (Test-Path "module.json")) {
     Write-Host "ERROR: module.json not found!" -ForegroundColor Red
@@ -16,7 +18,13 @@ try {
     exit 1
 }
 
-$zipName = "$moduleName-$version.zip"
+# motwm-xp style: stable zip filename (Foundry updates cleanly)
+if (-not (Test-Path $packagesDir)) {
+    New-Item -ItemType Directory -Path $packagesDir | Out-Null
+}
+
+$zipName = "$moduleName.zip"
+$zipPath = Join-Path $packagesDir $zipName
 
 Write-Host "Building module..." -ForegroundColor Cyan
 npm run build
@@ -26,7 +34,7 @@ if ($LASTEXITCODE -ne 0) {
     exit 1
 }
 
-Write-Host "Creating distribution package: $zipName" -ForegroundColor Cyan
+Write-Host "Creating distribution package: $zipPath" -ForegroundColor Cyan
 
 # Create temp directory structure
 $tempDir = "temp_package"
@@ -42,6 +50,9 @@ Copy-Item "LICENSE" "$tempDir/" -Force
 Copy-Item "CHANGELOG.md" "$tempDir/" -Force
 Copy-Item "dist" "$tempDir/" -Recurse -Force
 Copy-Item "templates" "$tempDir/" -Recurse -Force
+if (Test-Path "data") {
+    Copy-Item "data" "$tempDir/" -Recurse -Force
+}
 Copy-Item "lang" "$tempDir/" -Recurse -Force
 Copy-Item "images" "$tempDir/" -Recurse -Force
 
@@ -50,24 +61,25 @@ Write-Host "  - module.json (v$version)"
 Write-Host "  - README.md, LICENSE, CHANGELOG.md"
 Write-Host "  - dist/ (compiled code)"
 Write-Host "  - templates/ (Handlebars UI)"
+Write-Host "  - data/ (runtime JSON assets)"
 Write-Host "  - lang/ (localization)"
 Write-Host "  - images/ (character artwork)"
 
 # Create zip from temp directory
-if (Test-Path $zipName) {
-    Remove-Item $zipName -Force
+if (Test-Path $zipPath) {
+    Remove-Item $zipPath -Force
 }
 
-Compress-Archive -Path "$tempDir\*" -DestinationPath $zipName -Force
+Compress-Archive -Path "$tempDir\*" -DestinationPath $zipPath -Force
 
 # Cleanup
 Remove-Item $tempDir -Recurse -Force
 
 Write-Host ""
-Write-Host "Package created successfully: $zipName" -ForegroundColor Green
+Write-Host "Package created successfully: $zipPath" -ForegroundColor Green
 
 # Show package size
-$zipSize = (Get-Item $zipName).Length
+$zipSize = (Get-Item $zipPath).Length
 $zipSizeMB = [math]::Round($zipSize / 1MB, 2)
 Write-Host "Package size: $zipSizeMB MB" -ForegroundColor Cyan
 

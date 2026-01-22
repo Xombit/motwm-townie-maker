@@ -1,16 +1,23 @@
 # MOTWM Townie Maker - Development Guide
 
+This document is for contributors working on the module source.
+
+- For the current beta status + roadmap, see `STATUS_AND_ROADMAP.md`.
+- For user-facing usage docs, see the project root `README.md`.
+
 ## Project Structure
 
 ```
 motwm-townie-maker/
+├── data/                         # Runtime data files (shipped with module)
+│   └── templates.json            # Templates loaded at runtime
 ├── src/                          # Source TypeScript files
 │   ├── main.ts                   # Entry point, hooks registration
 │   ├── settings.ts               # Module settings
 │   ├── types.d.ts               # TypeScript type definitions
 │   ├── d35e-adapter.ts          # D35E system integration helpers
 │   ├── data/
-│   │   └── templates.ts         # NPC template definitions
+│   │   └── template-loader.ts   # Loads templates.json at runtime
 │   ├── ui/
 │   │   └── TownieMakerApp.ts   # Main application window
 │   └── styles/
@@ -60,43 +67,15 @@ npm run build    # One-time build
 
 ### Package for Distribution
 ```powershell
-.\scripts\pack.ps1    # Creates versioned .zip file
+npm run pack-win
 ```
 
-## Key Features to Develop
+This creates a stable (unversioned) release zip at `packages/motwm-townie-maker.zip`.
 
-### Phase 1 (Current)
-- [x] Basic project structure
-- [x] Template system with 10 archetypes
-- [x] Guided UI with tabs
-- [x] Ability score generation
-- [ ] Complete D35E integration
-- [ ] Class/level assignment
-- [ ] HP rolling
+## Templates
 
-### Phase 2 (Future)
-- [ ] Batch creation (create multiple NPCs at once)
-- [ ] Custom template saving
-- [ ] Equipment assignment from templates
-- [ ] Skill rank distribution
-- [ ] Feat selection
-- [ ] Spell selection for casters
-
-### Phase 3 (Advanced)
-- [ ] Import from SRD/compendiums
-- [ ] Random name generation
-- [ ] Portrait integration
-- [ ] Token configuration
-- [ ] Export/import custom templates
-
-## Borrowing from motwm-xp
-
-You can reference the XP calculator for:
-- **D35E Adapter patterns**: `../motwm-xp/src/d35e-adapter.ts`
-- **Settings registration**: `../motwm-xp/src/settings.ts`
-- **UI styling patterns**: `../motwm-xp/src/styles/styles.css`
-- **Build configuration**: `../motwm-xp/vite.config.ts`
-- **Packaging scripts**: `../motwm-xp/scripts/pack.ps1`
+Templates are loaded at runtime from `data/templates.json` (see `src/data/template-loader.ts`).
+This means template edits do not require rebuilding the module, but the JSON must be valid.
 
 ## D35E System Integration Notes
 
@@ -118,14 +97,9 @@ await actor.update({
 });
 ```
 
-### Adding Classes
-The D35E system stores classes in `system.classes`. You'll need to:
-1. Find the class item from a compendium
-2. Create an embedded item on the actor
-3. Set the level appropriately
-
-### Rolling HP
-Use D35E's built-in HP rolling mechanisms after classes are assigned.
+### Adding Classes / HP / Skills / Feats
+Implementation lives in `src/d35e-adapter.ts` and is designed to work with Rughalt's D35E system.
+If you’re changing system integration behavior, make sure to validate in Foundry with real compendium data.
 
 ## Testing Checklist
 
@@ -141,7 +115,7 @@ Use D35E's built-in HP rolling mechanisms after classes are assigned.
 ## Common Issues
 
 ### TypeScript Errors
-The project has some intentional TypeScript errors due to missing Foundry type definitions. These are normal during development. The module will still build and work in Foundry.
+Foundry and system types can be incomplete. If you see type issues, prefer fixing the typing locally where safe, but don’t block builds on non-critical type gaps.
 
 ### Module Not Loading
 1. Check `module.json` paths are correct
@@ -149,4 +123,4 @@ The project has some intentional TypeScript errors due to missing Foundry type d
 3. Verify module is enabled in Foundry
 
 ### D35E Integration
-The adapter functions are stubs - you'll need to implement them based on the actual D35E system structure.
+If creation succeeds but some data isn't applied, check the browser console for `D35EAdapter | ...` logs and confirm the relevant compendium entries exist in your D35E install.

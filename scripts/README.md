@@ -52,12 +52,17 @@ Creates a distribution ZIP file for release.
 1. Builds the module
 2. Creates a temporary package directory
 3. Copies all necessary files
-4. Creates a versioned ZIP file (e.g., `motwm-townie-maker-0.1.0.zip`)
+4. Creates a stable (unversioned) ZIP file: `packages/motwm-townie-maker.zip`
 5. Cleans up temporary files
 
 **Usage:**
 ```powershell
 .\scripts\pack.ps1
+```
+
+Or via npm:
+```bash
+npm run pack-win
 ```
 
 ---

@@ -5,9 +5,10 @@ The feat selection system handles the complex feat progression for D&D 3.5e char
 - Standard feat progression (every character)
 - Bonus human feat (1st level)
 - Class bonus feats (Fighter, Wizard, Monk)
-- Rogue special abilities
 - Ranger combat style feats (automatic)
 - Ranger favored enemies
+
+Rogue special abilities are handled separately (see “Rogue Special Abilities” below).
 
 ## Standard Feat Progression
 All characters gain feats at: **1st, 3rd, 6th, 9th, 12th, 15th, 18th**
@@ -55,6 +56,8 @@ Can choose from:
 - **Skill-based**: Skill Mastery
 - **Any feat** they qualify for
 
+In this module, Rogue special abilities are configured via `rogueSpecialAbilities` in `data/templates.json` and applied separately during actor creation.
+
 ## Ranger Special Features
 
 ### Combat Style (Automatic Bonus Feats)
@@ -70,9 +73,10 @@ Rangers choose a combat style at 2nd level, gaining bonus feats automatically (n
 - 6th: Improved Two-Weapon Fighting
 - 11th: Greater Two-Weapon Fighting
 
-Combat style is determined by template weapon configuration:
-- If **first weapon is ranged** (bow, crossbow) → Archery style
-- If **first weapon is melee** → Two-Weapon Fighting style
+Combat style is determined by the template’s explicit setting:
+- `rangerCombatStyle: "archery"` or `"two-weapon"`
+
+If `rangerCombatStyle` is not set, the module will not add combat style feats (even if the template’s weapons imply one).
 
 ### Favored Enemies
 Rangers gain favored enemies at: **1st, 5th, 10th, 15th, 20th**
@@ -85,28 +89,30 @@ Each grants +2 bonus to:
 
 ### Template Configuration
 
-**Ranger Template Example:**
-```typescript
+**Ranger Template Example (data/templates.json):**
+```json
 {
-  id: "ranger-scout",
-  name: "Ranger Scout",
-  race: "Elf, High",
-  classes: [{ name: "Ranger", level: 1 }],
-  rangerCombatStyle: "archery",  // Determines combat style bonus feats
-  favoredEnemies: ["Humanoid (Orc)", "Giant", "Magical Beast", "Dragon"],
-  feats: [
-    "Track",              // 1st - Standard
-    "Point Blank Shot",   // 3rd - Standard
-    "Precise Shot",       // 6th - Standard (combat style Manyshot also gained)
-    "Endurance",          // 9th - Standard
-    { name: "Weapon Focus (No Weapon Selected)", displayName: "Weapon Focus (Longbow)", 
-      config: { weaponGroup: "Longbow" } }, // 12th
-    // Combat style feats automatically added at 2nd, 6th, 11th
+  "id": "ranger-scout",
+  "name": "Ranger Scout",
+  "race": "Elf, High",
+  "classes": [{ "name": "Ranger", "level": 1 }],
+  "rangerCombatStyle": "archery",
+  "favoredEnemies": ["Humanoid (Orc)", "Giant", "Magical Beast", "Dragon"],
+  "feats": [
+    "Track",
+    "Point Blank Shot",
+    "Precise Shot",
+    "Endurance",
+    {
+      "name": "Weapon Focus (No Weapon Selected)",
+      "displayName": "Weapon Focus (Longbow)",
+      "config": { "weaponGroup": "Longbow" }
+    }
   ],
-  startingKit: {
-    weapons: [
-      { name: "Longbow", ... },  // PRIMARY weapon determines style
-      { name: "Longsword", ... }
+  "startingKit": {
+    "weapons": [
+      { "name": "Longbow", "type": "weapon" },
+      { "name": "Longsword", "type": "weapon" }
     ]
   }
 }
@@ -120,7 +126,7 @@ The `allocateFeats()` function in `feat-selection.ts`:
    - 2nd, 6th, 11th levels
    - Automatic, no prerequisites
 
-2. **Add class bonus feats** (Fighter/Wizard/Monk/Rogue)
+2. **Add class bonus feats** (Fighter/Wizard/Monk)
    - Take feats from template list
    - Mark as used
 
@@ -137,18 +143,35 @@ When listing feats in templates:
 2. System automatically allocates to appropriate slots
 3. No need to track which are "bonus" vs "standard"
 
-**Example for Level 12 Fighter:**
-```typescript
-feats: [
-  "Power Attack",        // 1st - Fighter bonus
-  "Cleave",              // 1st - Standard (or Human bonus if applicable)
-  "Weapon Focus (Longsword)",  // 2nd - Fighter bonus
-  "Weapon Specialization (Longsword)",  // 3rd - Standard (Fighter 4th level required)
-  "Improved Sunder",     // 4th - Fighter bonus
-  "Improved Critical (Longsword)",  // 6th - Standard
-  "Greater Weapon Focus (Longsword)",  // 6th - Fighter bonus
-  // etc.
-]
+**Example for Level 12 Fighter (ordering only):**
+```json
+{
+  "feats": [
+    "Power Attack",
+    "Cleave",
+    {
+      "name": "Weapon Focus (No Weapon Selected)",
+      "displayName": "Weapon Focus (Longsword)",
+      "config": { "weaponGroup": "Longsword" }
+    },
+    {
+      "name": "Weapon Specialization (No Weapon Selected)",
+      "displayName": "Weapon Specialization (Longsword)",
+      "config": { "weaponGroup": "Longsword" }
+    },
+    "Improved Sunder",
+    {
+      "name": "Improved Critical (No Weapon Selected)",
+      "displayName": "Improved Critical (Longsword)",
+      "config": { "weaponGroup": "Longsword" }
+    },
+    {
+      "name": "Greater Weapon Focus (No Weapon Selected)",
+      "displayName": "Greater Weapon Focus (Longsword)",
+      "config": { "weaponGroup": "Longsword" }
+    }
+  ]
+}
 ```
 
 System determines:
@@ -157,6 +180,14 @@ System determines:
 - 3rd level: Weapon Specialization (Standard)
 - 4th level: Improved Sunder (Fighter bonus)
 - 6th level: Improved Critical (Standard), Greater Weapon Focus (Fighter bonus)
+
+Note: the module does not validate prerequisites; template authors are responsible for only listing legal picks.
+
+## Rogue Special Abilities
+
+Rogue special abilities are configured separately from feats using `rogueSpecialAbilities` in `data/templates.json`.
+
+During actor creation, these are applied via `D35EAdapter.addRogueSpecialAbilities(...)`.
 
 ## Validation
 
@@ -168,13 +199,12 @@ The system does NOT validate:
 
 Templates should be carefully designed by someone familiar with D&D 3.5e rules.
 
-## Future Enhancements
+## Possible Enhancements
 
 1. **Feat prerequisite validation** - Check if character meets requirements
 2. **Automatic prerequisite suggestions** - If selecting Manyshot, suggest Point Blank Shot
-3. **Favored enemy UI** - Display favored enemies on character sheet
+3. **Combat style fallback** - If `rangerCombatStyle` is missing, infer it from weapons
 4. **Combat style switching** - Support alternate rule for switching styles
-5. **Monk bonus feat automation** - Stunning Fist granted automatically at 1st level
 
 ## Files
 
@@ -182,4 +212,4 @@ Templates should be carefully designed by someone familiar with D&D 3.5e rules.
 - `src/ui/TownieMakerApp.ts` - Integration with character creation
 - `src/d35e-adapter.ts` - Feat compendium lookup and application
 - `src/types.d.ts` - Type definitions (FeatConfig, TownieTemplate)
-- `src/data/templates.ts` - Template definitions with feat lists
+- `data/templates.json` - Runtime template definitions (including feats)
