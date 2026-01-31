@@ -8,7 +8,7 @@ Adventurers are the opposite: they roll in from Somewhere Else, turn local probl
 
 Townies keep the setting running. Adventurers keep the encounter tables employed.
 
-Townie Maker helps you generate the regular locals *and* the troublemakers — and even when you ask for “adventurers,” you’re really getting townie adventurers.
+Townie Maker helps you generate the regular locals *and* the troublemakers, and even when you ask for “adventurers,” you’re really getting townie adventurers.
 
 **MOTWM Townie Maker** is a comprehensive NPC and adversary creation tool for Foundry VTT’s D35E (D&D 3.5e) system. Generate fully-equipped, combat-ready characters in seconds using intelligent templates and automated systems.
 
