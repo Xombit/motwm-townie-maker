@@ -3,7 +3,8 @@
  * Source: D&D 3.5e SRD - Experience and Level-Dependent Benefits
  */
 
-// Character wealth by level (in gold pieces)
+// PC Character wealth by level (in gold pieces)
+// DMG Table 5-1: Character Wealth by Level
 export const WEALTH_BY_LEVEL: Record<number, number> = {
   1: 0,        // Calculated from class starting wealth
   2: 900,
@@ -25,6 +26,31 @@ export const WEALTH_BY_LEVEL: Record<number, number> = {
   18: 440000,
   19: 580000,
   20: 760000
+};
+
+// NPC Gear Value by level (in gold pieces)
+// DMG Table 4-23: NPC Gear Value
+export const NPC_WEALTH_BY_LEVEL: Record<number, number> = {
+  1: 900,
+  2: 2000,
+  3: 2500,
+  4: 3300,
+  5: 4300,
+  6: 5600,
+  7: 7200,
+  8: 9400,
+  9: 12000,
+  10: 16000,
+  11: 21000,
+  12: 27000,
+  13: 35000,
+  14: 45000,
+  15: 59000,
+  16: 77000,
+  17: 100000,
+  18: 130000,
+  19: 170000,
+  20: 220000
 };
 
 // Starting wealth by class (average of dice roll × 10 gp)
@@ -55,13 +81,28 @@ export const CLASS_STARTING_WEALTH: Record<string, number> = {
  * Get total wealth for a character at a given level
  * @param level Character level (1-20)
  * @param className Primary class name
+ * @param useNpcWealth Whether to use NPC gear value table (DMG 4-23) instead of PC wealth
  * @returns Total wealth in gold pieces
  */
-export function getWealthForLevel(level: number, className: string): number {
+export function getWealthForLevel(level: number, className: string, useNpcWealth?: boolean): number {
+  // Auto-detect NPC class if caller didn't specify
+  const isNpc = useNpcWealth ?? isNpcClass(className);
+  
+  if (isNpc) {
+    return NPC_WEALTH_BY_LEVEL[level] || 0;
+  }
+  
   if (level === 1) {
     return CLASS_STARTING_WEALTH[className] || 100;
   }
   return WEALTH_BY_LEVEL[level] || 0;
+}
+
+/**
+ * Check if a class name is an NPC class
+ */
+export function isNpcClass(className: string): boolean {
+  return className.includes('(NPC)');
 }
 
 /**

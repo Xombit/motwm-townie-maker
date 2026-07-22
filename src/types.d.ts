@@ -141,6 +141,7 @@ export interface TownieFormData {
   
   // Budget configuration
   useStandardBudget?: boolean;  // When false, NPC gets no magic items and only token gold
+  useNpcWealth?: boolean;       // When true, use NPC gear value table (DMG 4-23) instead of PC wealth
   
   // Sheet type configuration
   usePcSheet?: boolean;  // When true (default), use PC sheet; when false, use Simple NPC sheet
@@ -150,6 +151,10 @@ export interface TownieFormData {
   identifyItems?: boolean;  // When true, magic items are identified; when false, they're unidentified for loot
   extraMoneyInBank?: boolean;  // When true, excess gold becomes a bank deposit slip
   bankName?: string;  // Name of the bank for deposit slips (default: "The First Bank of Lower Everbrook")
+  includeLootPacks?: boolean;  // When true, adds SRD treasure via D35E's TreasureGenerator
+  lootProfile?: "standard" | "none" | "double_goods_items" | "percent_goods_items_50"; // SRD loot profile behavior
+  computedCR?: number; // Derived CR used for treasure/XP workflows
+  computedHighestSpellLevel?: number; // Highest spell level used in CR calculation
   
   // Token options
   tokenDisposition?: number;  // -1 = Hostile, 0 = Neutral, 1 = Friendly (default: 0)

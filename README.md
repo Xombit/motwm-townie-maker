@@ -129,6 +129,7 @@ The goal is to create NPCs that feel like real townfolk who could plausibly exis
 - Output depends on the D35E compendium content and IDs; if you use a different D35E version than expected, some items/spells may not be found.
 - Some class-specific edge cases are still being refined (e.g. specialist wizard slot handling).
 - Inventory organization: the module uses D35E container fields and performs a delayed “organize inventory” pass after creation. If you have custom systems/modules that modify items during creation, container moves may behave differently.
+- SRD Loot Pack generation is temporarily disabled while the upstream D35E treasure generator behavior is unstable. The UI controls remain visible but inactive for future re-enable.
 - Templates are loaded from `data/templates.json` at runtime. There is no in-Foundry template editor yet; edit the JSON file directly (see [Adding Custom Templates](#adding-custom-templates)).
 
 ---
@@ -934,6 +935,10 @@ The deposit slip is a Loot-type item containing:
 #### Bank Name
 Customizable bank name for deposit slips.
 Default: "The First Bank of Lower Everbrook"
+
+#### SRD Loot Pack (Temporarily Disabled)
+The SRD Loot Pack checkbox and Loot Profile dropdown are intentionally disabled for now.
+The underlying code is still in the module and will be re-enabled in a future update once D35E treasure generation is stable.
 
 ### Token Options
 

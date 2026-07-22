@@ -1,6 +1,6 @@
 {
   "name": "motwm-townie-maker",
-  "version": "0.1.0",
+  "version": "0.3.0",
   "private": true,
   "type": "module",
   "description": "Quick NPC and Adversary creation tool - create D&D 3.5e NPCs using PC or NPC character sheets with a streamlined workflow",

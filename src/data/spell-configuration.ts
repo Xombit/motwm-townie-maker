@@ -267,7 +267,14 @@ export async function addSpellsToActor(actor: any, spellSelection: SpellSelectio
       }
       
       // Get the full spell document
-      const spellDoc = await spellPack.getDocument(spellEntry._id);
+      const spellId = spellEntry?.id ?? spellEntry?._id;
+      if (!spellId) {
+        console.warn(`  ⚠ Spell entry has no id: ${spell.name}`);
+        notFoundCount++;
+        continue;
+      }
+
+      const spellDoc = await spellPack.getDocument(String(spellId));
       if (!spellDoc) {
         console.warn(`  ⚠ Could not load spell document: ${spell.name}`);
         notFoundCount++;

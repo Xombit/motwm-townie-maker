@@ -11,6 +11,28 @@
 import { FeatConfig } from '../types';
 
 /**
+ * Minimum class level required for level-gated feats (D&D 3.5e SRD).
+ * Key is lowercase feat name, value is { class, level }.
+ * Only feats that have a class-level prerequisite are listed.
+ */
+const FEAT_LEVEL_PREREQUISITES: Record<string, { className: string; level: number }> = {
+  'weapon specialization':          { className: 'fighter', level: 4 },
+  'greater weapon focus':           { className: 'fighter', level: 8 },
+  'greater weapon specialization':  { className: 'fighter', level: 12 },
+  'improved critical':              { className: 'fighter', level: 8 }, // BAB +8 ≈ Fighter 8
+};
+
+/**
+ * Check whether a feat's level prerequisites are met at the given class level.
+ */
+function featPrereqsMet(feat: string | FeatConfig, classLevel: number, className: string): boolean {
+  const name = typeof feat === 'string' ? feat : feat.name;
+  const req = FEAT_LEVEL_PREREQUISITES[name.toLowerCase()];
+  if (!req) return true; // No level gate
+  return className.toLowerCase() === req.className && classLevel >= req.level;
+}
+
+/**
  * Calculate which levels grant standard feats
  */
 export function getStandardFeatLevels(level: number, isHuman: boolean = false): number[] {
@@ -330,10 +352,23 @@ export function allocateFeats(
   
   // Standard feats
   const standardLevels = getStandardFeatLevels(level, isHuman);
-  let featIndex = 0;
   
-  // Track which feats have been allocated
+  // Track which template feat indices have been allocated
   const usedFeats = new Set<number>();
+
+  /**
+   * Find the first unused template feat whose prerequisites are met at the given level.
+   * Returns the index, or -1 if none found.
+   */
+  function pickNextEligibleFeat(slotLevel: number): number {
+    for (let i = 0; i < templateFeats.length; i++) {
+      if (usedFeats.has(i)) continue;
+      if (featPrereqsMet(templateFeats[i], slotLevel, className)) {
+        return i;
+      }
+    }
+    return -1;
+  }
   
   // Special handling for Rangers - add combat style feats first
   if (classLower === 'ranger' && rangerCombatStyle) {
@@ -357,74 +392,51 @@ export function allocateFeats(
   if (classLower === 'fighter') {
     const bonusLevels = getFighterBonusFeatLevels(level);
     bonusLevels.forEach(lvl => {
-      if (featIndex < templateFeats.length) {
-        allocations.push({
-          level: lvl,
-          source: 'fighter',
-          feat: templateFeats[featIndex]
-        });
-        usedFeats.add(featIndex);
-        featIndex++;
+      const idx = pickNextEligibleFeat(lvl);
+      if (idx >= 0) {
+        allocations.push({ level: lvl, source: 'fighter', feat: templateFeats[idx] });
+        usedFeats.add(idx);
       }
     });
   } else if (classLower === 'wizard') {
     const bonusLevels = getWizardBonusFeatLevels(level);
     bonusLevels.forEach(lvl => {
-      if (featIndex < templateFeats.length) {
-        allocations.push({
-          level: lvl,
-          source: 'wizard',
-          feat: templateFeats[featIndex]
-        });
-        usedFeats.add(featIndex);
-        featIndex++;
+      const idx = pickNextEligibleFeat(lvl);
+      if (idx >= 0) {
+        allocations.push({ level: lvl, source: 'wizard', feat: templateFeats[idx] });
+        usedFeats.add(idx);
       }
     });
   } else if (classLower === 'monk') {
     const bonusLevels = getMonkBonusFeatLevels(level);
     bonusLevels.forEach(lvl => {
-      if (featIndex < templateFeats.length) {
-        allocations.push({
-          level: lvl,
-          source: 'monk',
-          feat: templateFeats[featIndex]
-        });
-        usedFeats.add(featIndex);
-        featIndex++;
+      const idx = pickNextEligibleFeat(lvl);
+      if (idx >= 0) {
+        allocations.push({ level: lvl, source: 'monk', feat: templateFeats[idx] });
+        usedFeats.add(idx);
       }
     });
   } else if (classLower === 'rogue') {
     const specialLevels = getRogueSpecialAbilityLevels(level);
     specialLevels.forEach(lvl => {
-      if (featIndex < templateFeats.length) {
-        allocations.push({
-          level: lvl,
-          source: 'rogue',
-          feat: templateFeats[featIndex]
-        });
-        usedFeats.add(featIndex);
-        featIndex++;
+      const idx = pickNextEligibleFeat(lvl);
+      if (idx >= 0) {
+        allocations.push({ level: lvl, source: 'rogue', feat: templateFeats[idx] });
+        usedFeats.add(idx);
       }
     });
   }
   
   // Allocate standard feats
   standardLevels.forEach(lvl => {
-    if (featIndex < templateFeats.length) {
-      // Skip if we already used this feat for bonus feat
-      while (usedFeats.has(featIndex) && featIndex < templateFeats.length) {
-        featIndex++;
-      }
-      
-      if (featIndex < templateFeats.length) {
-        allocations.push({
-          level: lvl,
-          source: isHuman && lvl === 1 && allocations.filter(a => a.level === 1).length > 0 ? 'human' : 'standard',
-          feat: templateFeats[featIndex]
-        });
-        usedFeats.add(featIndex);
-        featIndex++;
-      }
+    const idx = pickNextEligibleFeat(lvl);
+    if (idx >= 0) {
+      allocations.push({
+        level: lvl,
+        source: isHuman && lvl === 1 && allocations.filter(a => a.level === 1).length > 0 ? 'human' : 'standard',
+        feat: templateFeats[idx]
+      });
+      usedFeats.add(idx);
     }
   });
   

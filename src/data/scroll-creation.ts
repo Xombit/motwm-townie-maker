@@ -75,7 +75,9 @@ export async function createScrollFromSpell(
         entry.name.toLowerCase() === variant.toLowerCase()
       );
       if (spellEntry) {
-        spell = await spellsPack.getDocument(spellEntry._id);
+        const entryId = spellEntry?.id ?? spellEntry?._id;
+        if (!entryId) continue;
+        spell = await spellsPack.getDocument(String(entryId));
         if (spell) break;
       }
     }

@@ -47,6 +47,13 @@ const SUPPORTED_CLASSES: Array<{ id: string; name: string }> = [
   { id: "warrior", name: "Warrior (NPC)" },
 ];
 
+function getCompendiumEntryId(entry: any): string | null {
+  const id = entry?.id ?? entry?._id;
+  if (id === undefined || id === null) return null;
+  const text = String(id);
+  return text.length > 0 ? text : null;
+}
+
 export class D35EAdapter {
   private static ensurePendingContainerMoves(actor: any): { backpackId?: string; itemIds: string[]; haversackOnlyItemIds: string[] } {
     const existing = (actor as any)._pendingContainerMoves;
@@ -379,7 +386,11 @@ export class D35EAdapter {
           throw new Error(`Class '${className}' not found in compendium`);
         }
 
-        classDoc = await pack.getDocument(classEntry._id);
+        const classEntryId = getCompendiumEntryId(classEntry);
+        if (!classEntryId) {
+          throw new Error(`Class '${className}' has no compendium id`);
+        }
+        classDoc = await pack.getDocument(classEntryId);
       }
       
       if (!classDoc) {
@@ -573,7 +584,11 @@ export class D35EAdapter {
       }
 
       // Get full race document
-      const raceDoc = await pack.getDocument(raceEntry._id);
+      const raceEntryId = getCompendiumEntryId(raceEntry);
+      if (!raceEntryId) {
+        throw new Error(`Race '${raceName}' has no compendium id`);
+      }
+      const raceDoc = await pack.getDocument(raceEntryId);
       if (!raceDoc) {
         throw new Error(`Failed to load race document for '${raceName}'`);
       }
@@ -589,28 +604,27 @@ export class D35EAdapter {
   }
 
   /**
-   * Set biography with optional personality and background sections
+   * Set biography (Background tab) and notes (Notes tab) on the actor.
+   * biography → system.details.biography.value
+   * personality → system.details.notes.value
    */
   static async setBiography(
     actor: Actor,
     options: { personality?: string; background?: string }
   ): Promise<void> {
-    const sections: string[] = [];
-
-    if (options.personality) {
-      sections.push(`<h2>Personality</h2><p>${options.personality}</p>`);
-    }
+    const update: Record<string, string> = {};
 
     if (options.background) {
-      sections.push(`<h2>Background</h2><p>${options.background}</p>`);
+      update["system.details.biography.value"] = `<p>${options.background}</p>`;
     }
 
-    if (sections.length > 0) {
-      const biography = sections.join('\n');
-      await actor.update({
-        "system.details.biography.value": biography
-      });
-      console.log(`D35EAdapter | Set biography for ${actor.name}`);
+    if (options.personality) {
+      update["system.details.notes.value"] = `<p>${options.personality}</p>`;
+    }
+
+    if (Object.keys(update).length > 0) {
+      await actor.update(update);
+      console.log(`D35EAdapter | Set biography/notes for ${actor.name}`);
     }
   }
 
@@ -1028,7 +1042,11 @@ export class D35EAdapter {
           throw new Error(`Class '${className}' not found in compendium`);
         }
 
-        classDoc = await pack.getDocument(classEntry._id);
+        const classEntryId = getCompendiumEntryId(classEntry);
+        if (!classEntryId) {
+          throw new Error(`Class '${className}' has no compendium id`);
+        }
+        classDoc = await pack.getDocument(classEntryId);
       }
       
       if (!classDoc) {
@@ -1227,13 +1245,14 @@ export class D35EAdapter {
       
       console.log(`D35EAdapter | Skill points: Level 1 = ${skillPointsAtLevel1}, Levels 2+ = ${skillPointsPerLevel} each`);
 
-      // PRIORITY-BASED SKILL DISTRIBUTION
-      // Priority determines how often a skill gets points:
-      // - High: Every level (4 ranks at L1, then 1 per level)
-      // - Medium: Every 2 levels (2 ranks at L1, then 1 every 2 levels starting L3)
-      // - Low: Every 4 levels (1 rank at L1, then 1 every 4 levels starting L5)
+      // PRIORITY-BASED SKILL DISTRIBUTION (budget-constrained)
+      // Priority determines allocation order:
+      // - High: Gets points first, every level
+      // - Medium: Gets points second, every other level (starting L1)
+      // - Low: Gets points last, every 4th level (starting L1)
       //
-      // Substitution rule: 1 High = 2 Medium = 4 Low = 1 Medium + 2 Low
+      // At each level, we allocate up to the skill point budget, prioritizing
+      // high > medium > low. No skill can exceed 1 rank per level (4 at L1).
       
       const distributionPlan: Map<number, Map<string, number>> = new Map();
       
@@ -1253,58 +1272,59 @@ export class D35EAdapter {
       console.log(`D35EAdapter | Medium priority:`, mediumPrioritySkills.map(s => s.name).join(', '));
       console.log(`D35EAdapter | Low priority:`, lowPrioritySkills.map(s => s.name).join(', '));
       
-      // Distribute points based on priority level
+      // Track cumulative ranks per skill so we don't exceed level cap
+      const cumulativeRanks: Map<string, number> = new Map();
+      
+      // Distribute points level-by-level within budget
       for (let lvl = 1; lvl <= level; lvl++) {
         const levelPlan = distributionPlan.get(lvl)!;
+        const budget = lvl === 1 ? skillPointsAtLevel1 : skillPointsPerLevel;
+        let spent = 0;
+        const maxRankThisLevel = lvl === 1 ? 4 : 1; // L1 gets x4 multiplier
+        const maxTotalRanks = lvl + 3; // Class skill max = character level + 3
         
-        // High priority: every level
-        // Level 1: 4 ranks, Level 2+: 1 rank
+        // Build ordered list of skills wanting points this level
+        const candidates: Array<{ name: string; want: number }> = [];
+        
+        // High: every level
         for (const skill of highPrioritySkills) {
-          const points = lvl === 1 ? 4 : 1;
-          levelPlan.set(skill.name, points);
+          const current = cumulativeRanks.get(skill.name) || 0;
+          const want = Math.min(maxRankThisLevel, maxTotalRanks - current);
+          if (want > 0) candidates.push({ name: skill.name, want });
         }
         
-        // Medium priority: every 2 levels (1, 3, 5, 7, 9, ...)
-        // Level 1: 2 ranks, Level 3+: 1 rank
+        // Medium: L1, then odd levels (3, 5, 7, ...)
         if (lvl === 1 || (lvl >= 3 && lvl % 2 === 1)) {
           for (const skill of mediumPrioritySkills) {
-            const points = lvl === 1 ? 2 : 1;
-            levelPlan.set(skill.name, points);
+            const current = cumulativeRanks.get(skill.name) || 0;
+            const want = Math.min(lvl === 1 ? 2 : 1, maxTotalRanks - current);
+            if (want > 0) candidates.push({ name: skill.name, want });
           }
         }
         
-        // Low priority: every 4 levels (1, 5, 9, 13, ...)
-        // Level 1: 1 rank, Level 5+: 1 rank
+        // Low: L1, then every 4th (5, 9, 13, ...)
         if (lvl === 1 || (lvl >= 5 && (lvl - 1) % 4 === 0)) {
           for (const skill of lowPrioritySkills) {
-            const points = 1;
-            levelPlan.set(skill.name, points);
+            const current = cumulativeRanks.get(skill.name) || 0;
+            const want = Math.min(1, maxTotalRanks - current);
+            if (want > 0) candidates.push({ name: skill.name, want });
           }
         }
         
-        // Calculate total points spent at this level
-        const totalSpent = Array.from(levelPlan.values()).reduce((sum, p) => sum + p, 0);
-        const pointsThisLevel = lvl === 1 ? skillPointsAtLevel1 : skillPointsPerLevel;
+        // Allocate in priority order until budget runs out
+        for (const c of candidates) {
+          if (spent >= budget) break;
+          const give = Math.min(c.want, budget - spent);
+          if (give > 0) {
+            levelPlan.set(c.name, give);
+            cumulativeRanks.set(c.name, (cumulativeRanks.get(c.name) || 0) + give);
+            spent += give;
+          }
+        }
         
         if (lvl === 1 || lvl === 2 || lvl === level) {
           console.log(`D35EAdapter | Level ${lvl} allocation:`, Array.from(levelPlan.entries()).map(([s, p]) => `${s}:${p}`).join(', '));
-          console.log(`D35EAdapter | Level ${lvl}: Allocated ${totalSpent}/${pointsThisLevel} skill points`);
-        }
-        
-        // Warn if we're over budget
-        if (totalSpent > pointsThisLevel) {
-          console.warn(`D35EAdapter | Level ${lvl}: Over budget! Spent ${totalSpent}/${pointsThisLevel} points`);
-        }
-      }
-      
-      // Verify we're not exceeding skill points per level (should always be exact now)
-      for (let lvl = 1; lvl <= level; lvl++) {
-        const ranksThisLevel = distributionPlan.get(lvl)!;
-        const totalPointsSpent = Array.from(ranksThisLevel.values()).reduce((sum, ranks) => sum + ranks, 0);
-        const availablePoints = lvl === 1 ? skillPointsAtLevel1 : skillPointsPerLevel;
-        
-        if (totalPointsSpent !== availablePoints) {
-          console.warn(`D35EAdapter | Level ${lvl}: Spent ${totalPointsSpent} but had ${availablePoints} available`);
+          console.log(`D35EAdapter | Level ${lvl}: Allocated ${spent}/${budget} skill points`);
         }
       }
 
@@ -1483,7 +1503,8 @@ export class D35EAdapter {
     level: number,
     identifyItems: boolean = false,
     extraMoneyInBank: boolean = false,
-    bankName: string = "The First Bank of Lower Everbrook"
+    bankName: string = "The First Bank of Lower Everbrook",
+    useNpcWealth?: boolean
   ): Promise<void> {
     try {
       console.log(`\n=== EQUIPMENT SYSTEM ===`);
@@ -1503,7 +1524,7 @@ export class D35EAdapter {
       // Step 1: Calculate total wealth (or token amount if no standard budget)
       const className = template.classes?.[0]?.name || "Fighter";
       const totalWealth = useStandardBudget 
-        ? getWealthForLevel(level, className)
+        ? getWealthForLevel(level, className, useNpcWealth)
         : 0; // No wealth budget when standard budget is disabled
       console.log(`Total Wealth: ${totalWealth} gp${!useStandardBudget ? ' (standard budget disabled)' : ''}`);
       
@@ -1803,7 +1824,8 @@ export class D35EAdapter {
             system: {
               ...itemData.system,
               quantity: weapon.quantity || 1,
-              equipped: i === 0 // Only equip first weapon
+              equipped: i === 0, // Only equip first weapon
+              carried: true
             }
           };
 
@@ -1816,8 +1838,9 @@ export class D35EAdapter {
               magicItems.weaponEnhancement.bonus,
               magicItems.weaponEnhancement.abilities
             );
-            // Keep it equipped
+            // Keep it equipped and carried
             weaponToAdd.system.equipped = true;
+            weaponToAdd.system.carried = true;
           }
           
           // Apply magic enhancement to secondary weapon (index 1)
@@ -1869,7 +1892,8 @@ export class D35EAdapter {
           ...itemData,
           system: {
             ...itemData.system,
-            equipped: true
+            equipped: true,
+            carried: true
           }
         };
 
@@ -1882,8 +1906,9 @@ export class D35EAdapter {
             magicItems.armorEnhancement.bonus,
             magicItems.armorEnhancement.abilities
           );
-          // Keep it equipped
+          // Keep it equipped and carried
           armorToAdd.system.equipped = true;
+          armorToAdd.system.carried = true;
         }
 
         itemsToAdd.push(armorToAdd);
@@ -1905,7 +1930,8 @@ export class D35EAdapter {
           ...itemData,
           system: {
             ...itemData.system,
-            equipped: true
+            equipped: true,
+            carried: true
           }
         };
 
@@ -1918,8 +1944,9 @@ export class D35EAdapter {
             magicItems.shieldEnhancement.bonus,
             magicItems.shieldEnhancement.abilities
           );
-          // Keep it equipped
+          // Keep it equipped and carried
           shieldToAdd.system.equipped = true;
+          shieldToAdd.system.carried = true;
         }
 
         itemsToAdd.push(shieldToAdd);
@@ -2134,7 +2161,9 @@ export class D35EAdapter {
         );
 
         if (entry) {
-          const doc = await pack.getDocument(entry._id);
+          const entryId = getCompendiumEntryId(entry);
+          if (!entryId) continue;
+          const doc = await pack.getDocument(entryId);
           const itemData = doc?.toObject();
           if (itemData) {
             console.log(`D35EAdapter | Found "${name}" in ${packName}`);
@@ -2401,6 +2430,51 @@ export class D35EAdapter {
       return;
     }
 
+    /**
+     * Convert a weapon item's weaponData block into a damage.parts array in the
+     * format D35E expects on an attack item: [["sizeRoll(count, faces, @size, @critMult)", "Type", ""]].
+     * Falls back to the weapon's existing damage.parts if already populated (e.g. magic-enhanced weapons).
+     */
+    const buildDamageParts = (wd: any): { parts: any[]; alternativeParts: any[] } => {
+      // Prefer already-populated parts (magic-enhanced weapons set these)
+      const existingParts = wd.damage?.parts;
+      if (existingParts && existingParts.length > 0) {
+        return { parts: existingParts, alternativeParts: wd.damage?.alternativeParts || [] };
+      }
+
+      const wData = wd.weaponData;
+      if (!wData?.damageRoll) {
+        return { parts: [], alternativeParts: [] };
+      }
+
+      // Parse "XdY" → sizeRoll(X, Y, @size, @critMult)
+      const match = wData.damageRoll.match(/^(\d+)d(\d+)$/i);
+      const formula = match
+        ? `sizeRoll(${match[1]}, ${match[2]}, @size, @critMult)`
+        : wData.damageRoll;
+      const dmgType = wData.damageType || "";
+      return { parts: [[formula, dmgType, ""]], alternativeParts: [] };
+    };
+
+    /**
+     * Build the ability block for an attack item, reading critRange/critMult from
+     * the weapon's weaponData (where D35E stores the real crit stats).
+     */
+    const buildAbility = (wd: any, defaultActionType: string): any => {
+      const wData = wd.weaponData;
+      const isRangedDefault = defaultActionType === "rwak";
+      const base = wd.ability || {};
+      return {
+        attack: base.attack || (isRangedDefault ? "dex" : "str"),
+        damage: base.damage || "str",
+        damageMult: base.damageMult ?? 1,
+        critRange: wData?.critRange ?? base.critRange ?? "20",
+        critMult: wData?.critMult !== undefined ? String(wData.critMult) : String(base.critMult ?? 2),
+        twoHandedOnly: base.twoHandedOnly ?? false,
+        vsTouchAc: base.vsTouchAc ?? false
+      };
+    };
+
     const attacksToCreate: any[] = [];
     const meleeWeapons: any[] = [];
     const rangedWeapons: any[] = [];
@@ -2447,12 +2521,23 @@ export class D35EAdapter {
             actionType: "mwak",
             attackBonus: "",
             critConfirmBonus: "",
-            damage: weaponData.damage || { parts: [], alternativeParts: [] },
+            damage: buildDamageParts(weaponData),
             attackParts: [],
             formula: "",
-            ability: weaponData.ability || { attack: "str", damage: "str", damageMult: 1 },
+            ability: buildAbility(weaponData, "mwak"),
             save: weaponData.save || { dc: 0, description: "", ability: "", type: "" },
-            description: weaponData.description || { value: "", chat: "", unidentified: "" }
+            description: weaponData.description || { value: "", chat: "", unidentified: "" },
+            attackType: "weapon",
+            weaponSubtype: weaponData.weaponSubtype || "light",
+            baseWeaponType: weaponName,
+            originalWeaponCreated: true,
+            originalWeaponId: weaponId,
+            originalWeaponName: weaponName,
+            originalWeaponImg: weaponImg,
+            favorite: true,
+            showInQuickbar: true,
+            proficient: true,
+            primaryAttack: true
           }
         };
         attacksToCreate.push(meleeAttackItem);
@@ -2475,12 +2560,23 @@ export class D35EAdapter {
             actionType: "rwak",
             attackBonus: "",
             critConfirmBonus: "",
-            damage: weaponData.damage || { parts: [], alternativeParts: [] },
+            damage: buildDamageParts(weaponData),
             attackParts: [],
             formula: "",
-            ability: weaponData.ability || { attack: "str", damage: "str", damageMult: 1 },
+            ability: buildAbility(weaponData, "rwak"),
             save: weaponData.save || { dc: 0, description: "", ability: "", type: "" },
-            description: weaponData.description || { value: "", chat: "", unidentified: "" }
+            description: weaponData.description || { value: "", chat: "", unidentified: "" },
+            attackType: "weapon",
+            weaponSubtype: weaponData.weaponSubtype || "light",
+            baseWeaponType: weaponName,
+            originalWeaponCreated: true,
+            originalWeaponId: weaponId,
+            originalWeaponName: weaponName,
+            originalWeaponImg: weaponImg,
+            favorite: true,
+            showInQuickbar: true,
+            proficient: true,
+            primaryAttack: false
           }
         };
         attacksToCreate.push(rangedAttackItem);
@@ -2503,12 +2599,23 @@ export class D35EAdapter {
             actionType: actionType,
             attackBonus: "",
             critConfirmBonus: "",
-            damage: weaponData.damage || { parts: [], alternativeParts: [] },
+            damage: buildDamageParts(weaponData),
             attackParts: [],
             formula: "",
-            ability: weaponData.ability || { attack: isRanged ? "dex" : "str", damage: "str", damageMult: 1 },
+            ability: buildAbility(weaponData, actionType),
             save: weaponData.save || { dc: 0, description: "", ability: "", type: "" },
-            description: weaponData.description || { value: "", chat: "", unidentified: "" }
+            description: weaponData.description || { value: "", chat: "", unidentified: "" },
+            attackType: "weapon",
+            weaponSubtype: weaponData.weaponSubtype || "light",
+            baseWeaponType: weaponName,
+            originalWeaponCreated: true,
+            originalWeaponId: weaponId,
+            originalWeaponName: weaponName,
+            originalWeaponImg: weaponImg,
+            favorite: true,
+            showInQuickbar: true,
+            proficient: true,
+            primaryAttack: true
           }
         };
 
@@ -2685,5 +2792,57 @@ export class D35EAdapter {
       await actor.createEmbeddedDocuments("Item", attacksToCreate);
       console.log(`D35EAdapter | ✓ Successfully created all attack items`);
     }
+  }
+
+  /**
+   * Add SRD treasure to an actor using D35E's built-in TreasureGenerator.
+   * Generates random coins, gems, and items appropriate for the given CR.
+   */
+  static async addSrdLootPack(actor: Actor, cr: number, identified: boolean = true): Promise<void> {
+    const TreasureGenerator = (game as any).D35E?.TreasureGenerator;
+    if (!TreasureGenerator) {
+      console.warn("D35EAdapter | D35E TreasureGenerator not available, skipping loot pack");
+      return;
+    }
+
+    console.log(`D35EAdapter | Generating SRD loot pack for CR ${cr}`);
+
+    const gen = new TreasureGenerator();
+    await gen.makeTreasureFromCR(
+      [{ cr, moneyMultiplier: 1, goodsMultiplier: 1, itemsMultiplier: 1 }],
+      { identified, tradeGoodsToGold: false, overrideNames: true }
+    );
+
+    const treasure = gen.treasure;
+
+    // Convert treasure items to Foundry item data
+    const itemsToCreate: any[] = [];
+    for await (const it of gen.toItemPfArr()) {
+      if (it) itemsToCreate.push(it);
+    }
+
+    // Add items to actor
+    if (itemsToCreate.length > 0) {
+      const created = await actor.createEmbeddedDocuments("Item", itemsToCreate);
+      // Update enhancement names for weapons/armor
+      for (const item of (created as any[])) {
+        if ((item.type === "weapon" || item.type === "equipment") && item.enhancements?.updateBaseItemName) {
+          await item.enhancements.updateBaseItemName(true);
+        }
+      }
+      console.log(`D35EAdapter | Added ${created.length} loot items`);
+    }
+
+    // Add treasure coins to existing currency
+    const currentCurrency = (actor as any).system?.currency || {};
+    await actor.update({
+      'system.currency.pp': (currentCurrency.pp || 0) + (treasure.pp || 0),
+      'system.currency.gp': (currentCurrency.gp || 0) + (treasure.gp || 0),
+      'system.currency.sp': (currentCurrency.sp || 0) + (treasure.sp || 0),
+      'system.currency.cp': (currentCurrency.cp || 0) + (treasure.cp || 0)
+    });
+
+    const totalGp = (treasure.pp || 0) * 10 + (treasure.gp || 0) + (treasure.sp || 0) / 10 + (treasure.cp || 0) / 100;
+    console.log(`D35EAdapter | Added loot pack: ${itemsToCreate.length} items + ${Math.round(totalGp)} gp in coins`);
   }
 }

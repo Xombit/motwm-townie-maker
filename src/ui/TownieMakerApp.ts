@@ -3,11 +3,28 @@ import { D35EAdapter } from "../d35e-adapter";
 import { loadTemplates } from "../data/template-loader";
 import { generateCharacterName, generateFirstName, generateSurname, generateClassTitle } from "../data/character-names";
 import { resolveCharacterImages, normalizeGender, getDefaultImages } from "../data/image-resolver";
+import { bindDelegatedEvents, getApplicationElement, getElementChecked, getElementValue, mergeObjectCompat } from "../foundry-compat";
+import {
+  calculateGeneratedCharacterCR,
+  ClassTier,
+  formatCR,
+  getHighestSpellLevelAvailable,
+  normalizeClassKey,
+  resolveClassTier,
+  WealthTier,
+} from "../data/cr-calculation";
+import { SRD_LOOT_PROFILES } from "../data/srd-treasure-profiles";
+
+// Temporary kill-switch for SRD loot generation while upstream D35E treasure output is unstable.
+const SRD_LOOT_FEATURE_ENABLED = false;
 
 // Module-level storage for Config tab settings that persists between app opens
 // This resets on page reload but persists during the session
 let persistedConfigSettings: {
   useStandardBudget?: boolean;
+  useNpcWealth?: boolean;
+  includeLootPacks?: boolean;
+  lootProfile?: "standard" | "none" | "double_goods_items" | "percent_goods_items_50";
   usePcSheet?: boolean;
   useMaxHpPerHD?: boolean;
   identifyItems?: boolean;
@@ -32,6 +49,7 @@ export class TownieMakerApp extends Application {
   private formData: Partial<TownieFormData> = {
     magicItemBudgets: {}, // Initialize budget object
     useStandardBudget: true, // Default to standard adventurer budget
+    lootProfile: "standard", // Default SRD profile
     usePcSheet: true, // Default to PC sheet
     useMaxHpPerHD: false // Default to rolling HP
   };
@@ -39,18 +57,22 @@ export class TownieMakerApp extends Application {
   private availableClasses: Array<{ id: string; name: string }> = [];
 
   static get defaultOptions() {
-    return mergeObject(super.defaultOptions, {
+    return mergeObjectCompat(super.defaultOptions, {
       id: "motwm-townie-maker",
       title: "MOTWM Townie Maker",
       width: 720,
       height: 660,
       resizable: true,
       template: "modules/motwm-townie-maker/templates/townie-maker.hbs",
-      classes: ["motwm-townie-maker"],
+      classes: ["D35E", "motwm-townie-maker"],
       tabs: [{ navSelector: ".tabs", contentSelector: ".content", initial: "template" }],
       // Preserve scroll position of the main content pane across renders.
       scrollY: [".content"]
     });
+  }
+
+  private getRootElement(): HTMLElement | null {
+    return getApplicationElement(this);
   }
 
   /**
@@ -108,6 +130,19 @@ export class TownieMakerApp extends Application {
       if (this.formData.useStandardBudget === undefined || !this.selectedTemplate) {
         this.formData.useStandardBudget = persistedConfigSettings.useStandardBudget ?? true;
       }
+      if (this.formData.useNpcWealth === undefined || !this.selectedTemplate) {
+        this.formData.useNpcWealth = persistedConfigSettings.useNpcWealth ?? false;
+      }
+      if (this.formData.includeLootPacks === undefined || !this.selectedTemplate) {
+        this.formData.includeLootPacks = persistedConfigSettings.includeLootPacks ?? false;
+      }
+      if (this.formData.lootProfile === undefined || !this.selectedTemplate) {
+        this.formData.lootProfile = persistedConfigSettings.lootProfile ?? "standard";
+      }
+
+      if (!SRD_LOOT_FEATURE_ENABLED) {
+        this.formData.includeLootPacks = false;
+      }
       if (this.formData.usePcSheet === undefined || !this.selectedTemplate) {
         this.formData.usePcSheet = persistedConfigSettings.usePcSheet ?? true;
       }
@@ -147,6 +182,13 @@ export class TownieMakerApp extends Application {
       }
       if (this.formData.tokenDisposition === undefined) {
         this.formData.tokenDisposition = 0; // Default: Neutral
+      }
+      if (this.formData.lootProfile === undefined) {
+        this.formData.lootProfile = "standard";
+      }
+
+      if (!SRD_LOOT_FEATURE_ENABLED) {
+        this.formData.includeLootPacks = false;
       }
     }
 
@@ -203,7 +245,7 @@ export class TownieMakerApp extends Application {
       const level = this.formData.classLevel;
       const className = this.formData.className;
       
-      totalWealth = getWealthForLevel(level, className);
+      totalWealth = getWealthForLevel(level, className, this.formData.useNpcWealth);
       
       // Calculate mundane equipment cost if template has starting kit
       let mundaneCost = 0;
@@ -294,43 +336,60 @@ export class TownieMakerApp extends Application {
       settings,
       races: this.availableRaces,
       classes: this.availableClasses,
+      lootProfiles: SRD_LOOT_PROFILES,
       budgetInfo
     };
   }
 
-  activateListeners(html: JQuery): void {
+  activateListeners(html: any): void {
     super.activateListeners(html);
 
+    const events = bindDelegatedEvents(html);
+
     // Template selection
-    html.on("click", "[data-action='select-template']", (ev) => {
-      const templateId = $(ev.currentTarget).data("template-id");
+    events.on("click", "[data-action='select-template']", (ev) => {
+      const templateId = ev.currentTarget.dataset.templateId;
+      if (!templateId) return;
       this.selectTemplate(templateId);
     });
 
     // Form inputs
-    html.on("change", "[data-field]", (ev) => {
-      const field = $(ev.currentTarget).data("field");
-      let value: any = $(ev.currentTarget).val();
-      
-      // Handle checkboxes specially
-      if (field === "useStandardBudget" || field === "usePcSheet" || field === "useMaxHpPerHD") {
-        value = $(ev.currentTarget).is(':checked');
+    events.on("change", "[data-field]", (ev) => {
+      const current = ev.currentTarget;
+      const field = current.dataset.field;
+      if (!field) return;
+
+      let value: any = getElementValue(current);
+
+      if (current instanceof HTMLInputElement && current.type === "checkbox") {
+        value = getElementChecked(current);
+      }
+
+      if (
+        field === "useStandardBudget" ||
+        field === "usePcSheet" ||
+        field === "useMaxHpPerHD" ||
+        field === "useNpcWealth" ||
+        field === "includeLootPacks" ||
+        field === "lootProfile" ||
+        field === "identifyItems" ||
+        field === "extraMoneyInBank"
+      ) {
         // @ts-ignore
         this.formData[field] = value;
-        // Persist config settings
         this.persistConfigSettings();
         this.render(false);
         return;
       }
-      
+
       // Parse numeric fields
       if (field === "classLevel") {
         value = parseInt(value as string) || 1;
-        
+
         // Check if level crosses the 17 threshold and budgets haven't been customized
         const oldLevel = this.formData.classLevel || 1;
         const newLevel = value;
-        
+
         // If crossing threshold and no custom budgets set, update to new defaults
         if ((oldLevel < 17 && newLevel >= 17) || (oldLevel >= 17 && newLevel < 17)) {
           // Only auto-update if user hasn't customized budgets
@@ -340,40 +399,39 @@ export class TownieMakerApp extends Application {
           }
         }
       }
-      
+
       this.updateFormData(field, value);
-      
+
       // Smart name regeneration based on what changed
       if (field === "race" && this.formData.race && this.formData.className && this.formData.name) {
-        // Race changed: regenerate first + last name, keep class title
         this.regenerateRacialName();
         this.render(false);
       } else if (field === "gender" && this.formData.gender && this.formData.name) {
-        // Gender changed: only regenerate first name
         this.regenerateFirstName();
         this.render(false);
       } else if (field === "className" && this.formData.className && this.formData.race && this.formData.name) {
-        // Class changed: only regenerate class title
         this.regenerateClassTitle();
         this.render(false);
       } else if (field === "classLevel") {
-        // Level changed: re-render to update budget defaults
         this.render(false);
       }
     });
 
     // Ability score inputs
-    html.on("change", "[data-ability]", (ev) => {
-      const ability = $(ev.currentTarget).data("ability");
-      const value = parseInt($(ev.currentTarget).val() as string) || 10;
+    events.on("change", "[data-ability]", (ev) => {
+      const ability = ev.currentTarget.dataset.ability;
+      if (!ability) return;
+      const value = parseInt(getElementValue(ev.currentTarget)) || 10;
       this.updateAbilityScore(ability, value);
     });
 
     // Budget percentage inputs
-    html.on("change", "[data-budget]", (ev) => {
-      const budgetField = $(ev.currentTarget).data("budget");
-      const value = $(ev.currentTarget).val();
-      
+    events.on("change", "[data-budget]", (ev) => {
+      const budgetField = ev.currentTarget.dataset.budget;
+      if (!budgetField) return;
+
+      const value = getElementValue(ev.currentTarget);
+
       // If empty string, delete the override to use default
       if (value === "" || value === null || value === undefined) {
         if (this.formData.magicItemBudgets) {
@@ -389,17 +447,13 @@ export class TownieMakerApp extends Application {
           this.formData.magicItemBudgets[budgetField] = numValue / 100;
         }
       }
-      // Persist config settings
       this.persistConfigSettings();
       console.log("Budget updated:", budgetField, this.formData.magicItemBudgets);
     });
 
     // Reset budgets button - restore to current defaults
-    html.on("click", "[data-action='reset-budgets']", () => {
-      // Get the current defaults based on level and template
+    events.on("click", "[data-action='reset-budgets']", () => {
       const defaults = this.getDefaultBudgets();
-      
-      // Set form data to the default values (as decimals)
       this.formData.magicItemBudgets = {
         shieldPercent: defaults.shieldPercent / 100,
         armorPercent: defaults.armorPercent / 100,
@@ -407,42 +461,35 @@ export class TownieMakerApp extends Application {
         ringPercent: defaults.ringPercent / 100,
         amuletPercent: defaults.amuletPercent / 100
       };
-      
       this.render(false);
     });
 
-    // Apply standard array button
-    html.on("click", "[data-action='apply-standard-array']", () => {
+    events.on("click", "[data-action='apply-standard-array']", () => {
       this.applyStandardArray();
     });
 
-    // Roll ability scores
-    html.on("click", "[data-action='roll-abilities']", () => {
+    events.on("click", "[data-action='roll-abilities']", () => {
       this.rollAbilityScores();
     });
 
-    // Randomize name button
-    html.on("click", "[data-action='randomize-name']", () => {
+    events.on("click", "[data-action='randomize-name']", () => {
       this.randomizeName();
     });
 
-    // Create NPC button - use mousedown to fire before blur/change events
-    // This prevents the double-click issue when an input field has focus
-    html.on("mousedown", "[data-action='create-npc']", (ev) => {
-      ev.preventDefault(); // Prevent focus change
+    events.on("mousedown", "[data-action='create-npc']", (ev) => {
+      ev.preventDefault();
       this.createNPC();
     });
 
-    // Cancel button
-    html.on("click", "[data-action='cancel']", () => {
+    events.on("click", "[data-action='cancel']", () => {
       this.close();
     });
   }
 
   private selectTemplate(templateId: string): void {
     // Save scroll position of the template tab before re-render
-    const templateTab = this.element?.find('.tab[data-tab="template"]');
-    const scrollTop = templateTab?.scrollTop() || 0;
+    const templateTab = this.getRootElement()?.querySelector('.tab[data-tab="template"]') as HTMLElement | null;
+    const scrollTop = templateTab?.scrollTop || 0;
     
     this.selectedTemplate = this.templates.find(t => t.id === templateId) || null;
     
@@ -474,6 +521,10 @@ export class TownieMakerApp extends Application {
       // Load useStandardBudget from template (default to true if not specified)
       this.formData.useStandardBudget = this.selectedTemplate.useStandardBudget !== false;
       
+      // Auto-detect NPC wealth from class name
+      const primaryClassName = this.selectedTemplate.classes?.[0]?.name || '';
+      this.formData.useNpcWealth = primaryClassName.includes('(NPC)');
+      
       // Load usePcSheet from template (default to true if not specified)
       this.formData.usePcSheet = this.selectedTemplate.usePcSheet !== false;
       
@@ -497,16 +548,16 @@ export class TownieMakerApp extends Application {
       renderResult.then(() => {
         // Restore scroll position after render completes
         if (scrollTop > 0) {
-          const newTemplateTab = this.element?.find('.tab[data-tab="template"]');
-          newTemplateTab?.scrollTop(scrollTop);
+          const newTemplateTab = this.getRootElement()?.querySelector('.tab[data-tab="template"]') as HTMLElement | null;
+          if (newTemplateTab) newTemplateTab.scrollTop = scrollTop;
         }
       });
     } else {
       // Fallback for synchronous render
       setTimeout(() => {
         if (scrollTop > 0) {
-          const newTemplateTab = this.element?.find('.tab[data-tab="template"]');
-          newTemplateTab?.scrollTop(scrollTop);
+          const newTemplateTab = this.getRootElement()?.querySelector('.tab[data-tab="template"]') as HTMLElement | null;
+          if (newTemplateTab) newTemplateTab.scrollTop = scrollTop;
         }
       }, 10);
     }
@@ -530,12 +581,12 @@ export class TownieMakerApp extends Application {
    * To avoid requiring blur, sync current rendered input values when the user clicks Create.
    */
   private syncFormDataFromRenderedInputs(): void {
-    if (!this.element) return;
+    const root = this.getRootElement();
+    if (!root) return;
 
     // General form fields
-    this.element.find("[data-field]").each((_idx, el) => {
-      const $el = $(el);
-      const field = $el.data("field");
+    root.querySelectorAll<HTMLElement>("[data-field]").forEach((el) => {
+      const field = el.dataset.field;
 
       if (!field) return;
 
@@ -548,7 +599,7 @@ export class TownieMakerApp extends Application {
 
       // Numbers
       if (field === "classLevel") {
-        const raw = $el.val() as string;
+        const raw = getElementValue(el);
         const parsed = parseInt(raw);
         // @ts-ignore
         this.formData[field] = Number.isFinite(parsed) ? parsed : (this.formData.classLevel || 1);
@@ -556,7 +607,7 @@ export class TownieMakerApp extends Application {
       }
 
       if (field === "tokenDisposition") {
-        const raw = $el.val() as string;
+        const raw = getElementValue(el);
         const parsed = parseInt(raw);
         // @ts-ignore
         this.formData[field] = Number.isFinite(parsed) ? parsed : 0;
@@ -565,22 +616,20 @@ export class TownieMakerApp extends Application {
 
       // Everything else (text/select/textarea)
       // @ts-ignore
-      this.formData[field] = $el.val();
+      this.formData[field] = getElementValue(el);
     });
 
     // Abilities
-    this.element.find("input[data-ability]").each((_idx, el) => {
-      const $el = $(el);
-      const ability = $el.data("ability");
-      const value = parseInt($el.val() as string) || 10;
+    root.querySelectorAll<HTMLElement>("input[data-ability]").forEach((el) => {
+      const ability = el.dataset.ability;
+      const value = parseInt(getElementValue(el)) || 10;
       if (ability) this.updateAbilityScore(ability, value);
     });
 
     // Budget overrides (stored as decimals)
-    this.element.find("input[data-budget]").each((_idx, el) => {
-      const $el = $(el);
-      const budgetField = $el.data("budget");
-      const raw = $el.val();
+    root.querySelectorAll<HTMLElement>("input[data-budget]").forEach((el) => {
+      const budgetField = el.dataset.budget;
+      const raw = getElementValue(el);
       if (!budgetField) return;
 
       if (raw === "" || raw === null || raw === undefined) {
@@ -610,6 +659,9 @@ export class TownieMakerApp extends Application {
   private persistConfigSettings(): void {
     persistedConfigSettings = {
       useStandardBudget: this.formData.useStandardBudget,
+      useNpcWealth: this.formData.useNpcWealth,
+      includeLootPacks: this.formData.includeLootPacks,
+      lootProfile: this.formData.lootProfile,
       usePcSheet: this.formData.usePcSheet,
       useMaxHpPerHD: this.formData.useMaxHpPerHD,
       identifyItems: this.formData.identifyItems,
@@ -789,28 +841,62 @@ export class TownieMakerApp extends Application {
     return highest;
   }
 
+  private deriveWealthTier(className: string): "unequipped" | "npc_wealth" | "pc_wealth" {
+    if (this.formData.useStandardBudget === false) return WealthTier.UNEQUIPPED;
+    if (this.formData.useNpcWealth) return WealthTier.NPC;
+
+    const normalized = normalizeClassKey(className);
+    const tier = resolveClassTier(normalized);
+    return tier === ClassTier.PC ? WealthTier.PC : WealthTier.NPC;
+  }
+
+  private computeGeneratedCR(className: string, classLevel: number): {
+    cr: number;
+    classTier: "pc_class" | "npc_class" | "noncombat_npc_class";
+    wealthTier: "unequipped" | "npc_wealth" | "pc_wealth";
+    highestSpellLevel: number;
+  } {
+    const classTier = resolveClassTier(className);
+    const wealthTier = this.deriveWealthTier(className);
+    const highestSpellLevel = getHighestSpellLevelAvailable(className, classLevel);
+
+    const cr = calculateGeneratedCharacterCR({
+      level: classLevel,
+      wealthTier,
+      classTier,
+      highestSpellLevel,
+      roundResult: true,
+    });
+
+    return { cr, classTier, wealthTier, highestSpellLevel };
+  }
+
   /**
    * Show/hide the loading overlay
    */
   private setLoading(show: boolean, step?: string, progress?: number): void {
-    const overlay = this.element.find('.loading-overlay');
-    const stepEl = overlay.find('.loading-step');
-    const progressBar = overlay.find('.loading-progress-bar');
+    const root = this.getRootElement();
+    if (!root) return;
+
+    const overlay = root.querySelector('.loading-overlay') as HTMLElement | null;
+    const stepEl = root.querySelector('.loading-step') as HTMLElement | null;
+    const progressBar = root.querySelector('.loading-progress-bar') as HTMLElement | null;
+    if (!overlay || !stepEl || !progressBar) return;
     
     if (show) {
-      overlay.css('display', 'flex');
+      overlay.style.display = 'flex';
       if (step) {
-        stepEl.text(step);
+        stepEl.textContent = step;
         this.lastLoadingStepText = step;
         this.lastLoadingStepSetAtMs = Date.now();
       }
       if (progress !== undefined) {
-        progressBar.css('width', `${progress}%`);
+        progressBar.style.width = `${progress}%`;
       }
     } else {
-      overlay.hide();
-      stepEl.text('');
-      progressBar.css('width', '0%');
+      overlay.style.display = 'none';
+      stepEl.textContent = '';
+      progressBar.style.width = '0%';
       this.lastLoadingStepText = null;
       this.lastLoadingStepSetAtMs = 0;
     }
@@ -820,9 +906,12 @@ export class TownieMakerApp extends Application {
    * Update just the loading step text and progress
    */
   private updateLoadingStep(step: string, progress: number): void {
-    const overlay = this.element.find('.loading-overlay');
-    overlay.find('.loading-step').text(step);
-    overlay.find('.loading-progress-bar').css('width', `${progress}%`);
+    const root = this.getRootElement();
+    if (!root) return;
+    const stepEl = root.querySelector('.loading-step') as HTMLElement | null;
+    const progressBar = root.querySelector('.loading-progress-bar') as HTMLElement | null;
+    if (stepEl) stepEl.textContent = step;
+    if (progressBar) progressBar.style.width = `${progress}%`;
   }
 
   private async sleep(ms: number): Promise<void> {
@@ -1065,7 +1154,7 @@ export class TownieMakerApp extends Application {
           useStandardBudget: this.formData.useStandardBudget !== false
         };
         
-        await D35EAdapter.addEquipment(actor, templateWithOverrides, classLevel, identifyItems, extraMoneyInBank, bankName);
+        await D35EAdapter.addEquipment(actor, templateWithOverrides, classLevel, identifyItems, extraMoneyInBank, bankName, this.formData.useNpcWealth);
         
         // IMPORTANT: Complete container moves AFTER character is fully created
         await this.showLoadingStep('Organizing inventory...', 80);
@@ -1080,33 +1169,57 @@ export class TownieMakerApp extends Application {
       await D35EAdapter.addAttacks(actor);
       console.log("TownieMakerApp | Finished generating attacks");
 
-      // Set biography with personality and background
-      if (this.formData.personality || this.formData.background) {
-        await this.showLoadingStep('Setting biography...', 90);
-        await D35EAdapter.setBiography(actor, {
-          personality: this.formData.personality,
-          background: this.formData.background
-        });
+      // Compute and apply derived CR (used for XP/treasure workflows)
+      const computed = this.computeGeneratedCR(className || "", classLevel);
+      this.formData.computedCR = computed.cr;
+      this.formData.computedHighestSpellLevel = computed.highestSpellLevel;
+      await D35EAdapter.setActorCR(actor, computed.cr);
+      console.log(
+        `TownieMakerApp | Computed CR ${formatCR(computed.cr)} ` +
+        `(classTier=${computed.classTier}, wealthTier=${computed.wealthTier}, highestSpellLevel=${computed.highestSpellLevel})`
+      );
+
+      // Add SRD loot pack if enabled
+      if (SRD_LOOT_FEATURE_ENABLED && this.formData.includeLootPacks) {
+        await this.showLoadingStep('Generating loot pack...', 88);
+        console.log(`TownieMakerApp | Generating SRD loot pack with computed CR ${formatCR(computed.cr)}`);
+
+        await D35EAdapter.addSrdLootPack(
+          actor,
+          computed.cr,
+          this.formData.identifyItems ?? false,
+          this.formData.lootProfile || "standard"
+        );
+        console.log("TownieMakerApp | Finished loot pack");
       }
 
       // FINAL STEP: Re-apply token image after all D35E updates
       // D35E's actorUpdater overwrites the token image during various updates,
       // so we need to set it again at the very end
       if (characterImages.token !== characterImages.portrait) {
-        await this.showLoadingStep('Finalizing token...', 95);
+        await this.showLoadingStep('Finalizing token...', 90);
         console.log("TownieMakerApp | Re-applying token image after D35E updates...");
         await D35EAdapter.setTokenImage(actor, characterImages.token);
       }
 
-      // FINAL FINAL STEP: Trigger a D35E rest on the created actor.
+      // Trigger a D35E rest on the created actor.
       // This matches the sheet Rest dialog defaults (restoreHealth=true, restoreDailyUses=true, longTermCare=false)
       // and ensures daily-use abilities/spells are initialized correctly.
-      await this.showLoadingStep('Triggering rest...', 98);
+      await this.showLoadingStep('Triggering rest...', 93);
       const anyActor = actor as any;
       if (typeof anyActor.rest === 'function') {
         await anyActor.rest(true, true, false);
       } else {
         console.warn('TownieMakerApp | Actor does not expose rest(); skipping rest trigger.');
+      }
+
+      // Set biography AFTER rest to ensure it's never overwritten by D35E hooks
+      if (this.formData.personality || this.formData.background) {
+        await this.showLoadingStep('Setting biography...', 97);
+        await D35EAdapter.setBiography(actor, {
+          personality: this.formData.personality,
+          background: this.formData.background
+        });
       }
 
       await this.showLoadingStep('Complete!', 100);

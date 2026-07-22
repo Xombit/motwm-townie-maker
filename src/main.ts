@@ -2,6 +2,7 @@
 import { registerSettings } from "./settings";
 import { TownieMakerApp } from "./ui/TownieMakerApp";
 import { loadTemplates } from "./data/template-loader";
+import { getApplicationElement, getDocumentId } from "./foundry-compat";
 import "./styles/styles.css";
 
 declare global {
@@ -40,28 +41,35 @@ Hooks.once("ready", () => {
 });
 
 // Add Townie Maker button to Actor Directory
-Hooks.on("getActorDirectoryEntryContext", (html: JQuery, options: any[]) => {
+Hooks.on("getActorDirectoryEntryContext", (_html: any, _options: any[]) => {
   // Can add right-click context menu options here later
 });
 
 // Add toolbar button to Actor Directory
-Hooks.on("renderActorDirectory", (app: any, html: JQuery, data: any) => {
+Hooks.on("renderActorDirectory", (_app: any, html: any, _data: any) => {
   if (!game.user?.isGM) return;
 
-  const button = $(`
-    <button class="motwm-townie-maker-btn" title="Open Townie Maker">
-      <i class="fas fa-user-plus"></i> Townie Maker
-    </button>
-  `);
+  const root = getApplicationElement(html);
+  if (!root) return;
 
-  button.on("click", () => {
+  const actions = root.querySelector(".directory-header .action-buttons");
+  if (!actions) return;
+
+  if (actions.querySelector(".motwm-townie-maker-btn")) return;
+
+  const button = document.createElement("button");
+  button.className = "motwm-townie-maker-btn";
+  button.title = "Open Townie Maker";
+  button.innerHTML = '<i class="fas fa-user-plus"></i> Townie Maker';
+
+  button.addEventListener("click", () => {
     if (!window.MOTWM_TOWNIE?.app) {
       window.MOTWM_TOWNIE!.app = new TownieMakerApp();
     }
     window.MOTWM_TOWNIE!.app.render(true);
   });
 
-  html.find(".directory-header .action-buttons").append(button);
+  actions.appendChild(button);
 });
 
 // Debug function to list all compendiums
@@ -145,7 +153,7 @@ async function debugPack(packName: string): Promise<void> {
     for (const [type, items] of byType.entries()) {
       console.log(`  ${type} (${items.length}):`);
       items.slice(0, 10).forEach((item: any) => {
-        console.log(`    - ${item.name} [${item._id}]`);
+        console.log(`    - ${item.name} [${getDocumentId(item) || "no-id"}]`);
       });
       if (items.length > 10) {
         console.log(`    ... and ${items.length - 10} more`);
@@ -156,7 +164,11 @@ async function debugPack(packName: string): Promise<void> {
     if (index.size > 0) {
       console.log("");
       console.log("📄 Sample document structure:");
-      const firstId = index.contents[0]._id;
+      const firstId = getDocumentId(index.contents[0]);
+      if (!firstId) {
+        console.warn("Unable to resolve first document ID from compendium index");
+        return;
+      }
       const doc = await pack.getDocument(firstId);
       console.log("Document keys:", Object.keys(doc || {}));
       console.log("System data keys:", Object.keys((doc as any)?.system || {}));

@@ -11,8 +11,7 @@ $moduleName = "motwm-townie-maker"
 # Prefer an explicit path, then common defaults.
 $candidatePaths = @(
     $FoundryModulesPath,
-    "C:\Users\User\AppData\Local\FoundryVTT\Data\modules",
-    "E:\foundrytest\foundrydata\Data\modules"
+    "E:\foundry-v11\foundrydata\Data\modules"
 ) | Where-Object { $_ -and $_.Trim() -ne "" } | Select-Object -Unique
 
 $existingCandidatePaths = @()
@@ -46,9 +45,27 @@ if (-not $FoundryModulesPath -and $existingCandidatePaths.Count -gt 1) {
 Write-Host "Foundry modules directory: $foundryModulesPath" -ForegroundColor DarkCyan
 Write-Host "Deploy target: $targetPath" -ForegroundColor DarkCyan
 
+# Resolve Node 20 from nvm-windows (required for Foundry v11 compatibility)
+$nvmDir = "$env:LOCALAPPDATA\nvm"
+$node20Dir = Get-ChildItem $nvmDir -Directory -Filter "v20.*" -ErrorAction SilentlyContinue |
+    Sort-Object Name -Descending | Select-Object -First 1
+
+if (-not $node20Dir) {
+    Write-Host "Error: Node 20 not found under $nvmDir" -ForegroundColor Red
+    Write-Host "Install it with: nvm install 20" -ForegroundColor Yellow
+    exit 1
+}
+
+$nodePath = Join-Path $node20Dir.FullName "node.exe"
+$npmPath  = Join-Path $node20Dir.FullName "npm.cmd"
+Write-Host "Using Node 20: $nodePath" -ForegroundColor DarkCyan
+
+# Prepend Node 20 to PATH so child processes (vite, etc.) can find node.exe
+$env:PATH = "$($node20Dir.FullName);$env:PATH"
+
 # Build first
 Write-Host "Building module..." -ForegroundColor Yellow
-npm run build
+& $npmPath run build
 
 if ($LASTEXITCODE -ne 0) {
     Write-Host "Build failed! Aborting deployment." -ForegroundColor Red

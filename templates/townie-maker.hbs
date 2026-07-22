@@ -122,12 +122,12 @@
       </div>
 
       <div class="form-group">
-        <label for="npc-personality">Personality (Optional)</label>
+        <label for="npc-personality">Notes (Optional)</label>
         <textarea id="npc-personality" data-field="personality" rows="3" placeholder="Brief personality description">{{formData.personality}}</textarea>
       </div>
 
       <div class="form-group">
-        <label for="npc-background">Background (Optional)</label>
+        <label for="npc-background">Biography (Optional)</label>
         <textarea id="npc-background" data-field="background" rows="3" placeholder="Brief background or history">{{formData.background}}</textarea>
       </div>
     </div>
@@ -208,6 +208,20 @@
         </div>
       </div>
 
+      <div class="form-group" style="margin-bottom: 16px;">
+        <label style="display: flex; align-items: center; gap: 8px; cursor: pointer;">
+          <input type="checkbox" 
+                 data-field="useNpcWealth" 
+                 {{#if formData.useNpcWealth}}checked{{/if}}
+                 style="width: 18px; height: 18px;">
+          <span style="font-weight: bold;">Use NPC Gear Value (DMG Table 4-23)</span>
+        </label>
+        <div style="font-size: 11px; color: var(--color-text-dark-6, #3b3f4a); margin-left: 26px; margin-top: 4px;">
+          When enabled, uses the lower NPC gear value table instead of PC wealth-by-level.<br>
+          Auto-enabled for NPC classes (Warrior, Expert, Aristocrat, etc.).
+        </div>
+      </div>
+
       <div class="section-header">Token Options</div>
       
       <div class="form-group" style="margin-bottom: 16px;">
@@ -258,6 +272,20 @@
                  value="{{formData.bankName}}"
                  placeholder="The First Bank of Lower Everbrook"
                  style="width: 100%; max-width: 300px; padding: 4px 8px; font-size: 12px;">
+        </div>
+      </div>
+
+      <div class="form-group" style="margin-bottom: 16px;">
+        <label style="display: flex; align-items: center; gap: 8px; cursor: pointer;">
+          <input type="checkbox" 
+                 data-field="includeLootPacks" 
+                 {{#if formData.includeLootPacks}}checked{{/if}}
+                 style="width: 18px; height: 18px;">
+          <span style="font-weight: bold;">Include SRD Loot Pack</span>
+        </label>
+        <div style="font-size: 11px; color: var(--color-text-dark-6, #3b3f4a); margin-left: 26px; margin-top: 4px;">
+          When enabled, adds random SRD treasure (coins, gems, items) appropriate to the NPC's level<br>
+          using D35E's built-in treasure tables. This is in addition to the NPC's equipped gear.
         </div>
       </div>
 

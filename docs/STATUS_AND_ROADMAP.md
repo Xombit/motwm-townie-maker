@@ -19,6 +19,7 @@ This is the single “source of truth” for what the project currently supports
 - Some class features require user choices on the sheet (domains, schools, etc.).
 - Caster loadouts/spell lists may not be exhaustive for every class/archetype.
 - Templates are validated and best-effort; invalid templates fall back to a minimal blank template.
+- SRD loot pack generation is temporarily sidelined; loot controls are visible but disabled until D35E treasure generation is stable.
 
 ## Roadmap
 

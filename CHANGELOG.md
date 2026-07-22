@@ -1,5 +1,33 @@
 # Changelog
 
+## [0.3.0] - 2026-04-10
+
+### Changed
+- **Foundry v14 dual compatibility**: Module now supports Foundry v11 through v14 simultaneously.
+  - Replaced `mergeObject` global with `foundry.utils.mergeObject` throughout.
+  - Migrated all jQuery DOM manipulation in `TownieMakerApp` to native DOM APIs.
+  - Replaced `_id` compendium index reads with `id ?? _id` fallback pattern for v14 document index compatibility.
+  - Actor Directory button injection rewritten with native `createElement`/`appendChild` and a duplicate-insertion guard.
+  - New `src/foundry-compat.ts` compatibility layer centralizes all cross-version API abstractions.
+- Module manifest updated: `compatibility.minimum = "11"`, `compatibility.verified = "14"`.
+
+## [0.2.0] - 2026-04-09
+
+### Bug Fixes
+- **Gnome token art**: Fixed gnome race variants ("gnome, rock" / "gnome, forest") not mapping to artwork folders, resulting in missing portraits and tokens.
+- **Weapon attacks empty**: Added `carried: true` flag to all weapon, armor, and shield creation paths. The D35E attack generator filters by `carried === true`, so mundane equipment created without it produced no attack entries.
+- **Biography not transferring**: Moved biography write to after the D35E rest trigger so it cannot be overwritten by post-creation hooks.
+- **Weapon Specialization at wrong level**: Added feat prerequisite checking to `allocateFeats()`. Feats with class-level requirements (Weapon Specialization, Greater Weapon Focus, etc.) are now deferred to an appropriate slot instead of being assigned sequentially.
+- **Skill allocation over-spending**: Rewrote the skill distribution loop to be budget-constrained. Points are now allocated in priority order (high > medium > low) up to the available skill points per level; no more exceeding the budget at levels where medium/low skills activate.
+
+### Added
+- **D35E system styling**: Window now inherits D35E's parchment theme. Removed the standalone dark theme from `styles.css`, keeping only layout-specific rules.
+- **NPC wealth table (DMG Table 4-23)**: New "Use NPC Gear Value" checkbox in Config tab. Auto-enabled for NPC classes. Uses the lower NPC gear value table instead of PC wealth-by-level.
+- **SRD loot packs**: New "Include SRD Loot Pack" checkbox (off by default) in Config tab. Generates random SRD treasure (coins, gems, magic items) appropriate to the NPC's CR using D35E's built-in `TreasureGenerator`.
+
+### Changed
+- Deploy script (`scripts/deploy.ps1`) now resolves Node 20 from nvm-windows and prefers the `foundry-v11` data directory.
+
 ## [0.1.0] - 2026-01-22
 
 Initial public beta release.
