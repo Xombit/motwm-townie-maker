@@ -6,6 +6,7 @@
  */
 
 import { PotionRecommendation } from './magic-item-system';
+import { getPrimaryClassToken } from './class-utils';
 
 export interface PotionDefinition {
   name: string;
@@ -306,7 +307,7 @@ export function selectPotions(
   level: number,
   budget: number
 ): { potions: PotionRecommendation[]; totalCost: number } {
-  const classLower = characterClass.toLowerCase();
+  const classLower = getPrimaryClassToken(characterClass);
   let priorities = POTION_PRIORITIES_BY_CLASS[classLower] || POTION_PRIORITIES_BY_CLASS.fighter;
   
   // CRITICAL: Healing potions MUST be top priority for ALL characters

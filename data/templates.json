@@ -4,14 +4,14 @@
     "name": "Blank Character",
     "description": "Start from scratch with no presets",
     "icon": "fas fa-user",
-    "abilities": {
-      "str": 10,
-      "dex": 10,
-      "con": 10,
-      "int": 10,
-      "wis": 10,
-      "cha": 10
-    }
+    "abilityPriority": [
+      "str",
+      "dex",
+      "con",
+      "int",
+      "wis",
+      "cha"
+    ]
   },
   {
     "id": "town-guard",
@@ -26,23 +26,20 @@
       }
     ],
     "alignment": "Lawful Neutral",
-    "abilities": {
-      "str": 14,
-      "dex": 12,
-      "con": 13,
-      "int": 10,
-      "wis": 11,
-      "cha": 8
-    },
     "primaryAbility": "str",
     "skills": [
       {
-        "name": "clm",
+        "name": "int",
+        "ranks": 2,
+        "priority": "high"
+      },
+      {
+        "name": "rid",
         "ranks": 2,
         "priority": "medium"
       },
       {
-        "name": "int",
+        "name": "clm",
         "ranks": 2,
         "priority": "medium"
       },
@@ -52,9 +49,19 @@
         "priority": "medium"
       },
       {
-        "name": "rid",
-        "ranks": 2,
-        "priority": "medium"
+        "name": "han",
+        "ranks": 1,
+        "priority": "low"
+      },
+      {
+        "name": "crf1:Armorsmithing",
+        "ranks": 1,
+        "priority": "low"
+      },
+      {
+        "name": "swm",
+        "ranks": 1,
+        "priority": "low"
       }
     ],
     "feats": [
@@ -196,7 +203,84 @@
           "type": "gear"
         }
       ]
-    }
+    },
+    "spendingPlan": {
+      "version": 1,
+      "preset": "defensive",
+      "wealth": {
+        "mode": "npcWealth",
+        "multiplierPercent": 100,
+        "reservePercent": 5
+      },
+      "categories": {
+        "weapon": {
+          "enabled": true,
+          "shareBasisPoints": 1800,
+          "maxShareBasisPoints": 3000,
+          "priority": 2
+        },
+        "armor": {
+          "enabled": true,
+          "shareBasisPoints": 3500,
+          "maxShareBasisPoints": 5000,
+          "priority": 0
+        },
+        "abilityItem": {
+          "enabled": true,
+          "shareBasisPoints": 1200,
+          "maxShareBasisPoints": 1800,
+          "priority": 4
+        },
+        "resistance": {
+          "enabled": true,
+          "shareBasisPoints": 1400,
+          "maxShareBasisPoints": 2200,
+          "priority": 1
+        },
+        "protection": {
+          "enabled": true,
+          "shareBasisPoints": 1600,
+          "maxShareBasisPoints": 2500,
+          "priority": 3
+        },
+        "consumables": {
+          "enabled": true,
+          "shareBasisPoints": 500,
+          "maxShareBasisPoints": 1000,
+          "priority": 5,
+          "itemLimit": 3
+        },
+        "rodsStaves": {
+          "enabled": false,
+          "shareBasisPoints": 0,
+          "maxShareBasisPoints": 0,
+          "priority": 6,
+          "itemLimit": 0
+        },
+        "mightyFists": {
+          "enabled": false,
+          "shareBasisPoints": 0,
+          "maxShareBasisPoints": 0,
+          "priority": 7,
+          "itemLimit": 0
+        }
+      },
+      "splits": {
+        "secondaryWeaponBasisPoints": 2000,
+        "shieldBasisPoints": 5000,
+        "ringBasisPoints": 6000,
+        "wandsBasisPoints": 0,
+        "scrollsBasisPoints": 0
+      }
+    },
+    "abilityPriority": [
+      "str",
+      "con",
+      "dex",
+      "wis",
+      "int",
+      "cha"
+    ]
   },
   {
     "id": "merchant",
@@ -211,16 +295,13 @@
       }
     ],
     "alignment": "Neutral",
-    "abilities": {
-      "str": 10,
-      "dex": 10,
-      "con": 12,
-      "int": 13,
-      "wis": 12,
-      "cha": 14
-    },
     "primaryAbility": "cha",
     "skills": [
+      {
+        "name": "pro1:Merchant",
+        "ranks": 5,
+        "priority": "high"
+      },
       {
         "name": "apr",
         "ranks": 5,
@@ -228,13 +309,8 @@
       },
       {
         "name": "dip",
-        "ranks": 5,
-        "priority": "high"
-      },
-      {
-        "name": "blf",
         "ranks": 4,
-        "priority": "medium"
+        "priority": "high"
       },
       {
         "name": "sen",
@@ -242,14 +318,14 @@
         "priority": "medium"
       },
       {
-        "name": "pro1:Merchant",
+        "name": "blf",
         "ranks": 4,
         "priority": "medium"
       },
       {
         "name": "gif",
         "ranks": 3,
-        "priority": "low"
+        "priority": "medium"
       },
       {
         "name": "klo",
@@ -258,6 +334,11 @@
       },
       {
         "name": "lis",
+        "ranks": 1,
+        "priority": "low"
+      },
+      {
+        "name": "src",
         "ranks": 1,
         "priority": "low"
       }
@@ -289,6 +370,55 @@
           "skill": "blf"
         }
       }
+    ],
+    "startingKit": {
+      "gear": [
+        {
+          "name": "Traveler?s outfit",
+          "cost": 2,
+          "weight": 4,
+          "type": "gear"
+        },
+        {
+          "name": "Scale, merchant?s",
+          "cost": 5,
+          "weight": 1,
+          "type": "gear"
+        },
+        {
+          "name": "Backpack, Common",
+          "cost": 2,
+          "weight": 2,
+          "type": "gear"
+        },
+        {
+          "name": "Bedroll",
+          "cost": 0.1,
+          "weight": 5,
+          "type": "gear"
+        },
+        {
+          "name": "Waterskin",
+          "cost": 1,
+          "weight": 4,
+          "type": "gear"
+        },
+        {
+          "name": "Rations, Trail",
+          "cost": 0.5,
+          "weight": 1,
+          "quantity": 7,
+          "type": "gear"
+        }
+      ]
+    },
+    "abilityPriority": [
+      "cha",
+      "int",
+      "con",
+      "wis",
+      "str",
+      "dex"
     ]
   },
   {
@@ -304,14 +434,6 @@
       }
     ],
     "alignment": "Neutral Good",
-    "abilities": {
-      "str": 12,
-      "dex": 10,
-      "con": 13,
-      "int": 10,
-      "wis": 13,
-      "cha": 14
-    },
     "primaryAbility": "cha",
     "skills": [
       {
@@ -320,9 +442,29 @@
         "priority": "high"
       },
       {
-        "name": "dip",
+        "name": "han",
         "ranks": 3,
         "priority": "medium"
+      },
+      {
+        "name": "per1:Storytelling",
+        "ranks": 2,
+        "priority": "medium"
+      },
+      {
+        "name": "uro",
+        "ranks": 2,
+        "priority": "low"
+      },
+      {
+        "name": "lis",
+        "ranks": 1,
+        "priority": "low"
+      },
+      {
+        "name": "spt",
+        "ranks": 1,
+        "priority": "low"
       }
     ],
     "feats": [
@@ -340,6 +482,49 @@
       "Iron Will",
       "Great Fortitude",
       "Diehard"
+    ],
+    "startingKit": {
+      "gear": [
+        {
+          "name": "Peasant?s outfit",
+          "cost": 0.1,
+          "weight": 2,
+          "type": "gear"
+        },
+        {
+          "name": "Backpack, Common",
+          "cost": 2,
+          "weight": 2,
+          "type": "gear"
+        },
+        {
+          "name": "Bedroll",
+          "cost": 0.1,
+          "weight": 5,
+          "type": "gear"
+        },
+        {
+          "name": "Waterskin",
+          "cost": 1,
+          "weight": 4,
+          "type": "gear"
+        },
+        {
+          "name": "Rations, Trail",
+          "cost": 0.5,
+          "weight": 1,
+          "quantity": 7,
+          "type": "gear"
+        }
+      ]
+    },
+    "abilityPriority": [
+      "cha",
+      "con",
+      "wis",
+      "str",
+      "dex",
+      "int"
     ]
   },
   {
@@ -356,12 +541,7 @@
     ],
     "alignment": "Lawful Neutral",
     "abilities": {
-      "str": 15,
-      "dex": 10,
-      "con": 14,
-      "int": 12,
-      "wis": 11,
-      "cha": 8
+      "str": 18
     },
     "primaryAbility": "str",
     "skills": [
@@ -376,13 +556,23 @@
         "priority": "high"
       },
       {
+        "name": "pro1:Blacksmith",
+        "ranks": 4,
+        "priority": "high"
+      },
+      {
         "name": "apr",
         "ranks": 4,
         "priority": "medium"
       },
       {
-        "name": "pro1:Blacksmith",
-        "ranks": 4,
+        "name": "int",
+        "ranks": 3,
+        "priority": "medium"
+      },
+      {
+        "name": "han",
+        "ranks": 2,
         "priority": "medium"
       },
       {
@@ -391,18 +581,13 @@
         "priority": "low"
       },
       {
-        "name": "han",
-        "ranks": 2,
+        "name": "jmp",
+        "ranks": 1,
         "priority": "low"
       },
       {
-        "name": "int",
-        "ranks": 3,
-        "priority": "low"
-      },
-      {
-        "name": "kar",
-        "ranks": 2,
+        "name": "ken",
+        "ranks": 1,
         "priority": "low"
       }
     ],
@@ -427,6 +612,57 @@
           "skill": "apr"
         }
       }
+    ],
+    "startingKit": {
+      "gear": [
+        {
+          "name": "Artisan?s outfit",
+          "cost": 1,
+          "weight": 4,
+          "type": "gear"
+        },
+        {
+          "name": "Backpack, Common",
+          "cost": 2,
+          "weight": 2,
+          "type": "gear"
+        },
+        {
+          "name": "Bedroll",
+          "cost": 0.1,
+          "weight": 5,
+          "type": "gear"
+        },
+        {
+          "name": "Waterskin",
+          "cost": 1,
+          "weight": 4,
+          "type": "gear"
+        },
+        {
+          "name": "Rations, Trail",
+          "cost": 0.5,
+          "weight": 1,
+          "quantity": 7,
+          "type": "gear"
+        }
+      ],
+      "tools": [
+        {
+          "name": "Artisan?s tools",
+          "cost": 5,
+          "weight": 5,
+          "type": "tool"
+        }
+      ]
+    },
+    "abilityPriority": [
+      "str",
+      "con",
+      "int",
+      "wis",
+      "dex",
+      "cha"
     ]
   },
   {
@@ -442,14 +678,6 @@
       }
     ],
     "alignment": "Neutral Good",
-    "abilities": {
-      "str": 10,
-      "dex": 12,
-      "con": 12,
-      "int": 11,
-      "wis": 13,
-      "cha": 15
-    },
     "primaryAbility": "cha",
     "skills": [
       {
@@ -458,12 +686,27 @@
         "priority": "high"
       },
       {
-        "name": "dip",
+        "name": "han",
         "ranks": 2,
         "priority": "medium"
       },
       {
-        "name": "sen",
+        "name": "per1:Oratory",
+        "ranks": 2,
+        "priority": "medium"
+      },
+      {
+        "name": "uro",
+        "ranks": 1,
+        "priority": "low"
+      },
+      {
+        "name": "lis",
+        "ranks": 1,
+        "priority": "low"
+      },
+      {
+        "name": "spt",
         "ranks": 1,
         "priority": "low"
       }
@@ -489,6 +732,49 @@
       "Iron Will",
       "Lightning Reflexes",
       "Dodge"
+    ],
+    "startingKit": {
+      "gear": [
+        {
+          "name": "Peasant?s outfit",
+          "cost": 0.1,
+          "weight": 2,
+          "type": "gear"
+        },
+        {
+          "name": "Backpack, Common",
+          "cost": 2,
+          "weight": 2,
+          "type": "gear"
+        },
+        {
+          "name": "Bedroll",
+          "cost": 0.1,
+          "weight": 5,
+          "type": "gear"
+        },
+        {
+          "name": "Waterskin",
+          "cost": 1,
+          "weight": 4,
+          "type": "gear"
+        },
+        {
+          "name": "Rations, Trail",
+          "cost": 0.5,
+          "weight": 1,
+          "quantity": 7,
+          "type": "gear"
+        }
+      ]
+    },
+    "abilityPriority": [
+      "cha",
+      "wis",
+      "dex",
+      "con",
+      "int",
+      "str"
     ]
   },
   {
@@ -504,30 +790,37 @@
       }
     ],
     "alignment": "Neutral Good",
-    "abilities": {
-      "str": 13,
-      "dex": 10,
-      "con": 14,
-      "int": 8,
-      "wis": 12,
-      "cha": 9
-    },
     "primaryAbility": "con",
     "skills": [
       {
         "name": "pro1:Farmer",
-        "ranks": 2,
+        "ranks": 3,
         "priority": "medium"
       },
       {
         "name": "han",
-        "ranks": 1,
+        "ranks": 2,
         "priority": "medium"
       },
       {
-        "name": "sur",
-        "ranks": 1,
+        "name": "swm",
+        "ranks": 2,
         "priority": "medium"
+      },
+      {
+        "name": "rid",
+        "ranks": 1,
+        "priority": "low"
+      },
+      {
+        "name": "lis",
+        "ranks": 1,
+        "priority": "low"
+      },
+      {
+        "name": "spt",
+        "ranks": 1,
+        "priority": "low"
       }
     ],
     "feats": [
@@ -557,6 +850,57 @@
           "skill": "sur"
         }
       }
+    ],
+    "startingKit": {
+      "weapons": [
+        {
+          "name": "Sickle",
+          "cost": 6,
+          "weight": 2,
+          "type": "weapon"
+        }
+      ],
+      "gear": [
+        {
+          "name": "Peasant?s outfit",
+          "cost": 0.1,
+          "weight": 2,
+          "type": "gear"
+        },
+        {
+          "name": "Backpack, Common",
+          "cost": 2,
+          "weight": 2,
+          "type": "gear"
+        },
+        {
+          "name": "Bedroll",
+          "cost": 0.1,
+          "weight": 5,
+          "type": "gear"
+        },
+        {
+          "name": "Waterskin",
+          "cost": 1,
+          "weight": 4,
+          "type": "gear"
+        },
+        {
+          "name": "Rations, Trail",
+          "cost": 0.5,
+          "weight": 1,
+          "quantity": 7,
+          "type": "gear"
+        }
+      ]
+    },
+    "abilityPriority": [
+      "con",
+      "str",
+      "wis",
+      "dex",
+      "cha",
+      "int"
     ]
   },
   {
@@ -572,33 +916,35 @@
       }
     ],
     "alignment": "Chaotic Neutral",
-    "abilities": {
-      "str": 8,
-      "dex": 14,
-      "con": 10,
-      "int": 10,
-      "wis": 11,
-      "cha": 12
-    },
     "primaryAbility": "dex",
     "skills": [
       {
-        "name": "hid",
+        "name": "clm",
         "ranks": 3,
         "priority": "high"
       },
       {
-        "name": "mos",
+        "name": "jmp",
         "ranks": 2,
         "priority": "high"
       },
       {
-        "name": "slt",
+        "name": "uro",
         "ranks": 2,
         "priority": "medium"
       },
       {
-        "name": "blf",
+        "name": "per1:Busking",
+        "ranks": 2,
+        "priority": "medium"
+      },
+      {
+        "name": "rid",
+        "ranks": 1,
+        "priority": "low"
+      },
+      {
+        "name": "lis",
         "ranks": 1,
         "priority": "low"
       }
@@ -630,6 +976,49 @@
           "skill": "mov"
         }
       }
+    ],
+    "startingKit": {
+      "gear": [
+        {
+          "name": "Peasant?s outfit",
+          "cost": 0.1,
+          "weight": 2,
+          "type": "gear"
+        },
+        {
+          "name": "Backpack, Common",
+          "cost": 2,
+          "weight": 2,
+          "type": "gear"
+        },
+        {
+          "name": "Waterskin",
+          "cost": 1,
+          "weight": 4,
+          "type": "gear"
+        },
+        {
+          "name": "Rations, Trail",
+          "cost": 0.5,
+          "weight": 1,
+          "quantity": 3,
+          "type": "gear"
+        },
+        {
+          "name": "Thieves? tools",
+          "cost": 30,
+          "weight": 1,
+          "type": "gear"
+        }
+      ]
+    },
+    "abilityPriority": [
+      "dex",
+      "cha",
+      "wis",
+      "con",
+      "int",
+      "str"
     ]
   },
   {
@@ -644,14 +1033,6 @@
         "level": 1
       }
     ],
-    "abilities": {
-      "str": 8,
-      "dex": 10,
-      "con": 10,
-      "int": 11,
-      "wis": 14,
-      "cha": 15
-    },
     "primaryAbility": "cha",
     "skills": [
       {
@@ -660,14 +1041,29 @@
         "priority": "high"
       },
       {
+        "name": "khi",
+        "ranks": 3,
+        "priority": "high"
+      },
+      {
         "name": "coc",
         "ranks": 2,
         "priority": "medium"
       },
       {
-        "name": "sen",
+        "name": "kno",
         "ranks": 2,
         "priority": "medium"
+      },
+      {
+        "name": "kre",
+        "ranks": 1,
+        "priority": "low"
+      },
+      {
+        "name": "spl",
+        "ranks": 1,
+        "priority": "low"
       }
     ],
     "feats": [
@@ -697,6 +1093,56 @@
       },
       "Empower Spell",
       "Heighten Spell"
+    ],
+    "startingKit": {
+      "gear": [
+        {
+          "name": "Courtier?s outfit",
+          "cost": 30,
+          "weight": 6,
+          "type": "gear"
+        },
+        {
+          "name": "Disguise kit",
+          "cost": 50,
+          "weight": 8,
+          "type": "gear"
+        },
+        {
+          "name": "Backpack, Common",
+          "cost": 2,
+          "weight": 2,
+          "type": "gear"
+        },
+        {
+          "name": "Bedroll",
+          "cost": 0.1,
+          "weight": 5,
+          "type": "gear"
+        },
+        {
+          "name": "Waterskin",
+          "cost": 1,
+          "weight": 4,
+          "type": "gear"
+        }
+      ],
+      "tools": [
+        {
+          "name": "Pouch, Spell Component",
+          "cost": 5,
+          "weight": 2,
+          "type": "tool"
+        }
+      ]
+    },
+    "abilityPriority": [
+      "cha",
+      "wis",
+      "int",
+      "dex",
+      "con",
+      "str"
     ]
   },
   {
@@ -712,14 +1158,6 @@
       }
     ],
     "alignment": "Neutral Evil",
-    "abilities": {
-      "str": 10,
-      "dex": 10,
-      "con": 11,
-      "int": 10,
-      "wis": 14,
-      "cha": 12
-    },
     "primaryAbility": "wis",
     "skills": [
       {
@@ -729,12 +1167,27 @@
       },
       {
         "name": "coc",
-        "ranks": 2,
-        "priority": "medium"
+        "ranks": 3,
+        "priority": "high"
       },
       {
         "name": "kar",
         "ranks": 2,
+        "priority": "medium"
+      },
+      {
+        "name": "spl",
+        "ranks": 2,
+        "priority": "medium"
+      },
+      {
+        "name": "kpl",
+        "ranks": 1,
+        "priority": "low"
+      },
+      {
+        "name": "sur",
+        "ranks": 1,
         "priority": "low"
       }
     ],
@@ -765,6 +1218,63 @@
       },
       "Empower Spell",
       "Spell Penetration"
+    ],
+    "startingKit": {
+      "gear": [
+        {
+          "name": "Peasant?s outfit",
+          "cost": 0.1,
+          "weight": 2,
+          "type": "gear"
+        },
+        {
+          "name": "Backpack, Common",
+          "cost": 2,
+          "weight": 2,
+          "type": "gear"
+        },
+        {
+          "name": "Bedroll",
+          "cost": 0.1,
+          "weight": 5,
+          "type": "gear"
+        },
+        {
+          "name": "Waterskin",
+          "cost": 1,
+          "weight": 4,
+          "type": "gear"
+        },
+        {
+          "name": "Rations, Trail",
+          "cost": 0.5,
+          "weight": 1,
+          "quantity": 7,
+          "type": "gear"
+        }
+      ],
+      "tools": [
+        {
+          "name": "Wooden Holy Symbol",
+          "cost": 1,
+          "weight": 0,
+          "type": "tool"
+        },
+        {
+          "name": "Pouch, Spell Component",
+          "cost": 5,
+          "weight": 2,
+          "type": "tool"
+        }
+      ]
+    },
+    "abilityPriority": [
+      "wis",
+      "cha",
+      "con",
+      "str",
+      "dex",
+      "int"
     ]
   },
   {
@@ -781,12 +1291,7 @@
     ],
     "alignment": "Neutral",
     "abilities": {
-      "str": 8,
-      "dex": 12,
-      "con": 10,
-      "int": 16,
-      "wis": 13,
-      "cha": 10
+      "int": 18
     },
     "primaryAbility": "int",
     "skills": [
@@ -796,27 +1301,37 @@
         "priority": "high"
       },
       {
+        "name": "kar",
+        "ranks": 5,
+        "priority": "high"
+      },
+      {
         "name": "coc",
         "ranks": 5,
         "priority": "high"
       },
       {
-        "name": "kar",
-        "ranks": 4,
-        "priority": "medium"
-      },
-      {
         "name": "kpl",
-        "ranks": 2,
-        "priority": "low"
+        "ranks": 3,
+        "priority": "medium"
       },
       {
         "name": "khi",
         "ranks": 2,
-        "priority": "low"
+        "priority": "medium"
       },
       {
         "name": "kre",
+        "ranks": 2,
+        "priority": "medium"
+      },
+      {
+        "name": "dsc",
+        "ranks": 1,
+        "priority": "low"
+      },
+      {
+        "name": "kna",
         "ranks": 1,
         "priority": "low"
       }
@@ -920,7 +1435,15 @@
           "type": "tool"
         }
       ]
-    }
+    },
+    "abilityPriority": [
+      "int",
+      "wis",
+      "dex",
+      "con",
+      "cha",
+      "str"
+    ]
   },
   {
     "id": "cleric-priest",
@@ -935,14 +1458,6 @@
       }
     ],
     "alignment": "Lawful Good",
-    "abilities": {
-      "str": 14,
-      "dex": 8,
-      "con": 13,
-      "int": 10,
-      "wis": 15,
-      "cha": 12
-    },
     "primaryAbility": "wis",
     "skills": [
       {
@@ -954,6 +1469,21 @@
         "name": "kre",
         "ranks": 4,
         "priority": "high"
+      },
+      {
+        "name": "hea",
+        "ranks": 2,
+        "priority": "medium"
+      },
+      {
+        "name": "dip",
+        "ranks": 2,
+        "priority": "medium"
+      },
+      {
+        "name": "lin",
+        "ranks": 1,
+        "priority": "low"
       }
     ],
     "feats": [
@@ -1028,7 +1558,15 @@
           "type": "tool"
         }
       ]
-    }
+    },
+    "abilityPriority": [
+      "wis",
+      "str",
+      "con",
+      "cha",
+      "int",
+      "dex"
+    ]
   },
   {
     "id": "cleric-caster",
@@ -1043,14 +1581,6 @@
       }
     ],
     "alignment": "Neutral Good",
-    "abilities": {
-      "str": 10,
-      "dex": 10,
-      "con": 13,
-      "int": 10,
-      "wis": 16,
-      "cha": 14
-    },
     "primaryAbility": "wis",
     "skills": [
       {
@@ -1062,6 +1592,21 @@
         "name": "kre",
         "ranks": 4,
         "priority": "high"
+      },
+      {
+        "name": "spl",
+        "ranks": 2,
+        "priority": "medium"
+      },
+      {
+        "name": "dip",
+        "ranks": 2,
+        "priority": "medium"
+      },
+      {
+        "name": "kpl",
+        "ranks": 1,
+        "priority": "low"
       }
     ],
     "feats": [
@@ -1142,7 +1687,15 @@
           "type": "tool"
         }
       ]
-    }
+    },
+    "abilityPriority": [
+      "wis",
+      "cha",
+      "con",
+      "str",
+      "dex",
+      "int"
+    ]
   },
   {
     "id": "adept-healer",
@@ -1156,14 +1709,6 @@
         "level": 1
       }
     ],
-    "abilities": {
-      "str": 10,
-      "dex": 10,
-      "con": 11,
-      "int": 10,
-      "wis": 14,
-      "cha": 12
-    },
     "primaryAbility": "wis",
     "skills": [
       {
@@ -1173,12 +1718,22 @@
       },
       {
         "name": "coc",
-        "ranks": 2,
-        "priority": "medium"
+        "ranks": 3,
+        "priority": "high"
       },
       {
         "name": "sur",
         "ranks": 2,
+        "priority": "medium"
+      },
+      {
+        "name": "kre",
+        "ranks": 2,
+        "priority": "medium"
+      },
+      {
+        "name": "han",
+        "ranks": 1,
         "priority": "low"
       }
     ],
@@ -1203,6 +1758,63 @@
           "skill": "sur"
         }
       }
+    ],
+    "startingKit": {
+      "gear": [
+        {
+          "name": "Peasant?s outfit",
+          "cost": 0.1,
+          "weight": 2,
+          "type": "gear"
+        },
+        {
+          "name": "Backpack, Common",
+          "cost": 2,
+          "weight": 2,
+          "type": "gear"
+        },
+        {
+          "name": "Bedroll",
+          "cost": 0.1,
+          "weight": 5,
+          "type": "gear"
+        },
+        {
+          "name": "Waterskin",
+          "cost": 1,
+          "weight": 4,
+          "type": "gear"
+        },
+        {
+          "name": "Rations, Trail",
+          "cost": 0.5,
+          "weight": 1,
+          "quantity": 7,
+          "type": "gear"
+        }
+      ],
+      "tools": [
+        {
+          "name": "Wooden Holy Symbol",
+          "cost": 1,
+          "weight": 0,
+          "type": "tool"
+        },
+        {
+          "name": "Pouch, Spell Component",
+          "cost": 5,
+          "weight": 2,
+          "type": "tool"
+        }
+      ]
+    },
+    "abilityPriority": [
+      "wis",
+      "cha",
+      "con",
+      "str",
+      "dex",
+      "int"
     ]
   },
   {
@@ -1218,14 +1830,6 @@
       }
     ],
     "alignment": "Chaotic Neutral",
-    "abilities": {
-      "str": 8,
-      "dex": 16,
-      "con": 10,
-      "int": 12,
-      "wis": 10,
-      "cha": 13
-    },
     "primaryAbility": "dex",
     "skills": [
       {
@@ -1246,7 +1850,7 @@
       {
         "name": "dev",
         "ranks": 4,
-        "priority": "medium"
+        "priority": "high"
       },
       {
         "name": "slt",
@@ -1259,27 +1863,32 @@
         "priority": "medium"
       },
       {
-        "name": "spt",
-        "ranks": 3,
-        "priority": "low"
-      },
-      {
-        "name": "lis",
-        "ranks": 3,
-        "priority": "low"
-      },
-      {
         "name": "tmb",
+        "ranks": 3,
+        "priority": "medium"
+      },
+      {
+        "name": "esc",
+        "ranks": 2,
+        "priority": "medium"
+      },
+      {
+        "name": "spt",
         "ranks": 2,
         "priority": "low"
       },
       {
-        "name": "clm",
-        "ranks": 1,
+        "name": "lis",
+        "ranks": 2,
         "priority": "low"
       },
       {
-        "name": "esc",
+        "name": "blf",
+        "ranks": 2,
+        "priority": "low"
+      },
+      {
+        "name": "umd",
         "ranks": 1,
         "priority": "low"
       }
@@ -1390,7 +1999,15 @@
           "type": "tool"
         }
       ]
-    }
+    },
+    "abilityPriority": [
+      "dex",
+      "cha",
+      "int",
+      "con",
+      "wis",
+      "str"
+    ]
   },
   {
     "id": "noble",
@@ -1405,14 +2022,6 @@
       }
     ],
     "alignment": "Lawful Neutral",
-    "abilities": {
-      "str": 10,
-      "dex": 10,
-      "con": 11,
-      "int": 13,
-      "wis": 10,
-      "cha": 15
-    },
     "primaryAbility": "cha",
     "skills": [
       {
@@ -1436,13 +2045,23 @@
         "priority": "medium"
       },
       {
+        "name": "gif",
+        "ranks": 2,
+        "priority": "medium"
+      },
+      {
         "name": "rid",
         "ranks": 2,
         "priority": "low"
       },
       {
-        "name": "gif",
-        "ranks": 2,
+        "name": "lis",
+        "ranks": 1,
+        "priority": "low"
+      },
+      {
+        "name": "blf",
+        "ranks": 1,
         "priority": "low"
       }
     ],
@@ -1473,6 +2092,48 @@
           "skill": "rid"
         }
       }
+    ],
+    "startingKit": {
+      "gear": [
+        {
+          "name": "Noble?s outfit",
+          "cost": 75,
+          "weight": 10,
+          "type": "gear"
+        },
+        {
+          "name": "Signet ring",
+          "cost": 5,
+          "weight": 0,
+          "type": "gear"
+        },
+        {
+          "name": "Courtier?s outfit",
+          "cost": 30,
+          "weight": 6,
+          "type": "gear"
+        },
+        {
+          "name": "Backpack, Common",
+          "cost": 2,
+          "weight": 2,
+          "type": "gear"
+        },
+        {
+          "name": "Waterskin",
+          "cost": 1,
+          "weight": 4,
+          "type": "gear"
+        }
+      ]
+    },
+    "abilityPriority": [
+      "cha",
+      "int",
+      "con",
+      "str",
+      "dex",
+      "wis"
     ]
   },
   {
@@ -1488,25 +2149,37 @@
       }
     ],
     "alignment": "Chaotic Neutral",
-    "abilities": {
-      "str": 13,
-      "dex": 14,
-      "con": 12,
-      "int": 8,
-      "wis": 10,
-      "cha": 9
-    },
     "primaryAbility": "dex",
     "skills": [
       {
-        "name": "hid",
-        "ranks": 2,
+        "name": "clm",
+        "ranks": 3,
         "priority": "high"
       },
       {
-        "name": "mos",
+        "name": "int",
         "ranks": 2,
-        "priority": "high"
+        "priority": "medium"
+      },
+      {
+        "name": "jmp",
+        "ranks": 2,
+        "priority": "low"
+      },
+      {
+        "name": "han",
+        "ranks": 2,
+        "priority": "low"
+      },
+      {
+        "name": "swm",
+        "ranks": 1,
+        "priority": "low"
+      },
+      {
+        "name": "rid",
+        "ranks": 1,
+        "priority": "low"
       }
     ],
     "feats": [
@@ -1536,6 +2209,71 @@
         }
       },
       "Precise Shot"
+    ],
+    "startingKit": {
+      "weapons": [
+        {
+          "name": "Shortbow",
+          "cost": 30,
+          "weight": 2,
+          "type": "weapon"
+        },
+        {
+          "name": "Shortsword",
+          "cost": 10,
+          "weight": 2,
+          "type": "weapon"
+        }
+      ],
+      "gear": [
+        {
+          "name": "Traveler?s outfit",
+          "cost": 2,
+          "weight": 4,
+          "type": "gear"
+        },
+        {
+          "name": "Backpack, Common",
+          "cost": 2,
+          "weight": 2,
+          "type": "gear"
+        },
+        {
+          "name": "Bedroll",
+          "cost": 0.1,
+          "weight": 5,
+          "type": "gear"
+        },
+        {
+          "name": "Waterskin",
+          "cost": 1,
+          "weight": 4,
+          "type": "gear"
+        },
+        {
+          "name": "Rations, Trail",
+          "cost": 0.5,
+          "weight": 1,
+          "quantity": 7,
+          "type": "gear"
+        }
+      ],
+      "tools": [
+        {
+          "name": "Thieves? tools",
+          "cost": 30,
+          "weight": 1,
+          "type": "tool"
+        }
+      ]
+    },
+    "abilityPriority": [
+      "dex",
+      "str",
+      "con",
+      "wis",
+      "cha",
+      "int"
     ]
   },
   {
@@ -1551,14 +2289,6 @@
       }
     ],
     "alignment": "Neutral Good",
-    "abilities": {
-      "str": 13,
-      "dex": 15,
-      "con": 11,
-      "int": 10,
-      "wis": 14,
-      "cha": 8
-    },
     "primaryAbility": "dex",
     "rangerCombatStyle": "archery",
     "favoredEnemies": [
@@ -1595,12 +2325,22 @@
       },
       {
         "name": "src",
-        "ranks": 2,
-        "priority": "low"
+        "ranks": 3,
+        "priority": "medium"
       },
       {
         "name": "kna",
         "ranks": 2,
+        "priority": "medium"
+      },
+      {
+        "name": "han",
+        "ranks": 2,
+        "priority": "low"
+      },
+      {
+        "name": "rid",
+        "ranks": 1,
         "priority": "low"
       }
     ],
@@ -1701,7 +2441,15 @@
           "type": "gear"
         }
       ]
-    }
+    },
+    "abilityPriority": [
+      "dex",
+      "wis",
+      "str",
+      "con",
+      "int",
+      "cha"
+    ]
   },
   {
     "id": "barbarian-tribal",
@@ -1716,16 +2464,18 @@
       }
     ],
     "alignment": "Chaotic Neutral",
-    "abilities": {
-      "str": 16,
-      "dex": 14,
-      "con": 15,
-      "int": 8,
-      "wis": 10,
-      "cha": 8
-    },
     "primaryAbility": "str",
     "skills": [
+      {
+        "name": "int",
+        "ranks": 3,
+        "priority": "high"
+      },
+      {
+        "name": "sur",
+        "ranks": 3,
+        "priority": "high"
+      },
       {
         "name": "clm",
         "ranks": 3,
@@ -1737,14 +2487,19 @@
         "priority": "medium"
       },
       {
-        "name": "int",
-        "ranks": 3,
+        "name": "swm",
+        "ranks": 2,
         "priority": "medium"
       },
       {
-        "name": "sur",
-        "ranks": 3,
-        "priority": "medium"
+        "name": "lis",
+        "ranks": 1,
+        "priority": "low"
+      },
+      {
+        "name": "han",
+        "ranks": 1,
+        "priority": "low"
       }
     ],
     "feats": [
@@ -1837,7 +2592,15 @@
           "type": "gear"
         }
       ]
-    }
+    },
+    "abilityPriority": [
+      "str",
+      "con",
+      "dex",
+      "wis",
+      "int",
+      "cha"
+    ]
   },
   {
     "id": "bard-minstrel",
@@ -1852,19 +2615,11 @@
       }
     ],
     "alignment": "Chaotic Good",
-    "abilities": {
-      "str": 10,
-      "dex": 14,
-      "con": 10,
-      "int": 12,
-      "wis": 10,
-      "cha": 16
-    },
     "primaryAbility": "cha",
     "skills": [
       {
         "name": "prf1:Sing",
-        "ranks": 6,
+        "ranks": 5,
         "priority": "high"
       },
       {
@@ -1875,7 +2630,7 @@
       {
         "name": "dip",
         "ranks": 4,
-        "priority": "medium"
+        "priority": "high"
       },
       {
         "name": "blf",
@@ -1890,15 +2645,25 @@
       {
         "name": "gif",
         "ranks": 3,
-        "priority": "low"
+        "priority": "medium"
       },
       {
         "name": "klo",
         "ranks": 2,
-        "priority": "low"
+        "priority": "medium"
       },
       {
         "name": "khi",
+        "ranks": 2,
+        "priority": "low"
+      },
+      {
+        "name": "kar",
+        "ranks": 1,
+        "priority": "low"
+      },
+      {
+        "name": "umd",
         "ranks": 1,
         "priority": "low"
       }
@@ -2002,7 +2767,15 @@
           "type": "tool"
         }
       ]
-    }
+    },
+    "abilityPriority": [
+      "cha",
+      "dex",
+      "int",
+      "str",
+      "con",
+      "wis"
+    ]
   },
   {
     "id": "druid-hermit",
@@ -2017,39 +2790,46 @@
       }
     ],
     "alignment": "True Neutral",
-    "abilities": {
-      "str": 10,
-      "dex": 10,
-      "con": 13,
-      "int": 10,
-      "wis": 16,
-      "cha": 12
-    },
     "primaryAbility": "wis",
     "skills": [
       {
-        "name": "coc",
+        "name": "kna",
         "ranks": 4,
         "priority": "high"
       },
       {
-        "name": "kna",
-        "ranks": 5,
+        "name": "sur",
+        "ranks": 4,
         "priority": "high"
       },
       {
-        "name": "sur",
+        "name": "coc",
         "ranks": 3,
         "priority": "medium"
       },
       {
         "name": "han",
         "ranks": 2,
-        "priority": "low"
+        "priority": "medium"
+      },
+      {
+        "name": "hea",
+        "ranks": 2,
+        "priority": "medium"
       },
       {
         "name": "spt",
         "ranks": 2,
+        "priority": "low"
+      },
+      {
+        "name": "lis",
+        "ranks": 1,
+        "priority": "low"
+      },
+      {
+        "name": "rid",
+        "ranks": 1,
         "priority": "low"
       }
     ],
@@ -2146,7 +2926,15 @@
           "type": "tool"
         }
       ]
-    }
+    },
+    "abilityPriority": [
+      "wis",
+      "con",
+      "cha",
+      "str",
+      "dex",
+      "int"
+    ]
   },
   {
     "id": "monk-disciple",
@@ -2161,19 +2949,11 @@
       }
     ],
     "alignment": "Lawful Neutral",
-    "abilities": {
-      "str": 12,
-      "dex": 16,
-      "con": 12,
-      "int": 10,
-      "wis": 14,
-      "cha": 8
-    },
     "primaryAbility": "dex",
     "skills": [
       {
         "name": "tmb",
-        "ranks": 5,
+        "ranks": 4,
         "priority": "high"
       },
       {
@@ -2189,11 +2969,26 @@
       {
         "name": "mos",
         "ranks": 2,
-        "priority": "low"
+        "priority": "medium"
       },
       {
         "name": "hid",
         "ranks": 2,
+        "priority": "medium"
+      },
+      {
+        "name": "lis",
+        "ranks": 2,
+        "priority": "low"
+      },
+      {
+        "name": "spt",
+        "ranks": 1,
+        "priority": "low"
+      },
+      {
+        "name": "coc",
+        "ranks": 1,
         "priority": "low"
       }
     ],
@@ -2265,7 +3060,15 @@
           "type": "gear"
         }
       ]
-    }
+    },
+    "abilityPriority": [
+      "dex",
+      "wis",
+      "str",
+      "con",
+      "int",
+      "cha"
+    ]
   },
   {
     "id": "paladin-knight",
@@ -2280,19 +3083,11 @@
       }
     ],
     "alignment": "Lawful Good",
-    "abilities": {
-      "str": 15,
-      "dex": 10,
-      "con": 13,
-      "int": 10,
-      "wis": 12,
-      "cha": 14
-    },
     "primaryAbility": "str",
     "skills": [
       {
         "name": "rid",
-        "ranks": 5,
+        "ranks": 4,
         "priority": "high"
       },
       {
@@ -2302,6 +3097,21 @@
       },
       {
         "name": "dip",
+        "ranks": 2,
+        "priority": "medium"
+      },
+      {
+        "name": "sen",
+        "ranks": 1,
+        "priority": "low"
+      },
+      {
+        "name": "hea",
+        "ranks": 1,
+        "priority": "low"
+      },
+      {
+        "name": "han",
         "ranks": 1,
         "priority": "low"
       }
@@ -2397,7 +3207,15 @@
           "type": "tool"
         }
       ]
-    }
+    },
+    "abilityPriority": [
+      "str",
+      "cha",
+      "con",
+      "wis",
+      "dex",
+      "int"
+    ]
   },
   {
     "id": "sorcerer-bloodline",
@@ -2411,28 +3229,35 @@
         "level": 1
       }
     ],
-    "abilities": {
-      "str": 8,
-      "dex": 12,
-      "con": 13,
-      "int": 10,
-      "wis": 10,
-      "cha": 16
-    },
     "primaryAbility": "cha",
     "skills": [
       {
         "name": "coc",
-        "ranks": 5,
+        "ranks": 4,
         "priority": "high"
       },
       {
         "name": "blf",
+        "ranks": 3,
+        "priority": "medium"
+      },
+      {
+        "name": "spl",
         "ranks": 2,
         "priority": "medium"
       },
       {
         "name": "kar",
+        "ranks": 1,
+        "priority": "low"
+      },
+      {
+        "name": "lin",
+        "ranks": 1,
+        "priority": "low"
+      },
+      {
+        "name": "pro1:Courtier",
         "ranks": 1,
         "priority": "low"
       }
@@ -2518,6 +3343,14 @@
           "type": "tool"
         }
       ]
-    }
+    },
+    "abilityPriority": [
+      "cha",
+      "con",
+      "dex",
+      "int",
+      "wis",
+      "str"
+    ]
   }
 ]

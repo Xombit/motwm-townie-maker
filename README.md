@@ -155,7 +155,7 @@ The character will be created with:
 
 ### Built-in Templates (Current)
 
-Templates provide pre-configured character concepts with appropriate class, race, ability scores, skills, feats, and starting equipment.
+Templates provide pre-configured character concepts with appropriate class, race, ability priorities, optional pinned scores, skills, feats, and starting equipment. Selecting a template opens a complete preview before continuing through the guided workflow.
 
 The current built-in templates are defined in `data/templates.json`.
 
@@ -235,7 +235,7 @@ These examples are designed to be copied into the array as-is (adjust item names
   "alignment": "Lawful Neutral",
   "classes": [{ "name": "Fighter", "level": 1 }],
   "primaryAbility": "str",
-  "abilities": { "str": 15, "dex": 12, "con": 14, "int": 10, "wis": 10, "cha": 8 },
+  "abilityPriority": ["str", "con", "dex", "wis", "int", "cha"],
   "skills": [
     { "name": "clm", "ranks": 2, "priority": "medium" },
     { "name": "jmp", "ranks": 2, "priority": "medium" },
@@ -278,7 +278,8 @@ These examples are designed to be copied into the array as-is (adjust item names
   "alignment": "Neutral",
   "classes": [{ "name": "Wizard", "level": 1 }],
   "primaryAbility": "int",
-  "abilities": { "str": 8, "dex": 14, "con": 12, "int": 16, "wis": 10, "cha": 10 },
+  "abilityPriority": ["int", "dex", "con", "wis", "str", "cha"],
+  "abilities": { "int": 18 },
   "skills": [
     { "name": "spl", "ranks": 4, "priority": "high" },
     { "name": "coc", "ranks": 4, "priority": "high" },
@@ -325,7 +326,7 @@ These examples are designed to be copied into the array as-is (adjust item names
   "alignment": "Chaotic Neutral",
   "classes": [{ "name": "Rogue", "level": 1 }],
   "primaryAbility": "dex",
-  "abilities": { "str": 8, "dex": 16, "con": 12, "int": 12, "wis": 10, "cha": 10 },
+  "abilityPriority": ["dex", "int", "con", "wis", "str", "cha"],
   "skills": [
     { "name": "hid", "ranks": 4, "priority": "high" },
     { "name": "mos", "ranks": 4, "priority": "high" },
@@ -361,7 +362,7 @@ These examples are designed to be copied into the array as-is (adjust item names
   "alignment": "Neutral Good",
   "classes": [{ "name": "Ranger", "level": 1 }],
   "primaryAbility": "dex",
-  "abilities": { "str": 12, "dex": 16, "con": 12, "int": 10, "wis": 14, "cha": 8 },
+  "abilityPriority": ["dex", "wis", "con", "str", "int", "cha"],
   "rangerCombatStyle": "archery",
   "favoredEnemies": ["Humanoid (Orc)", "Giant"],
   "skills": [
@@ -414,8 +415,8 @@ This section documents the fields the generator actually consumes today.
 - `alignment` (string): Written directly to the actor.
 - `classes` (array of `{ name, level }`): Used to pre-fill the form.
   - Current limitation: only `classes[0]` is used for actual creation.
-- `abilities` (object): The *actual ability scores* to set on the actor (not modifiers).
-  - Recommendation: provide all six abilities to avoid carrying values over from a previously-selected template.
+- `abilityPriority` (array): Ability keys in highest-to-lowest allocation order. Missing abilities are appended automatically.
+- `abilities` (object, optional): Exact pinned scores. Only list values that must remain fixed; any finite integer is accepted.
 - `primaryAbility` (`"str" | "dex" | "con" | "int" | "wis" | "cha"`): Used during HP/level processing (when auto-rolling HP) to decide which ability gets the level-based increases.
 
 **Skills**
@@ -623,10 +624,10 @@ Template notes: templates are currently loaded from `data/templates.json` at run
 
 ### Ability Scores
 
-The module supports two methods for generating ability scores:
+The module supports five methods for generating ability scores. Templates provide allocation priority and optional pins; the generation method is a user preference.
 
 #### Standard Array (Default)
-Uses the standard D&D point-buy equivalent: **15, 14, 13, 12, 10, 8**
+Assigns **15, 14, 13, 12, 10, 8** in template priority order.
 
 Templates assign these values to abilities based on class priorities:
 - **Fighters**: STR 15, CON 14, DEX 13, WIS 12, INT 10, CHA 8
@@ -636,8 +637,14 @@ Templates assign these values to abilities based on class priorities:
 #### 4d6 Drop Lowest
 Rolls 4d6, drops the lowest die, for each ability score. Results are assigned based on template ability priorities.
 
+#### 3d6
+Rolls 3d6 for each unpinned score, sorts the totals, and assigns them by priority.
+
+#### Auto Buy
+Uses a selected 15/22/25/28/32 point budget with the D&D 3.5 cost table. Townie Maker assigns a tuned, exact-cost array by priority, emphasizing defining abilities and preserving genuine dump stats. For example, 15 points gives 14/12/11/10/8/8, while 25 gives 15/14/13/12/10/8. It is intentionally not a full interactive point-buy editor.
+
 #### Manual Override
-All ability scores can be manually adjusted in the Character tab after selecting a template.
+All ability scores can be manually adjusted in the Abilities step after selecting a template. Pins can be changed for the draft or explicitly unpinned.
 
 ---
 
@@ -886,22 +893,25 @@ Martial characters receive higher potion budgets since they can't use wands/scro
 
 ## Configuration Options
 
-### Config Tab Settings
+### Guided Workflow
+
+The numbered path is **Templates → Details → Abilities → Equipment → Create Townie**. Every tab remains directly clickable, and Create Now is available on intermediate steps. Settings is outside the required path and can return to the last creation step.
+
+### Equipment and Settings
 
 #### Character Options
 | Setting | Description | Default |
 |---------|-------------|---------|
-| **Use Standard Budget** | Follow wealth-by-level guidelines | ✓ Enabled |
+| **Wealth Mode** | Choose Adventurer, NPC, or no automatic equipment budget | Adventurer |
 | **Use PC Sheet** | Use full character sheet instead of Simple NPC | ✓ Enabled |
 | **Max HP per HD** | Give maximum HP instead of rolling | ☐ Disabled |
 
 #### Budget Percentages
-Fine-tune magic item budget allocation:
-- **Shield %**: Percentage of armor budget for shield enhancement
-- **Armor %**: Percentage of armor budget for body armor
-- **Secondary Weapon %**: Budget for backup weapons
-- **Ring %**: Percentage of protection budget for Ring of Protection
-- **Amulet %**: Percentage of protection budget for Amulet of Natural Armor
+Fine-tune magic item spending at two allocation levels:
+- **Overall Magic Budget** category shares total 100% of spendable magic wealth.
+- **Item Mixes** independently total 100% of their parent category: Primary/Secondary Weapon, Armor/Shield, Ring/Other Protection, and Wands/Scrolls/Potions.
+
+Every mix member is editable. Values that exceed the remaining capacity are clamped and marked in red. Caster-focused builds show a small **Backup Weapon** category separately from their larger **Caster Implements** budget for staffs and rods.
 
 ---
 
@@ -1027,7 +1037,8 @@ Located in Module Settings:
 |---------|---------|-------------|
 | Default Actor Type | Character, NPC | Type of actor to create |
 | Auto Roll HP | Yes, No | Automatically roll HP on creation |
-| Ability Score Method | Standard Array, 4d6 Drop Lowest | How to generate abilities |
+| Ability Score Method | Manual, Standard Array, Auto Buy, 3d6, 4d6 Drop Lowest | How to generate abilities |
+| Default Auto Buy Budget | 15, 22, 25, 28, 32 | Point budget for automatic allocation |
 | Default Folder | Text | Folder name for new actors |
 | Default Sheet Type | PC Sheet, Simple NPC | Which character sheet to use |
 

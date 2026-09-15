@@ -1,4 +1,5 @@
 import type { TownieTemplate } from "../types";
+import { ABILITY_KEYS, isAbilityKey } from "./ability-generation";
 
 const MODULE_ID = "motwm-townie-maker";
 const DEFAULT_TEMPLATES_JSON_PATH = "data/templates.json";
@@ -29,7 +30,7 @@ function makeBlankTemplate(): TownieTemplate {
     name: "Blank Character",
     description: "Start from scratch with no presets",
     icon: "fas fa-user",
-    abilities: { str: 10, dex: 10, con: 10, int: 10, wis: 10, cha: 10 }
+    abilityPriority: [...ABILITY_KEYS]
   };
 }
 
@@ -72,6 +73,31 @@ function validateTemplates(raw: any): { templates: TownieTemplate[]; warnings: s
     if (missing.length > 0) {
       warnings.push(`Template '${t.id}' is missing required field(s): ${missing.join(", ")}; skipping`);
       continue;
+    }
+
+    if (t.abilityPriority !== undefined) {
+      if (!Array.isArray(t.abilityPriority)) {
+        warnings.push(`Template '${t.id}' has an invalid abilityPriority; skipping`);
+        continue;
+      }
+      const invalidAbilities = t.abilityPriority.filter((value: unknown) => !isAbilityKey(value));
+      const uniqueAbilities = new Set(t.abilityPriority);
+      if (invalidAbilities.length > 0 || uniqueAbilities.size !== t.abilityPriority.length) {
+        warnings.push(`Template '${t.id}' has invalid or duplicate abilityPriority entries; skipping`);
+        continue;
+      }
+    }
+
+    if (t.abilities !== undefined) {
+      const invalidPins = Object.entries(t.abilities).filter(([ability, value]) =>
+        !(ABILITY_KEYS as readonly string[]).includes(ability)
+        || !Number.isFinite(value)
+        || !Number.isInteger(value)
+      );
+      if (invalidPins.length > 0) {
+        warnings.push(`Template '${t.id}' has invalid pinned ability values; skipping`);
+        continue;
+      }
     }
 
     byId.set(t.id, normalizeTemplate(t));

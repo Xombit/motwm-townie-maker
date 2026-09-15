@@ -46,12 +46,29 @@ export function registerSettings(): void {
     config: true,
     type: String,
     choices: {
-      standard: "Standard Array (15,14,13,12,10,8)",
-      elite: "Elite Array (15,14,13,12,10,8)",
-      custom: "Custom/Manual Entry",
-      roll: "Roll 4d6 drop lowest"
+      manual: "Manual Entry",
+      standardArray: "Standard Array (15,14,13,12,10,8)",
+      pointBuy: "Auto Buy",
+      roll3d6: "Roll 3d6",
+      roll4d6DropLowest: "Roll 4d6, drop lowest"
     },
-    default: "standard"
+    default: "standardArray"
+  });
+
+  game.settings.register("motwm-townie-maker", "defaultPointBuyBudget", {
+    name: "Default Auto Buy Budget",
+    hint: "Default D&D 3.5 point budget used by Townie Maker's simplified automatic allocator.",
+    scope: "world",
+    config: true,
+    type: Number,
+    choices: {
+      15: "15 points (ordinary)",
+      22: "22 points (challenging)",
+      25: "25 points (heroic)",
+      28: "28 points (tougher)",
+      32: "32 points (high-powered)"
+    },
+    default: 15
   });
 
   // Save created NPCs to folder

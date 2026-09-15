@@ -11,7 +11,7 @@ $moduleName = "motwm-townie-maker"
 # Prefer an explicit path, then common defaults.
 $candidatePaths = @(
     $FoundryModulesPath,
-    "E:\foundry-v11\foundrydata\Data\modules"
+    "E:\foundry-D35e-current\foundrydata\Data\modules"
 ) | Where-Object { $_ -and $_.Trim() -ne "" } | Select-Object -Unique
 
 $existingCandidatePaths = @()

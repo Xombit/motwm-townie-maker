@@ -1,4 +1,6 @@
 // D35E System Adapter - Helper functions for interacting with D35E system
+import { shouldConfigureSpells } from './data/spell-gating';
+import { buildTreasureLevelFromProfile, type SRDLootProfileId } from './data/srd-treasure-profiles';
 
 // Supported races - must have matching image folders
 // Names must match D35E compendium exactly (e.g., "Elf, High" not "Elf")
@@ -52,6 +54,201 @@ function getCompendiumEntryId(entry: any): string | null {
   if (id === undefined || id === null) return null;
   const text = String(id);
   return text.length > 0 ? text : null;
+}
+
+function normalizeLookupName(value: string): string {
+  return value
+    .toLowerCase()
+    .trim()
+    .replace(/\s+/g, " ");
+}
+
+function normalizeLookupSlug(value: string): string {
+  return normalizeLookupName(value).replace(/[^a-z0-9]+/g, "");
+}
+
+function normalizeLookupTokens(value: string): string {
+  return normalizeLookupName(value)
+    .replace(/[^a-z0-9]+/g, " ")
+    .trim()
+    .split(/\s+/)
+    .filter(Boolean)
+    .sort()
+    .join("");
+}
+
+export function findCompendiumEntryByName(index: any[], desiredName: string): any | null {
+  if (!Array.isArray(index) || !desiredName) return null;
+
+  const exact = index.find((entry: any) => entry?.name === desiredName);
+  if (exact) return exact;
+
+  const normalizedTarget = normalizeLookupName(desiredName);
+  const normalized = index.find((entry: any) => normalizeLookupName(String(entry?.name ?? "")) === normalizedTarget);
+  if (normalized) return normalized;
+
+  const slugTarget = normalizeLookupSlug(desiredName);
+  const slugged = index.find((entry: any) => normalizeLookupSlug(String(entry?.name ?? "")) === slugTarget);
+
+  if (slugged) return slugged;
+
+  const tokenTarget = normalizeLookupTokens(desiredName);
+  const tokenized = index.find((entry: any) => normalizeLookupTokens(String(entry?.name ?? "")) === tokenTarget);
+  return tokenized ?? null;
+}
+
+type SkillPriority = "high" | "medium" | "low";
+
+export interface SkillAllocationEntry {
+  name: string;
+  ranks: number;
+  priority?: SkillPriority;
+}
+
+export interface SkillAllocationPlan {
+  distributionPlan: Map<number, Map<string, number>>;
+  totalRanksBySkill: Map<string, number>;
+  skillPointsPerLevel: number;
+  skillPointsAtLevel1: number;
+}
+
+function normalizeSkillPriority(priority: SkillAllocationEntry["priority"]): SkillPriority {
+  if (priority === "high" || priority === "medium" || priority === "low") return priority;
+  return "medium";
+}
+
+function tierTriggersAtLevel(priority: SkillPriority, lvl: number): boolean {
+  if (priority === "high") return true;
+  if (priority === "medium") return lvl === 1 || (lvl >= 3 && lvl % 2 === 1);
+  return lvl === 1 || (lvl >= 5 && (lvl - 1) % 4 === 0);
+}
+
+function tierWantForLevel(priority: SkillPriority, lvl: number): number {
+  if (priority === "high") return lvl === 1 ? 4 : 1;
+  if (priority === "medium") return lvl === 1 ? 2 : 1;
+  return 1;
+}
+
+/**
+ * Build a deterministic distribution plan for template skills.
+ *
+ * Behavior:
+ * - Tier cadence: high=every level, medium=1/2 levels, low=1/4 levels
+ * - Priority order: high -> medium -> low
+ * - Within a tier: template order first, persistent RR only when a tier hits budget pressure
+ * - Per-skill safety: <=4 ranks at L1 for high, <=2 for medium at L1, <=1 otherwise
+ * - Total rank safety: class-skill max rank (level + 3)
+ */
+export function buildSkillAllocationPlan(
+  level: number,
+  rawSkillPointsPerLevel: number,
+  skillList: SkillAllocationEntry[]
+): SkillAllocationPlan {
+  const safeLevel = Math.max(1, Math.floor(level));
+  // D&D 3.5 rule of thumb: never fewer than 1 skill point per level.
+  const skillPointsPerLevel = Math.max(1, Math.floor(rawSkillPointsPerLevel));
+  const skillPointsAtLevel1 = skillPointsPerLevel * 4;
+
+  const distributionPlan: Map<number, Map<string, number>> = new Map();
+  for (let lvl = 1; lvl <= safeLevel; lvl++) {
+    distributionPlan.set(lvl, new Map());
+  }
+
+  const tiers: Record<SkillPriority, string[]> = {
+    high: [],
+    medium: [],
+    low: []
+  };
+
+  for (const entry of skillList) {
+    if (!entry?.name) continue;
+    const priority = normalizeSkillPriority(entry.priority);
+    tiers[priority].push(entry.name);
+  }
+
+  const rrCursor: Record<SkillPriority, number> = {
+    high: 0,
+    medium: 0,
+    low: 0
+  };
+
+  const cumulativeRanks: Map<string, number> = new Map();
+
+  const allocateTier = (
+    lvl: number,
+    levelPlan: Map<string, number>,
+    budget: number,
+    spent: number,
+    priority: SkillPriority,
+    maxTotalRanks: number
+  ): number => {
+    if (!tierTriggersAtLevel(priority, lvl) || spent >= budget) {
+      return spent;
+    }
+
+    const names = tiers[priority];
+    if (!names.length) return spent;
+
+    const want = tierWantForLevel(priority, lvl);
+    let visited = 0;
+    let index = rrCursor[priority] % names.length;
+    let constrained = false;
+
+    while (visited < names.length && spent < budget) {
+      const skillName = names[index];
+      const current = cumulativeRanks.get(skillName) || 0;
+      const wantHere = Math.min(want, maxTotalRanks - current);
+
+      if (wantHere > 0) {
+        const give = Math.min(wantHere, budget - spent);
+        if (give > 0) {
+          levelPlan.set(skillName, (levelPlan.get(skillName) || 0) + give);
+          cumulativeRanks.set(skillName, current + give);
+          spent += give;
+
+          if (give < wantHere || spent >= budget) {
+            constrained = true;
+            rrCursor[priority] = (index + 1) % names.length;
+            break;
+          }
+        }
+      }
+
+      index = (index + 1) % names.length;
+      visited++;
+    }
+
+    if (!constrained) {
+      rrCursor[priority] = rrCursor[priority] % names.length;
+    }
+
+    return spent;
+  };
+
+  for (let lvl = 1; lvl <= safeLevel; lvl++) {
+    const levelPlan = distributionPlan.get(lvl)!;
+    const budget = lvl === 1 ? skillPointsAtLevel1 : skillPointsPerLevel;
+    let spent = 0;
+    const maxTotalRanks = lvl + 3;
+
+    spent = allocateTier(lvl, levelPlan, budget, spent, "high", maxTotalRanks);
+    spent = allocateTier(lvl, levelPlan, budget, spent, "medium", maxTotalRanks);
+    spent = allocateTier(lvl, levelPlan, budget, spent, "low", maxTotalRanks);
+  }
+
+  const totalRanksBySkill: Map<string, number> = new Map();
+  for (const skillsAtLevel of distributionPlan.values()) {
+    for (const [skillName, ranksThisLevel] of skillsAtLevel.entries()) {
+      totalRanksBySkill.set(skillName, (totalRanksBySkill.get(skillName) || 0) + ranksThisLevel);
+    }
+  }
+
+  return {
+    distributionPlan,
+    totalRanksBySkill,
+    skillPointsPerLevel,
+    skillPointsAtLevel1
+  };
 }
 
 export class D35EAdapter {
@@ -255,6 +452,19 @@ export class D35EAdapter {
   }
 
   /**
+   * Set an actor's CR value.
+   * Used for both PC-style and NPC-style creation paths after derived CR is computed.
+   */
+  static async setActorCR(actor: Actor, cr: number): Promise<void> {
+    const normalizedCR = Number.isFinite(cr) ? cr : 1;
+    console.log(`D35EAdapter | Setting actor CR to: ${normalizedCR}`);
+
+    await actor.update({
+      "system.details.cr": normalizedCR
+    });
+  }
+
+  /**
    * Update the class item's level value on an NPC
    * This sets the system.levels field on the class item itself (note: plural "levels")
    * The D35E system derives system.classes.<classname>.level from cls.system.levels
@@ -373,6 +583,8 @@ export class D35EAdapter {
         classDoc = await pack.getDocument(classId);
         if (classDoc) {
           console.log(`D35EAdapter | Found class ${className} by ID for NPC`);
+        } else {
+          console.warn(`D35EAdapter | Class '${className}' ID lookup returned no document, falling back to name lookup`);
         }
       }
       
@@ -380,7 +592,7 @@ export class D35EAdapter {
       if (!classDoc) {
         console.warn(`D35EAdapter | Class '${className}' not in hardcoded IDs for NPC, falling back to name lookup`);
         const index = await pack.getIndex();
-        const classEntry = index.find((i: any) => i.name === className);
+        const classEntry = findCompendiumEntryByName(index as any[], className);
         
         if (!classEntry) {
           throw new Error(`Class '${className}' not found in compendium`);
@@ -391,6 +603,9 @@ export class D35EAdapter {
           throw new Error(`Class '${className}' has no compendium id`);
         }
         classDoc = await pack.getDocument(classEntryId);
+        if (!classDoc) {
+          throw new Error(`Class '${className}' entry resolved but document '${classEntryId}' could not be loaded`);
+        }
       }
       
       if (!classDoc) {
@@ -398,7 +613,7 @@ export class D35EAdapter {
       }
 
       // Get the hit die from the class
-      const hitDie = classDoc.system.hd || 8;
+      const hitDie = Number(classDoc?.system?.hd) || 8;
 
       // Add class to actor as item (for NPC sheet, just add it - no level tracking)
       const classData = classDoc.toObject();
@@ -571,13 +786,15 @@ export class D35EAdapter {
           console.log(`D35EAdapter | Added race ${raceName} to ${actor.name} (by ID)`);
           await D35EAdapter.ensureTokenSizeIsSet(actor);
           return;
+        } else {
+          console.warn(`D35EAdapter | Race '${raceName}' ID lookup returned no document, falling back to name lookup`);
         }
       }
 
       // Fallback: Find race by name (slow path for unknown races)
       console.warn(`D35EAdapter | Race '${raceName}' not in hardcoded IDs, falling back to name lookup`);
       const index = await pack.getIndex();
-      const raceEntry = index.find((i: any) => i.name === raceName);
+      const raceEntry = findCompendiumEntryByName(index as any[], raceName);
       
       if (!raceEntry) {
         throw new Error(`Race '${raceName}' not found in compendium`);
@@ -626,6 +843,48 @@ export class D35EAdapter {
       await actor.update(update);
       console.log(`D35EAdapter | Set biography/notes for ${actor.name}`);
     }
+  }
+
+  /**
+   * Set actor alignment with compatibility for both older free-form fields and D35E 3.1+ axes mode.
+   */
+  static async setAlignment(actor: Actor, alignment: string): Promise<void> {
+    const value = String(alignment || '').trim();
+    if (!value) return;
+
+    const normalized = value.toLowerCase();
+    const axesMap: Record<string, { lawChaos: 'l' | 'n' | 'c'; goodEvil: 'g' | 'n' | 'e' }> = {
+      'lawful good': { lawChaos: 'l', goodEvil: 'g' },
+      'neutral good': { lawChaos: 'n', goodEvil: 'g' },
+      'chaotic good': { lawChaos: 'c', goodEvil: 'g' },
+      'lawful neutral': { lawChaos: 'l', goodEvil: 'n' },
+      'neutral': { lawChaos: 'n', goodEvil: 'n' },
+      'true neutral': { lawChaos: 'n', goodEvil: 'n' },
+      'chaotic neutral': { lawChaos: 'c', goodEvil: 'n' },
+      'lawful evil': { lawChaos: 'l', goodEvil: 'e' },
+      'neutral evil': { lawChaos: 'n', goodEvil: 'e' },
+      'chaotic evil': { lawChaos: 'c', goodEvil: 'e' },
+    };
+
+    const axes = axesMap[normalized];
+    const update: Record<string, any> = {
+      // Legacy/free-form alignment path (pre-3.1 behavior).
+      'system.details.alignment': value,
+    };
+
+    if (axes) {
+      // D35E 3.1+ structured alignment path.
+      update['system.details.alignmentMode'] = 'axes';
+      update['system.details.alignmentAxes.lawChaos'] = axes.lawChaos;
+      update['system.details.alignmentAxes.goodEvil'] = axes.goodEvil;
+      update['system.details.actualAlignmentAxes.lawChaos'] = axes.lawChaos;
+      update['system.details.actualAlignmentAxes.goodEvil'] = axes.goodEvil;
+    } else {
+      update['system.details.alignmentMode'] = 'text';
+    }
+
+    await actor.update(update);
+    console.log(`D35EAdapter | Set alignment for ${actor.name}: ${value}`);
   }
 
   /**
@@ -970,6 +1229,16 @@ export class D35EAdapter {
     abilities: { str: number; dex: number; con: number; int: number; wis: number; cha: number }
   ): Promise<void> {
     try {
+      const gating = shouldConfigureSpells(className, level);
+      if (!gating.shouldConfigure) {
+        if (gating.reason === 'not-caster') {
+          console.log(`D35EAdapter | Skipping spell configuration for non-caster class '${className}'`);
+        } else if (gating.reason === 'too-low-level') {
+          console.log(`D35EAdapter | Skipping spell configuration for ${className} level ${level} (spells start at level 4)`);
+        }
+        return;
+      }
+
       const { configureSpellsForActor } = await import('./data/spell-configuration');
       await configureSpellsForActor(actor, className, level, abilities);
     } catch (error) {
@@ -1029,6 +1298,8 @@ export class D35EAdapter {
         classDoc = await pack.getDocument(classId);
         if (classDoc) {
           console.log(`D35EAdapter | Found class ${className} by ID`);
+        } else {
+          console.warn(`D35EAdapter | Class '${className}' ID lookup returned no document, falling back to name lookup`);
         }
       }
       
@@ -1036,7 +1307,7 @@ export class D35EAdapter {
       if (!classDoc) {
         console.warn(`D35EAdapter | Class '${className}' not in hardcoded IDs, falling back to name lookup`);
         const index = await pack.getIndex();
-        const classEntry = index.find((i: any) => i.name === className);
+        const classEntry = findCompendiumEntryByName(index as any[], className);
         
         if (!classEntry) {
           throw new Error(`Class '${className}' not found in compendium`);
@@ -1047,6 +1318,9 @@ export class D35EAdapter {
           throw new Error(`Class '${className}' has no compendium id`);
         }
         classDoc = await pack.getDocument(classEntryId);
+        if (!classDoc) {
+          throw new Error(`Class '${className}' entry resolved but document '${classEntryId}' could not be loaded`);
+        }
       }
       
       if (!classDoc) {
@@ -1215,7 +1489,7 @@ export class D35EAdapter {
   static async addSkills(
     actor: Actor,
     level: number,
-    skillList: Array<{ name: string; ranks: number; priority?: "high" | "medium" | "low" }>
+    skillList: SkillAllocationEntry[]
   ): Promise<void> {
     try {
       if (!skillList || skillList.length === 0) {
@@ -1240,102 +1514,34 @@ export class D35EAdapter {
       
       const baseSkillPoints = (classItem as any).system.skillsPerLevel || 2;
       const intMod = (actor as any).system.abilities.int?.mod || 0;
-      const skillPointsPerLevel = baseSkillPoints + intMod;
-      const skillPointsAtLevel1 = skillPointsPerLevel * 4;
-      
-      console.log(`D35EAdapter | Skill points: Level 1 = ${skillPointsAtLevel1}, Levels 2+ = ${skillPointsPerLevel} each`);
+      const rawSkillPointsPerLevel = baseSkillPoints + intMod;
 
-      // PRIORITY-BASED SKILL DISTRIBUTION (budget-constrained)
-      // Priority determines allocation order:
-      // - High: Gets points first, every level
-      // - Medium: Gets points second, every other level (starting L1)
-      // - Low: Gets points last, every 4th level (starting L1)
-      //
-      // At each level, we allocate up to the skill point budget, prioritizing
-      // high > medium > low. No skill can exceed 1 rank per level (4 at L1).
+      const {
+        distributionPlan,
+        totalRanksBySkill,
+        skillPointsPerLevel,
+        skillPointsAtLevel1
+      } = buildSkillAllocationPlan(level, rawSkillPointsPerLevel, skillList);
       
-      const distributionPlan: Map<number, Map<string, number>> = new Map();
-      
-      // Initialize distribution plan for all levels
-      for (let lvl = 1; lvl <= level; lvl++) {
-        distributionPlan.set(lvl, new Map());
-      }
-      
-      // Group skills by priority
-      const highPrioritySkills = skillList.filter(s => s.priority === 'high');
-      const mediumPrioritySkills = skillList.filter(s => s.priority === 'medium');
-      const lowPrioritySkills = skillList.filter(s => s.priority === 'low');
+      const highPrioritySkills = skillList.filter(s => normalizeSkillPriority(s.priority) === 'high');
+      const mediumPrioritySkills = skillList.filter(s => normalizeSkillPriority(s.priority) === 'medium');
+      const lowPrioritySkills = skillList.filter(s => normalizeSkillPriority(s.priority) === 'low');
       
       console.log(`D35EAdapter | ===== SKILL DISTRIBUTION DEBUG =====`);
       console.log(`D35EAdapter | Priority groups: ${highPrioritySkills.length} high, ${mediumPrioritySkills.length} medium, ${lowPrioritySkills.length} low`);
       console.log(`D35EAdapter | High priority:`, highPrioritySkills.map(s => s.name).join(', '));
       console.log(`D35EAdapter | Medium priority:`, mediumPrioritySkills.map(s => s.name).join(', '));
       console.log(`D35EAdapter | Low priority:`, lowPrioritySkills.map(s => s.name).join(', '));
-      
-      // Track cumulative ranks per skill so we don't exceed level cap
-      const cumulativeRanks: Map<string, number> = new Map();
-      
-      // Distribute points level-by-level within budget
+      console.log(`D35EAdapter | Raw skill points per level: ${rawSkillPointsPerLevel} (base ${baseSkillPoints} + INT mod ${intMod})`);
+      console.log(`D35EAdapter | Effective skill points: Level 1 = ${skillPointsAtLevel1}, Levels 2+ = ${skillPointsPerLevel} each`);
+
       for (let lvl = 1; lvl <= level; lvl++) {
-        const levelPlan = distributionPlan.get(lvl)!;
-        const budget = lvl === 1 ? skillPointsAtLevel1 : skillPointsPerLevel;
-        let spent = 0;
-        const maxRankThisLevel = lvl === 1 ? 4 : 1; // L1 gets x4 multiplier
-        const maxTotalRanks = lvl + 3; // Class skill max = character level + 3
-        
-        // Build ordered list of skills wanting points this level
-        const candidates: Array<{ name: string; want: number }> = [];
-        
-        // High: every level
-        for (const skill of highPrioritySkills) {
-          const current = cumulativeRanks.get(skill.name) || 0;
-          const want = Math.min(maxRankThisLevel, maxTotalRanks - current);
-          if (want > 0) candidates.push({ name: skill.name, want });
-        }
-        
-        // Medium: L1, then odd levels (3, 5, 7, ...)
-        if (lvl === 1 || (lvl >= 3 && lvl % 2 === 1)) {
-          for (const skill of mediumPrioritySkills) {
-            const current = cumulativeRanks.get(skill.name) || 0;
-            const want = Math.min(lvl === 1 ? 2 : 1, maxTotalRanks - current);
-            if (want > 0) candidates.push({ name: skill.name, want });
-          }
-        }
-        
-        // Low: L1, then every 4th (5, 9, 13, ...)
-        if (lvl === 1 || (lvl >= 5 && (lvl - 1) % 4 === 0)) {
-          for (const skill of lowPrioritySkills) {
-            const current = cumulativeRanks.get(skill.name) || 0;
-            const want = Math.min(1, maxTotalRanks - current);
-            if (want > 0) candidates.push({ name: skill.name, want });
-          }
-        }
-        
-        // Allocate in priority order until budget runs out
-        for (const c of candidates) {
-          if (spent >= budget) break;
-          const give = Math.min(c.want, budget - spent);
-          if (give > 0) {
-            levelPlan.set(c.name, give);
-            cumulativeRanks.set(c.name, (cumulativeRanks.get(c.name) || 0) + give);
-            spent += give;
-          }
-        }
-        
         if (lvl === 1 || lvl === 2 || lvl === level) {
+          const levelPlan = distributionPlan.get(lvl) || new Map<string, number>();
+          const budget = lvl === 1 ? skillPointsAtLevel1 : skillPointsPerLevel;
+          const spent = Array.from(levelPlan.values()).reduce((sum, points) => sum + points, 0);
           console.log(`D35EAdapter | Level ${lvl} allocation:`, Array.from(levelPlan.entries()).map(([s, p]) => `${s}:${p}`).join(', '));
           console.log(`D35EAdapter | Level ${lvl}: Allocated ${spent}/${budget} skill points`);
-        }
-      }
-
-      // Now apply the distribution plan to the actor
-      // Calculate total ranks for each skill across all levels
-      const totalRanksBySkill: Map<string, number> = new Map();
-      
-      for (const [lvl, skillsAtLevel] of distributionPlan.entries()) {
-        for (const [skillName, ranksThisLevel] of skillsAtLevel.entries()) {
-          const currentTotal = totalRanksBySkill.get(skillName) || 0;
-          totalRanksBySkill.set(skillName, currentTotal + ranksThisLevel);
         }
       }
       
@@ -1504,7 +1710,9 @@ export class D35EAdapter {
     identifyItems: boolean = false,
     extraMoneyInBank: boolean = false,
     bankName: string = "The First Bank of Lower Everbrook",
-    useNpcWealth?: boolean
+    useNpcWealth?: boolean,
+    reserveGoldPercent: number = 0,
+    keepPocketChange: boolean = true
   ): Promise<void> {
     try {
       console.log(`\n=== EQUIPMENT SYSTEM ===`);
@@ -1512,20 +1720,28 @@ export class D35EAdapter {
       console.log(`Use Standard Budget: ${template.useStandardBudget !== false}`);
       console.log(`Identify Items: ${identifyItems}`);
       console.log(`Extra Money in Bank: ${extraMoneyInBank}`);
+      console.log(`Reserve Gold Percent: ${reserveGoldPercent}`);
+      console.log(`Keep Pocket Change: ${keepPocketChange}`);
       console.log(`Bank Name: ${bankName}`);
 
       // Import wealth data and equipment resolver
       const { getWealthForLevel, convertToCoins, CLASS_STARTING_WEALTH } = await import('./data/wealth');
       const { calculateKitCost } = await import('./data/equipment-resolver');
 
-      // Check if using standard adventurer budget
-      const useStandardBudget = template.useStandardBudget !== false;
+      const planWealth = template.spendingPlan?.wealth;
+      const planMode = planWealth?.mode;
+      const useStandardBudget = planMode ? planMode !== 'noBudget' : template.useStandardBudget !== false;
+      const resolvedUseNpcWealth = planMode ? planMode === 'npcWealth' : useNpcWealth;
+      const wealthMultiplierPercent = Number.isFinite(planWealth?.multiplierPercent)
+        ? Math.min(200, Math.max(0, Math.round(planWealth.multiplierPercent)))
+        : 100;
       
       // Step 1: Calculate total wealth (or token amount if no standard budget)
       const className = template.classes?.[0]?.name || "Fighter";
-      const totalWealth = useStandardBudget 
-        ? getWealthForLevel(level, className, useNpcWealth)
+      const baseTotalWealth = useStandardBudget
+        ? getWealthForLevel(level, className, resolvedUseNpcWealth)
         : 0; // No wealth budget when standard budget is disabled
+      const totalWealth = Math.floor(baseTotalWealth * wealthMultiplierPercent / 100);
       console.log(`Total Wealth: ${totalWealth} gp${!useStandardBudget ? ' (standard budget disabled)' : ''}`);
       
       // Helper function to calculate token gold (50-100% of level 1 wealth for the class)
@@ -1571,9 +1787,18 @@ export class D35EAdapter {
         return;
       }
 
-      // Step 4: Calculate magic item budget (only if using standard budget)
-      const magicBudget = totalWealth - mundaneCost;
-      console.log(`Magic Item Budget: ${magicBudget} gp`);
+      // Step 4: Calculate reserve-aware magic budget (only if using standard budget)
+      const grossMagicBudget = Math.max(0, totalWealth - mundaneCost);
+      const configuredReservePercent = Number.isFinite(planWealth?.reservePercent)
+        ? Number(planWealth.reservePercent)
+        : reserveGoldPercent;
+      const clampedReservePercent = Math.min(100, Math.max(0, Math.floor(configuredReservePercent || 0)));
+      const reservedForPostGear = Math.floor(grossMagicBudget * (clampedReservePercent / 100));
+      const magicBudget = Math.max(0, grossMagicBudget - reservedForPostGear);
+
+      console.log(`Gross Magic Budget: ${grossMagicBudget} gp`);
+      console.log(`Reserved for Cash/Deposit: ${reservedForPostGear} gp (${clampedReservePercent}%)`);
+      console.log(`Effective Magic Budget: ${magicBudget} gp`);
 
       // Step 5: Select magic items based on level, class, and budget
       // Get character's STR to determine if they can carry Bag of Holding
@@ -1585,9 +1810,28 @@ export class D35EAdapter {
       
       // Check if template has a shield (used to detect melee vs caster build for clerics/druids)
       const hasShield = !!kit.shield;
+      const hasWeapon = Array.isArray(kit.weapons) && kit.weapons.length > 0;
       console.log(`Template has shield: ${hasShield} (used for cleric/druid build detection)`);
+      console.log(`Template has weapon: ${hasWeapon} (used for backup weapon spending)`);
       
-      const magicItems = await selectMagicItems(level, className, magicBudget, template.magicItemBudgets, strScore, hasShield);
+      const magicItems = template.spendingPlan
+        ? await selectMagicItems(level, className, magicBudget, template.magicItemBudgets, strScore, hasShield, template.spendingPlan, hasWeapon)
+        : await selectMagicItems(level, className, magicBudget, template.magicItemBudgets, strScore, hasShield);
+
+      const normalizeCreateResult = (
+        value: any
+      ): { createdIds: string[]; createdCost: number; failed: Array<{ name: string; reason: string; plannedCost: number }> } => {
+        if (Array.isArray(value)) {
+          return { createdIds: value.filter(Boolean), createdCost: 0, failed: [] };
+        }
+        if (!value || typeof value !== 'object') {
+          return { createdIds: [], createdCost: 0, failed: [] };
+        }
+        const createdIds = Array.isArray(value.createdIds) ? value.createdIds.filter(Boolean) : [];
+        const createdCost = Number.isFinite(value.createdCost) ? Number(value.createdCost) : 0;
+        const failed = Array.isArray(value.failed) ? value.failed : [];
+        return { createdIds, createdCost, failed };
+      };
 
       // Step 6: Add mundane items (with enhancements if selected)
       await this.addMundaneItems(actor, kit, magicItems, level, identifyItems, className);
@@ -1598,7 +1842,14 @@ export class D35EAdapter {
         ? magicItems.wondrousItems.filter(item => !item.name.includes('Scarab of Protection'))
         : magicItems.wondrousItems;
       
-      await addWondrousItemsToActor(actor, wondrousItemsToAdd, identifyItems);
+      const creationFailures: Array<{ category: string; name: string; reason: string; plannedCost: number }> = [];
+      const wondrousResult = normalizeCreateResult(await addWondrousItemsToActor(actor, wondrousItemsToAdd, identifyItems));
+      for (const failure of wondrousResult.failed) {
+        creationFailures.push({ category: 'wondrous', ...failure });
+      }
+
+      let customHaversackCreatedCost = 0;
+      let customScarabCreatedCost = 0;
       
       // Step 6b.5: Add custom Handy Haversack if selected
       if (magicItems.hasHandyHaversack) {
@@ -1623,11 +1874,31 @@ export class D35EAdapter {
           }
         };
         
-        await actor.createEmbeddedDocuments("Item", [haversackData]);
-        console.log('✓ Added Handy Haversack (Custom Container) - 2,000 gp');
-        console.log('  - 120 lbs capacity, 5 lbs constant weight');
-        console.log('  - Items always on top, move action retrieval');
-        console.log('=== CUSTOM HANDY HAVERSACK ADDED ===\n');
+        try {
+          const created = await actor.createEmbeddedDocuments("Item", [haversackData]);
+          const createdId = created?.[0]?.id;
+          if (createdId) {
+            customHaversackCreatedCost = CUSTOM_HANDY_HAVERSACK.system?.price ?? 2000;
+            console.log('✓ Added Handy Haversack (Custom Container) - 2,000 gp');
+            console.log('  - 120 lbs capacity, 5 lbs constant weight');
+            console.log('  - Items always on top, move action retrieval');
+          } else {
+            creationFailures.push({
+              category: 'wondrous-custom',
+              name: CUSTOM_HANDY_HAVERSACK.name,
+              reason: 'create_returned_no_id',
+              plannedCost: CUSTOM_HANDY_HAVERSACK.system?.price ?? 2000,
+            });
+          }
+          console.log('=== CUSTOM HANDY HAVERSACK ADDED ===\n');
+        } catch (error: any) {
+          creationFailures.push({
+            category: 'wondrous-custom',
+            name: CUSTOM_HANDY_HAVERSACK.name,
+            reason: String(error?.message || error || 'create_failed'),
+            plannedCost: CUSTOM_HANDY_HAVERSACK.system?.price ?? 2000,
+          });
+        }
       }
       
       // Step 6b.6: Add custom Scarab of Protection if selected (D35E compendium missing SR 20)
@@ -1647,91 +1918,333 @@ export class D35EAdapter {
           }
         };
         
-        await actor.createEmbeddedDocuments("Item", [scarabData]);
-        console.log('✓ Added Scarab of Protection (Custom Fixed Version) - 38,000 gp');
-        console.log('  - SR 20 applied correctly via changes array');
-        console.log('  - 12 charges to absorb death/energy drain effects');
-        console.log('=== CUSTOM SCARAB OF PROTECTION ADDED ===\n');
+        try {
+          const created = await actor.createEmbeddedDocuments("Item", [scarabData]);
+          const createdId = created?.[0]?.id;
+          if (createdId) {
+            customScarabCreatedCost = CUSTOM_SCARAB_OF_PROTECTION.system?.price ?? 38000;
+            console.log('✓ Added Scarab of Protection (Custom Fixed Version) - 38,000 gp');
+            console.log('  - SR 20 applied correctly via changes array');
+            console.log('  - 12 charges to absorb death/energy drain effects');
+          } else {
+            creationFailures.push({
+              category: 'wondrous-custom',
+              name: CUSTOM_SCARAB_OF_PROTECTION.name,
+              reason: 'create_returned_no_id',
+              plannedCost: CUSTOM_SCARAB_OF_PROTECTION.system?.price ?? 38000,
+            });
+          }
+          console.log('=== CUSTOM SCARAB OF PROTECTION ADDED ===\n');
+        } catch (error: any) {
+          creationFailures.push({
+            category: 'wondrous-custom',
+            name: CUSTOM_SCARAB_OF_PROTECTION.name,
+            reason: String(error?.message || error || 'create_failed'),
+            plannedCost: CUSTOM_SCARAB_OF_PROTECTION.system?.price ?? 38000,
+          });
+        }
       }
+
+      let wandResult = { createdIds: [] as string[], createdCost: 0, failed: [] as Array<{ name: string; reason: string; plannedCost: number }> };
+      let scrollResult = { createdIds: [] as string[], createdCost: 0, failed: [] as Array<{ name: string; reason: string; plannedCost: number }> };
+      let potionResult = { createdIds: [] as string[], createdCost: 0, failed: [] as Array<{ name: string; reason: string; plannedCost: number }> };
+      let rodStaffResult = { createdIds: [] as string[], createdCost: 0, failed: [] as Array<{ name: string; reason: string; plannedCost: number }> };
       
       // Step 6c: Add wands for casters
       if (magicItems.wands && magicItems.wands.length > 0) {
         const { addWandsToActor } = await import('./data/wand-creation');
-        const wandIds = await addWandsToActor(actor, magicItems.wands, identifyItems);
+        wandResult = normalizeCreateResult(await addWandsToActor(actor, magicItems.wands, identifyItems));
         // Consumables should ONLY be moved into a Handy Haversack (and left alone otherwise)
-        this.appendPendingHaversackOnlyMoves(actor, wandIds);
+        this.appendPendingHaversackOnlyMoves(actor, wandResult.createdIds);
+        for (const failure of wandResult.failed) {
+          creationFailures.push({ category: 'wands', ...failure });
+        }
       }
       
       // Step 6d: Add scrolls for casters
       if (magicItems.scrolls && magicItems.scrolls.length > 0) {
         const { createScrollsForActor } = await import('./data/scroll-creation');
-        const scrollIds = await createScrollsForActor(actor, magicItems.scrolls, identifyItems);
+        scrollResult = normalizeCreateResult(await createScrollsForActor(actor, magicItems.scrolls, identifyItems));
         // Consumables should ONLY be moved into a Handy Haversack (and left alone otherwise)
-        this.appendPendingHaversackOnlyMoves(actor, scrollIds);
+        this.appendPendingHaversackOnlyMoves(actor, scrollResult.createdIds);
+        for (const failure of scrollResult.failed) {
+          creationFailures.push({ category: 'scrolls', ...failure });
+        }
       }
       
       // Step 6e: Add potions for all characters
       if (magicItems.potions && magicItems.potions.length > 0) {
         const { createPotionsForActor } = await import('./data/potion-creation');
-        const potionIds = await createPotionsForActor(actor, magicItems.potions, identifyItems);
+        potionResult = normalizeCreateResult(await createPotionsForActor(actor, magicItems.potions, identifyItems));
         // Consumables should ONLY be moved into a Handy Haversack (and left alone otherwise)
-        this.appendPendingHaversackOnlyMoves(actor, potionIds);
+        this.appendPendingHaversackOnlyMoves(actor, potionResult.createdIds);
+        for (const failure of potionResult.failed) {
+          creationFailures.push({ category: 'potions', ...failure });
+        }
       }
       
       // Step 6f: Add rods and staves for casters
       if ((magicItems.rods && magicItems.rods.length > 0) || magicItems.staff) {
         const { addRodsAndStaffToActor } = await import('./data/rod-staff-creation');
-        await addRodsAndStaffToActor(actor, magicItems.rods || [], magicItems.staff || null, identifyItems);
+        rodStaffResult = normalizeCreateResult(await addRodsAndStaffToActor(actor, magicItems.rods || [], magicItems.staff || null, identifyItems));
+        for (const failure of rodStaffResult.failed) {
+          creationFailures.push({ category: 'rods-staff', ...failure });
+        }
       }
 
       // Step 7: Calculate remaining wealth
-      // Subtract overspend for special purchases like Staff of Power
-      const overspend = magicItems.overspend ?? 0;
-      const remainder = totalWealth - mundaneCost - magicItems.totalCost - overspend;
-      console.log(`Remaining Wealth: ${remainder} gp`);
-      if (overspend > 0) {
-        console.log(`  (includes ${overspend} gp overspend for Staff of Power)`);
+      // Use only successfully created item cost for accounting.
+      const enhancementSpend =
+        (magicItems.weaponCost ?? 0) +
+        (magicItems.secondaryWeaponCost ?? 0) +
+        (magicItems.armorCost ?? 0) +
+        (magicItems.shieldCost ?? 0);
+
+      const createdMagicSpend =
+        enhancementSpend +
+        (wondrousResult.createdCost ?? 0) +
+        customHaversackCreatedCost +
+        customScarabCreatedCost +
+        (wandResult.createdCost ?? 0) +
+        (scrollResult.createdCost ?? 0) +
+        (potionResult.createdCost ?? 0) +
+        (rodStaffResult.createdCost ?? 0);
+
+      const spendingReport = magicItems.spendingReport;
+      const plannedMagicSpend = spendingReport?.totalSpentGp
+        ?? ((magicItems.totalCost ?? 0) + (magicItems.overspend ?? 0));
+      const refundedFromFailures = Math.max(0, plannedMagicSpend - createdMagicSpend);
+      const remainder = totalWealth - mundaneCost - createdMagicSpend;
+      const ledgerFractionGp = spendingReport ? magicBudget - spendingReport.spendableGp : 0;
+      const plannedPostGearCash = spendingReport
+        ? reservedForPostGear + ledgerFractionGp + spendingReport.finalCashGp
+        : Math.max(0, magicBudget - plannedMagicSpend) + reservedForPostGear;
+      const expectedRemainder = plannedPostGearCash + refundedFromFailures;
+
+      if (spendingReport && Math.abs(remainder - expectedRemainder) > 0.01) {
+        throw new Error(
+          `Equipment ledger imbalance: actual remainder ${remainder} gp, expected ${expectedRemainder} gp.`,
+        );
       }
 
-      // Step 8: Add remaining wealth as coins (or as bank deposit with pocket change)
+      let pocketAmount = 0;
+      let depositAmount = 0;
+
+      console.log(`Magic spend (planned): ${plannedMagicSpend} gp`);
+      console.log(`Magic spend (created): ${createdMagicSpend} gp`);
+      console.log(`Planned post-gear cash: ${plannedPostGearCash} gp`);
+      console.log(`Refunded from failed creates: ${refundedFromFailures} gp`);
+      console.log(`Remaining Wealth: ${remainder} gp`);
+
+      if (creationFailures.length > 0) {
+        console.warn(`D35EAdapter | ${creationFailures.length} item creation failure(s) detected:`);
+        for (const failure of creationFailures) {
+          console.warn(`D35EAdapter |   [${failure.category}] ${failure.name} | ${failure.reason} | planned ${failure.plannedCost} gp`);
+        }
+      }
+
+      // Normalize D35E equip state with class-aware implement policy.
+      await this.applyEquipmentStatePolicy(actor, className, hasShield);
+
+      // Step 8: Add remaining wealth as coins (or as bank deposit with optional pocket change)
       if (extraMoneyInBank && remainder > 0) {
-        // Calculate pocket change (50-100% of level 1 wealth for the class)
-        const pocketChange = calculateTokenGold();
-        
-        // Only create bank deposit if there's meaningful money beyond pocket change
-        // Threshold: remainder must be at least pocket change + 50gp to justify a deposit
-        const minDepositThreshold = pocketChange + 50;
-        
-        if (remainder > minDepositThreshold) {
-          // Deposit the excess, keep pocket change
-          const depositAmount = Math.floor(remainder - pocketChange);
-          
+        const depositNoiseFloor = 10;
+
+        if (remainder < depositNoiseFloor) {
+          console.log(`Remainder (${remainder} gp) below deposit noise floor (${depositNoiseFloor} gp), keeping as coins`);
+          await this.addCoins(actor, remainder);
+        } else {
+          if (keepPocketChange) {
+            const desiredPocket = calculateTokenGold();
+            pocketAmount = Math.min(desiredPocket, Math.max(0, Math.floor(remainder) - 1));
+          } else {
+            pocketAmount = 0;
+          }
+
+          depositAmount = Math.max(0, Math.floor(remainder - pocketAmount));
+
           console.log(`\n=== BANK DEPOSIT ===`);
           console.log(`Total remainder: ${remainder} gp`);
-          console.log(`Pocket change: ${pocketChange} gp`);
+          console.log(`Pocket change: ${pocketAmount} gp`);
           console.log(`Bank deposit: ${depositAmount} gp`);
           console.log(`Bank name: ${bankName}`);
-          
-          // Create the bank deposit slip item
-          await this.createBankDepositSlip(actor, depositAmount, bankName);
-          
-          // Give pocket change as randomized coins
-          await this.addCoins(actor, pocketChange);
+
+          if (depositAmount > 0) {
+            await this.createBankDepositSlip(actor, depositAmount, bankName);
+          }
+          if (pocketAmount > 0) {
+            await this.addCoins(actor, pocketAmount);
+          }
           console.log(`=== BANK DEPOSIT COMPLETE ===\n`);
-        } else {
-          // Not enough to justify a bank deposit, just give all as pocket change
-          console.log(`Remainder (${remainder} gp) below deposit threshold (${minDepositThreshold} gp), keeping as coins`);
-          await this.addCoins(actor, remainder);
         }
       } else {
         await this.addCoins(actor, remainder);
       }
+
+      console.log('D35EAdapter | Equipment budget summary:', {
+        totalWealth,
+        mundaneCost,
+        grossMagicBudget,
+        reserveGoldPercent: clampedReservePercent,
+        reservedForPostGear,
+        effectiveMagicBudget: magicBudget,
+        plannedMagicSpend,
+        plannedPostGearCash,
+        spendingStages: spendingReport?.stages,
+        createdMagicSpend,
+        refundedFromFailures,
+        remainder,
+        extraMoneyInBank,
+        keepPocketChange,
+        depositAmount,
+        pocketAmount,
+      });
 
       console.log("=== EQUIPMENT COMPLETE ===\n");
     } catch (error) {
       console.error(`D35EAdapter | Failed to add equipment:`, error);
       throw error;
     }
+  }
+
+  /**
+   * Apply equipment carry/equip policy with staff/rod conflict handling.
+   */
+  private static async applyEquipmentStatePolicy(actor: Actor, className: string, hasShieldInKit: boolean): Promise<void> {
+    const items = (actor as any)?.items;
+    if (!items || typeof items.filter !== 'function') return;
+
+    const allItems = Array.from(items as any[]);
+    const equipmentItems = allItems.filter((item: any) => item?.type === 'equipment');
+    const weaponItems = allItems.filter((item: any) => item?.type === 'weapon');
+    const rodItems = equipmentItems.filter((item: any) => this.isRodLikeItem(item));
+    const staffItems = equipmentItems.filter((item: any) => this.isStaffLikeItem(item));
+    const shieldItems = equipmentItems.filter((item: any) => this.isShieldLikeItem(item));
+    const wearableEquipmentItems = equipmentItems.filter((item: any) => !this.isRodLikeItem(item) && !this.isStaffLikeItem(item));
+
+    const classToken = (className || '').toLowerCase();
+    const isCleric = /\bcleric\b/.test(classToken);
+    const isDruid = /\bdruid\b/.test(classToken);
+    const isCasterClass = this.isCasterClass(classToken);
+    const isCasterBuild = isCleric || isDruid ? !hasShieldInKit : isCasterClass;
+    const isMeleeCleric = isCleric && hasShieldInKit;
+
+    const stateById = new Map<string, { equipped?: boolean; carried?: boolean }>();
+    const rememberState = (item: any, next: { equipped?: boolean; carried?: boolean }) => {
+      if (!item?.id) return;
+      const existing = stateById.get(item.id) || {};
+      stateById.set(item.id, { ...existing, ...next });
+    };
+
+    // Equipment should be carried by default.
+    for (const item of equipmentItems) {
+      if (item?.system?.carried !== true) {
+        rememberState(item, { carried: true });
+      }
+    }
+
+    // Universal baseline: non-rod/non-staff equipment (armor, shields, worn gear) should be equipped.
+    for (const item of wearableEquipmentItems) {
+      rememberState(item, {
+        carried: true,
+        equipped: true,
+      });
+    }
+
+    // Universal baseline: always keep a primary weapon equipped for all classes.
+    const primaryWeapon = weaponItems[0];
+    if (primaryWeapon) {
+      rememberState(primaryWeapon, {
+        carried: true,
+        equipped: true,
+      });
+    }
+
+    // Carry backup weapons by default unless something else explicitly equips them.
+    for (const weapon of weaponItems.slice(1)) {
+      if (weapon?.system?.carried !== true) {
+        rememberState(weapon, { carried: true });
+      }
+    }
+
+    if (isCasterBuild && staffItems.length > 0) {
+      // Staff in hand means rods are utility and stay carried/unequipped.
+      const preferredStaff = staffItems[0];
+      for (const staff of staffItems) {
+        rememberState(staff, {
+          carried: true,
+          equipped: staff.id === preferredStaff.id,
+        });
+      }
+      for (const rod of rodItems) {
+        rememberState(rod, {
+          carried: true,
+          equipped: false,
+        });
+      }
+    } else if (isCasterBuild && rodItems.length > 0) {
+      for (const [index, rod] of rodItems.entries()) {
+        rememberState(rod, {
+          carried: true,
+          equipped: index < 2,
+        });
+      }
+    }
+
+    if (isMeleeCleric) {
+      const primaryShield = shieldItems[0];
+      if (primaryShield) {
+        rememberState(primaryShield, {
+          carried: true,
+          equipped: true,
+        });
+      }
+    }
+
+    const updates: any[] = [];
+    for (const item of allItems) {
+      const desired = stateById.get(item?.id);
+      if (!desired) continue;
+
+      const currentEquipped = item?.system?.equipped;
+      const currentCarried = item?.system?.carried;
+      const nextEquipped = desired.equipped ?? currentEquipped;
+      const nextCarried = desired.carried ?? currentCarried;
+
+      if (nextEquipped === currentEquipped && nextCarried === currentCarried) continue;
+
+      updates.push({
+        _id: item.id,
+        system: {
+          ...item.system,
+          ...(desired.equipped !== undefined ? { equipped: nextEquipped } : {}),
+          ...(desired.carried !== undefined ? { carried: nextCarried } : {}),
+        }
+      });
+    }
+
+    if (updates.length === 0) return;
+    await actor.updateEmbeddedDocuments('Item', updates);
+    console.log(`D35EAdapter | Applied equipment policy updates: ${updates.length} item(s)`);
+  }
+
+  private static isCasterClass(classToken: string): boolean {
+    return ['wizard', 'sorcerer', 'cleric', 'druid', 'bard', 'adept'].some((name) => classToken.includes(name));
+  }
+
+  private static isRodLikeItem(item: any): boolean {
+    const name = (item?.name || '').toLowerCase();
+    return name.includes('rod');
+  }
+
+  private static isStaffLikeItem(item: any): boolean {
+    const name = (item?.name || '').toLowerCase();
+    return name.includes('staff');
+  }
+
+  private static isShieldLikeItem(item: any): boolean {
+    const name = (item?.name || '').toLowerCase();
+    return name.includes('shield');
   }
 
   /**
@@ -2111,6 +2624,7 @@ export class D35EAdapter {
         }
       } catch (error) {
         console.error(`D35EAdapter | ✗ Failed to create items:`, error);
+        throw new Error(`Failed to create mundane inventory items: ${String((error as any)?.message || error)}`);
       }
     } else {
       console.warn(`D35EAdapter | No items found in compendiums - check item names`);
@@ -2156,9 +2670,11 @@ export class D35EAdapter {
 
       try {
         const index = await pack.getIndex();
-        const entry = index.find((e: any) =>
-          e.name.toLowerCase() === name.toLowerCase()
-        );
+        const entry =
+          index.find((e: any) => e.name.toLowerCase() === name.toLowerCase()) ||
+          index.find((e: any) => normalizeLookupName(String(e?.name ?? "")) === normalizeLookupName(name)) ||
+          index.find((e: any) => normalizeLookupSlug(String(e?.name ?? "")) === normalizeLookupSlug(name)) ||
+          index.find((e: any) => normalizeLookupTokens(String(e?.name ?? "")) === normalizeLookupTokens(name));
 
         if (entry) {
           const entryId = getCompendiumEntryId(entry);
@@ -2798,18 +3314,27 @@ export class D35EAdapter {
    * Add SRD treasure to an actor using D35E's built-in TreasureGenerator.
    * Generates random coins, gems, and items appropriate for the given CR.
    */
-  static async addSrdLootPack(actor: Actor, cr: number, identified: boolean = true): Promise<void> {
+  static async addSrdLootPack(
+    actor: Actor,
+    cr: number,
+    identified: boolean = true,
+    profileId: SRDLootProfileId | undefined = 'standard'
+  ): Promise<void> {
     const TreasureGenerator = (game as any).D35E?.TreasureGenerator;
     if (!TreasureGenerator) {
       console.warn("D35EAdapter | D35E TreasureGenerator not available, skipping loot pack");
       return;
     }
 
-    console.log(`D35EAdapter | Generating SRD loot pack for CR ${cr}`);
+    const treasureLevel = buildTreasureLevelFromProfile(cr, profileId);
+    console.log(
+      `D35EAdapter | Generating SRD loot pack for CR ${cr} ` +
+      `(profile=${profileId ?? 'standard'}, money=${treasureLevel.moneyMultiplier}, goods=${treasureLevel.goodsMultiplier}, items=${treasureLevel.itemsMultiplier})`
+    );
 
     const gen = new TreasureGenerator();
     await gen.makeTreasureFromCR(
-      [{ cr, moneyMultiplier: 1, goodsMultiplier: 1, itemsMultiplier: 1 }],
+      [treasureLevel],
       { identified, tradeGoodsToGold: false, overrideNames: true }
     );
 

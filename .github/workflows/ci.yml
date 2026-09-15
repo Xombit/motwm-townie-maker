@@ -1,0 +1,52 @@
+name: CI
+
+on:
+  push:
+    branches:
+      - main
+      - master
+  pull_request:
+
+jobs:
+  build-and-test:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Run tests
+        run: npm run test
+
+      - name: Build
+        run: npm run build
+
+      - name: Run audit suite (JSON output)
+        run: npm run test:audit:json
+
+      - name: Generate scenario run results
+        run: npm run audit:scenarios
+
+      - name: Run subsystem triage report
+        run: npm run audit:triage -- artifacts/scenario-run-results.json --json-out artifacts/subsystem-triage.json
+
+      - name: Upload audit artifacts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: audit-results
+          path: |
+            artifacts/audit-results.json
+            artifacts/scenario-run-results.json
+            artifacts/scenario-summary.json
+            artifacts/subsystem-triage.json
+          if-no-files-found: warn

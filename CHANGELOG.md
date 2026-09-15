@@ -1,5 +1,20 @@
 # Changelog
 
+## [Unreleased]
+
+### Changed
+- **Foundry compatibility hardening**: Continued the v11/v14 compatibility pass with native DOM usage, compatibility helpers, and safer document/index access patterns.
+- **Biography and notes routing**: Biography and personality text now route to the correct D35E sheet tabs and are applied after the rest trigger so they are not overwritten.
+- **Creation flow hardening**: Spell gating, form parsing, compendium lookup normalization, and pipeline planning were centralized to reduce branch-specific drift.
+- **NPC caster routing hardening**: Spell-class normalization now handles NPC-suffixed labels (for example, `Adept (NPC)`), and Adept is treated as an eligible caster path in spell gating/selection.
+- **Exclusive wealth mode**: Budget settings now use a single canonical mode so standard budget, NPC gear value, and no-budget choices cannot be selected together; the create path derives the legacy flags from that mode.
+- **Spell import warning fix**: Imported spells now use D35E's `ignoreSpellbookAndLevel` path so class-list validation does not spam the "Spell added despite not being in a spell list for class" warning.
+- **SRD loot profile wiring**: `lootProfile` now drives TreasureGenerator multipliers through the profile system instead of always using standard 1x/1x/1x generation.
+- **Audit harness expansion**: Added scenario traces, scenario evaluation/reporting helpers, subsystem triage output, and a richer audit pipeline that emits machine-readable artifacts.
+- **Runtime-faithful scenario data**: The scenario artifact generator now records branch-level trace data for HP, spells, equipment/budget, biography routing, ranger/rogue special-feature paths, and NPC caster branches.
+- **Test coverage**: Added audit, unit, and integration coverage around the new trace model, biography routing, spell gating, compendium normalization, NPC equipment branches, exclusive budget mode, spell import options, SRD loot profile behavior, and the audit pipeline script.
+- **CI and tooling**: Added a CI workflow for test/build/audit checks, switched the scenario generator to `tsx`, and kept the deploy script aligned with the Foundry v14 support work.
+
 ## [0.3.0] - 2026-04-10
 
 ### Changed

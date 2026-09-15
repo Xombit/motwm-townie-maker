@@ -4,6 +4,27 @@ This guide explains how to configure skills for character templates in MOTWM Tow
 
 Skill configuration is authored in `data/templates.json` (runtime templates).
 
+## Allocation Model (Current)
+
+Skill lists are ordered priority lists. The allocator uses three fixed rates:
+
+- `high`: every level
+- `medium`: level 1, then every 2 levels (3, 5, 7, ...)
+- `low`: level 1, then every 4 levels (5, 9, 13, ...)
+
+Within a priority tier, allocation uses persistent round-robin when budget pressure occurs.
+That means if a level runs out of points mid-tier, the next level resumes from the next skill
+instead of always restarting at the top.
+
+Template ordering matters:
+
+- earlier skills are preferred first
+- extra INT points spill down the list and wrap as needed
+- lower INT naturally truncates later entries
+
+This lets templates intentionally include more skills than baseline level-1 budget, while still
+staying legal at each level via per-level and total rank caps.
+
 ## Skill Points by Class
 
 ### Level 1 Skill Points Formula
@@ -239,11 +260,13 @@ Focus on: Profession, Handle Animal, simple practical skills related to their oc
 
 ## Tips for Balancing Skills
 
-1. **Max out primary skills** (rank 4 at level 1) for skills central to the character concept
-2. **Spread remaining points** across supporting skills (rank 2 each)
-3. **Leave headroom** - don't allocate all points at base Int, so high-Int characters can use them
-4. **Class skills** get +3 bonus when you put at least 1 rank in them
-5. **Cross-class skills** cost 2 points per rank (max rank 2 at level 1)
+1. **Order by concept importance**: put the 1-3 defining skills first.
+2. **Add a second ring of support skills** after core skills.
+3. **Use low-priority tail skills** for flavor and INT spillover.
+4. **Allow measured overload** so higher-INT variants can fill more of the list.
+5. **Avoid extreme overload** where only the first 1-2 skills ever get points.
+6. **Class skills** get +3 bonus when you put at least 1 rank in them.
+7. **Cross-class handling** is deferred for now because the generator is single-class.
 
 ## Calculating Available Points
 

@@ -23,7 +23,7 @@ import {
 import {
   getBestWeaponEnhancementForCharacter,
   getBestArmorEnhancementForCharacter,
-  getBestShieldEnhancementForCharacter
+  getBestShieldEnhancementForCharacter,
 } from './enhancement-recommendations';
 
 import {
@@ -55,6 +55,19 @@ import {
 import {
   selectPotions
 } from './potion-recommendations';
+
+import {
+  toCoreClassKey,
+  isPartialCasterClass,
+  getPrimaryClassToken,
+} from './class-utils';
+import {
+  BASIS_POINTS_TOTAL,
+  executeSpendingPlan,
+  resolveSpendingPlan,
+  type SpendingReport,
+  type SpendingPlanConfig,
+} from './spending-plan';
 
 /**
  * Budget allocation for magic items
@@ -232,15 +245,15 @@ export const CONSUMABLE_SPLITS = {
  * Determine class type for consumables allocation
  */
 export function getClassType(characterClass: string): keyof typeof CONSUMABLE_SPLITS {
-  const className = characterClass.toLowerCase();
+  const className = getPrimaryClassToken(characterClass);
   
   // Full casters
-  if (['wizard', 'sorcerer', 'cleric', 'druid'].includes(className)) {
+  if (['wizard', 'sorcerer', 'cleric', 'druid', 'adept'].includes(className)) {
     return 'fullCaster';
   }
   
   // Partial casters
-  if (['bard', 'paladin', 'ranger'].includes(className)) {
+  if (isPartialCasterClass(className)) {
     return 'partialCaster';
   }
   
@@ -318,6 +331,19 @@ export interface MagicItemSelection {
   staffCost: number;  // Cost of staff
   totalCost: number;
   overspend: number;  // Amount spent over budget (e.g., Staff of Power special purchase), deduct from final gold
+  spendingReport?: SpendingReport;
+}
+
+export interface ItemCreateFailure {
+  name: string;
+  reason: string;
+  plannedCost: number;
+}
+
+export interface ItemCreateResult {
+  createdIds: string[];
+  createdCost: number;
+  failed: ItemCreateFailure[];
 }
 
 /**
@@ -329,10 +355,7 @@ type CharacterClass = 'fighter' | 'barbarian' | 'paladin' | 'ranger' | 'rogue' |
  * Normalize class name to match our type system
  */
 function normalizeClassName(className: string): CharacterClass {
-  const normalized = className.toLowerCase() as CharacterClass;
-  // Default to fighter if unknown class
-  const validClasses: CharacterClass[] = ['fighter', 'barbarian', 'paladin', 'ranger', 'rogue', 'monk', 'wizard', 'sorcerer', 'cleric', 'druid', 'bard'];
-  return validClasses.includes(normalized) ? normalized : 'fighter';
+  return toCoreClassKey(className) as CharacterClass;
 }
 
 /**
@@ -360,7 +383,9 @@ export async function selectMagicItems(
     amuletPercent?: number;
   },
   strScore: number = 10,
-  hasShield: boolean = false  // From template.startingKit.shield
+  hasShield: boolean = false,  // From template.startingKit.shield
+  spendingPlan?: SpendingPlanConfig,
+  hasWeapon: boolean = true,
 ): Promise<MagicItemSelection> {
   console.log(`\n=== MAGIC ITEM SELECTION ===`);
   console.log(`Level: ${level}, Class: ${characterClass}, Budget: ${totalBudget} gp, STR: ${strScore}`);
@@ -392,163 +417,60 @@ export async function selectMagicItems(
       rodsCost: 0,
       staffCost: 0,
       totalCost: 0,
-      overspend: 0
+      overspend: 0,
+      spendingReport: {
+        spendableGp: totalBudget,
+        totalSpentGp: 0,
+        finalCashGp: totalBudget,
+        stages: [],
+        warnings: [],
+      },
     };
   }
 
-  // Determine class type for budget allocation
+  // Determine class type for consumable allocation
   const classType = getClassType(characterClass);
-  
-  // Determine budget type based on class
-  // - Monks: Unique unarmed fighters, need Amulet of Mighty Fists
-  // - Pure casters (wizard/sorcerer): Skip weapons entirely, use rods/staves
-  // - Divine casters (cleric/druid): Skip weapons, but can wear armor
-  // - Partial caster martials (paladin/ranger): Frontline fighters who can cast
-  // - Martials: Pure weapon/armor focus
-  // - Generic casters (bard): Some weapon use
-  const normalizedClassLower = characterClass.toLowerCase();
-  const isMonk = normalizedClassLower === 'monk';
-  const isPaladinOrRanger = normalizedClassLower === 'paladin' || normalizedClassLower === 'ranger';
-  const isPure = isPureCaster(characterClass);
-  const isDivine = isDivineCaster(characterClass);
-  const isMartial = classType === 'martial' || isPaladinOrRanger;
-  
-  // Select budget allocation based on class type
-  // Use generic type to allow different budget configurations
-  let budgetAllocation: {
-    weapon: number;
-    armor: number;
-    statItem: number;
-    resistance: number;
-    protection: number;
-    consumables: number;
-    rodsStaves: number;
-    mightyFists?: number;  // Monks and wildshape druids
-  };
-  let budgetTypeName: string;
-  let usesMightyFists = false;  // Track whether this build uses Amulet of Mighty Fists
-  
-  if (isMonk) {
-    budgetAllocation = MAGIC_ITEM_BUDGET_ALLOCATION.monk;
-    budgetTypeName = 'Monk (Unarmed Fighter)';
-    usesMightyFists = true;
-  } else if (isPure) {
-    budgetAllocation = MAGIC_ITEM_BUDGET_ALLOCATION.pureCaster;
-    budgetTypeName = 'Pure Caster (Wizard/Sorcerer)';
-  } else if (normalizedClassLower === 'cleric') {
-    // CLERIC BUILD DETECTION: Shield in kit = War Cleric, No shield = Caster Cleric
-    // Similar to how ranger combat style is detected from weapon loadout
-    if (hasShield) {
-      budgetAllocation = MAGIC_ITEM_BUDGET_ALLOCATION.clericMelee;
-      budgetTypeName = 'Cleric (Battle/Melee)';
-      console.log(`🛡️ CLERIC BUILD: Battle Cleric (has shield) - focusing on weapon + armor`);
-    } else {
-      budgetAllocation = MAGIC_ITEM_BUDGET_ALLOCATION.clericCaster;
-      budgetTypeName = 'Cleric (Caster)';
-      console.log(`📖 CLERIC BUILD: Caster Cleric (no shield) - focusing on spells + metamagic rods`);
-    }
-  } else if (normalizedClassLower === 'druid') {
-    // DRUID BUILD DETECTION: Shield in kit = Wildshape Druid, No shield = Caster Druid
-    // Wildshape druids need Amulet of Mighty Fists for their natural attacks!
-    if (hasShield) {
-      budgetAllocation = MAGIC_ITEM_BUDGET_ALLOCATION.druidWildshape;
-      budgetTypeName = 'Druid (Wildshape)';
-      usesMightyFists = true;  // Wildshape druids use Mighty Fists for natural attacks!
-      console.log(`🐻 DRUID BUILD: Wildshape Druid (has shield) - focusing on Amulet of Mighty Fists`);
-    } else {
-      budgetAllocation = MAGIC_ITEM_BUDGET_ALLOCATION.druidCaster;
-      budgetTypeName = 'Druid (Caster)';
-      console.log(`🌿 DRUID BUILD: Caster Druid (no shield) - focusing on summons + metamagic rods`);
-    }
-  } else if (isDivine) {
-    // Fallback for any other divine casters (shouldn't happen with current classes)
-    budgetAllocation = MAGIC_ITEM_BUDGET_ALLOCATION.clericCaster;
-    budgetTypeName = 'Divine Caster';
-  } else if (isPaladinOrRanger) {
-    budgetAllocation = MAGIC_ITEM_BUDGET_ALLOCATION.partialCasterMartial;
-    budgetTypeName = 'Partial Caster Martial (Paladin/Ranger)';
-  } else if (isMartial) {
-    budgetAllocation = MAGIC_ITEM_BUDGET_ALLOCATION.martial;
-    budgetTypeName = 'Martial';
-  } else {
-    budgetAllocation = MAGIC_ITEM_BUDGET_ALLOCATION.caster;
-    budgetTypeName = 'Caster (Bard)';
+  const allocationPlan = resolveSpendingPlan({
+    level,
+    className: characterClass,
+    hasShield,
+    totalWealthGp: totalBudget,
+    mundaneCostGp: 0,
+    config: spendingPlan ? {
+      ...spendingPlan,
+      wealth: { mode: 'standardBudget', multiplierPercent: 100, reservePercent: 0 },
+    } : undefined,
+    legacyMagicItemBudgets: templateBudgets,
+  });
+  if (spendingPlan) {
+    return selectMagicItemsBySpendingPlan(
+      level,
+      characterClass,
+      totalBudget,
+      strScore,
+      hasShield,
+      hasWeapon,
+      allocationPlan,
+    );
   }
-  
-  // ==========================================================================
-  // SELF-INVESTMENT DECISION (Level 5+)
-  // 50% chance to spend extra on weapons, armor, or rods/staves
-  // Investment amount: 75% of expected leftover (conservatively estimated at 15% of wealth)
-  // ==========================================================================
-  let investmentOverspend = 0;
-  let investmentTarget: 'weapon' | 'armor' | 'rodsStaves' | 'none' = 'none';
-  
-  if (level >= 5) {
-    const wantsToInvest = Math.random() < 0.50;
-    
-    if (wantsToInvest) {
-      // Conservative estimate: 15% of budget typically left over
-      // Investment uses 75% of that = 11.25% of total budget
-      investmentOverspend = Math.floor(totalBudget * 0.15 * 0.75);
-      
-      // Determine target based on class type (B3: random selection)
-      if (isPure) {
-        // Pure casters (Wizard/Sorcerer): 100% to rods/staves
-        investmentTarget = 'rodsStaves';
-      } else if (isDivine) {
-        // Divine casters (Cleric/Druid): 50/50 armor or rods/staves
-        investmentTarget = Math.random() < 0.50 ? 'armor' : 'rodsStaves';
-      } else {
-        // Martials (Fighter, Barbarian, Paladin, Ranger, etc.): 50/50 weapon or armor
-        investmentTarget = Math.random() < 0.50 ? 'weapon' : 'armor';
-      }
-      
-      console.log(`💰 SELF-INVESTMENT: Spending ${investmentOverspend} gp extra on ${investmentTarget}!`);
-    } else {
-      console.log(`Level ${level}: Decided to save gold rather than invest in gear.`);
-    }
-  }
-  
-  // Calculate investment boosts for each category
-  const weaponBudgetBoost = investmentTarget === 'weapon' ? investmentOverspend : 0;
-  const armorBudgetBoost = investmentTarget === 'armor' ? investmentOverspend : 0;
-  const rodsStavesBudgetBoost = investmentTarget === 'rodsStaves' ? investmentOverspend : 0;
-  
-  // Calculate rod/staff budget for casters (before weapon/armor, so we can skip them)
-  const rodsStavesBudget = Math.floor(totalBudget * budgetAllocation.rodsStaves) + rodsStavesBudgetBoost;
-  
-  // LEVEL-BASED BUDGET ADJUSTMENT FOR MARTIALS
-  // Early levels (3-7): Weapon is CRITICAL, boost weapon budget so they can afford their first magic weapon
-  // Current issue: Level 3-4 can't afford +1 weapon (2,315 gp) with only 38% budget
-  // Solution: Progressive weapon budget that decreases as character gains more wealth
-  let adjustedWeaponPercent: number = budgetAllocation.weapon;
-  let adjustedArmorPercent: number = budgetAllocation.armor;
-  
-  if (isMartial && level >= 3 && level <= 7) {
-    // Levels 3-7: Boost weapon to 45% (from 38%), reduce armor to 32% (from 34%)
-    // This gives enough budget to afford first magic weapon at level 3-4
-    // and smoother progression through level 7
-    adjustedWeaponPercent = 0.45;  // +7% to weapon
-    adjustedArmorPercent = 0.32;   // -2% from armor
-    // Note: Total still adds to 100% (45+32+12+7+7+2 = 105%, but other categories absorb the difference)
-    console.log(`Level ${level} Martial: Boosting weapon budget to 45% (from 38%) for early-game affordability`);
-  } else if (isMartial && level >= 8 && level <= 10) {
-    // Levels 8-10: Moderate boost to 40% (from 38%), reduce armor to 33% (from 34%)
-    adjustedWeaponPercent = 0.40;
-    adjustedArmorPercent = 0.33;
-    console.log(`Level ${level} Martial: Moderate weapon budget boost to 40%`);
-  }
-  
-  // Allocate budget based on class type and level adjustments (+ investment boosts)
-  const weaponBudget = Math.floor(totalBudget * adjustedWeaponPercent) + weaponBudgetBoost;
-  const armorBudget = Math.floor(totalBudget * adjustedArmorPercent) + armorBudgetBoost;
-  const statItemBudget = Math.floor(totalBudget * budgetAllocation.statItem);
-  const resistanceBudget = Math.floor(totalBudget * budgetAllocation.resistance);
-  const protectionBudget = Math.floor(totalBudget * budgetAllocation.protection);
-  const consumablesBudget = Math.floor(totalBudget * budgetAllocation.consumables);
-  
-  // MONK/WILDSHAPE DRUID: Amulet of Mighty Fists budget (replaces weapon budget)
-  const mightyFistsBudget = usesMightyFists ? Math.floor(totalBudget * (budgetAllocation.mightyFists || 0)) : 0;
+  const profile = allocationPlan.profile;
+  const isMonk = profile === 'monk';
+  const isPure = profile === 'pureCaster';
+  const isDivine = profile === 'clericMelee' || profile === 'clericCaster'
+    || profile === 'druidWildshape' || profile === 'druidCaster';
+  const usesMightyFists = allocationPlan.categories.mightyFists.enabled;
+  const budgetTypeName = profile;
+  const weaponBudget = allocationPlan.categories.weapon.allocatedGp;
+  const armorBudget = allocationPlan.categories.armor.allocatedGp;
+  const statItemBudget = allocationPlan.categories.abilityItem.allocatedGp;
+  const resistanceBudget = allocationPlan.categories.resistance.allocatedGp;
+  const protectionBudget = allocationPlan.categories.protection.allocatedGp;
+  const consumablesBudget = allocationPlan.categories.consumables.allocatedGp;
+  const rodsStavesBudget = allocationPlan.categories.rodsStaves.allocatedGp;
+  const mightyFistsBudget = allocationPlan.categories.mightyFists.allocatedGp;
+  const secondaryWeaponPercent = allocationPlan.splits.secondaryWeaponBasisPoints / BASIS_POINTS_TOTAL;
+  const secondaryWeaponBudget = Math.floor(weaponBudget * secondaryWeaponPercent);
+  const primaryWeaponBudget = weaponBudget - secondaryWeaponBudget;
   
   // Split consumables budget by class type
   const consumableSplit = CONSUMABLE_SPLITS[classType];
@@ -558,16 +480,16 @@ export async function selectMagicItems(
 
   console.log(`Budget Type: ${budgetTypeName} (${classType})`);
   if (usesMightyFists) {
-    console.log(`Mighty Fists Budget: ${mightyFistsBudget} gp (${((budgetAllocation.mightyFists || 0) * 100).toFixed(0)}%)`);
+    console.log(`Mighty Fists Budget: ${mightyFistsBudget} gp`);
   } else {
-    console.log(`Weapon Budget: ${weaponBudget} gp (${(budgetAllocation.weapon * 100).toFixed(0)}%)`);
+    console.log(`Weapon Budget: ${weaponBudget} gp (primary ${primaryWeaponBudget}, secondary ${secondaryWeaponBudget})`);
   }
-  console.log(`Armor Budget: ${armorBudget} gp (${(budgetAllocation.armor * 100).toFixed(0)}%)`);
-  console.log(`Rods/Staves Budget: ${rodsStavesBudget} gp (${(budgetAllocation.rodsStaves * 100).toFixed(0)}%)`);
-  console.log(`Stat Item Budget: ${statItemBudget} gp (${(budgetAllocation.statItem * 100).toFixed(0)}%)`);
-  console.log(`Resistance Budget: ${resistanceBudget} gp (${(budgetAllocation.resistance * 100).toFixed(0)}%)`);
-  console.log(`Protection Budget: ${protectionBudget} gp (${(budgetAllocation.protection * 100).toFixed(0)}%)`);
-  console.log(`Consumables Budget: ${consumablesBudget} gp (${(budgetAllocation.consumables * 100).toFixed(0)}%)`);
+  console.log(`Armor Budget: ${armorBudget} gp`);
+  console.log(`Rods/Staves Budget: ${rodsStavesBudget} gp`);
+  console.log(`Stat Item Budget: ${statItemBudget} gp`);
+  console.log(`Resistance Budget: ${resistanceBudget} gp`);
+  console.log(`Protection Budget: ${protectionBudget} gp`);
+  console.log(`Consumables Budget: ${consumablesBudget} gp`);
   console.log(`  Wands: ${wandsBudget} gp (${(consumableSplit.wands * 100).toFixed(0)}% of consumables)`);
   console.log(`  Scrolls: ${scrollsBudget} gp (${(consumableSplit.scrolls * 100).toFixed(0)}% of consumables)`);
   console.log(`  Potions: ${potionsBudget} gp (${(consumableSplit.potions * 100).toFixed(0)}% of consumables)`);
@@ -586,7 +508,7 @@ export async function selectMagicItems(
   let casterItemSelection = null;
   
   // Check if this build uses rods/staves instead of weapons
-  const usesRodsStaves = budgetAllocation.rodsStaves > 0;
+  const usesRodsStaves = allocationPlan.categories.rodsStaves.enabled;
   
   if (isPure || (usesRodsStaves && !usesMightyFists)) {
     // Pure casters or caster-focused divine casters get rods/staves
@@ -595,10 +517,10 @@ export async function selectMagicItems(
   } else if (usesMightyFists) {
     // Monks and wildshape druids use Amulet of Mighty Fists instead of weapons
     console.log(`${budgetTypeName}: Skipping weapon enhancements, using Amulet of Mighty Fists instead`);
-  } else if (weaponBudget > 0) {
+  } else if (primaryWeaponBudget > 0) {
     // Battle clerics, martials, partial casters with weapon budget
-    console.log(`DEBUG: Normalized class for weapon selection: ${normalizedClass}, budget: ${weaponBudget} gp`);
-    weaponRec = getBestWeaponEnhancementForCharacter(level, normalizedClass, weaponBudget);
+    console.log(`DEBUG: Normalized class for weapon selection: ${normalizedClass}, budget: ${primaryWeaponBudget} gp`);
+    weaponRec = getBestWeaponEnhancementForCharacter(level, normalizedClass, primaryWeaponBudget);
     console.log(`DEBUG: Weapon recommendation result: ${weaponRec ? `+${weaponRec.enhancementBonus} (${weaponRec.totalCost} gp)` : 'NULL'}`);
   } else {
     console.log(`${budgetTypeName}: No weapon budget allocated`);
@@ -609,9 +531,9 @@ export async function selectMagicItems(
   // These can be overridden by template.magicItemBudgets
   // PURE CASTERS: Skip armor entirely (arcane spell failure), they use Bracers of Armor
   // MONKS: Skip armor entirely (lose AC bonus), they use Bracers of Armor
-  const skipArmor = isPure || isMonk;
-  const shieldBudgetPercent = templateBudgets?.shieldPercent ?? (level >= 17 ? 0.50 : 0.40);
-  const armorBudgetPercent = templateBudgets?.armorPercent ?? (level >= 17 ? 0.50 : 0.60);
+  const skipArmor = !allocationPlan.categories.armor.enabled;
+  const shieldBudgetPercent = allocationPlan.splits.shieldBasisPoints / BASIS_POINTS_TOTAL;
+  const armorBudgetPercent = 1 - shieldBudgetPercent;
   const shieldBudget = skipArmor ? 0 : Math.floor(armorBudget * shieldBudgetPercent);
   const armorOnlyBudget = skipArmor ? 0 : Math.floor(armorBudget * armorBudgetPercent);
   
@@ -643,8 +565,6 @@ export async function selectMagicItems(
   // This comes AFTER shields as per user's priority requirement
   // Can be overridden by template.magicItemBudgets
   // Skip for pure casters, divine casters (they use rods/staves instead), and monks
-  const secondaryWeaponPercent = templateBudgets?.secondaryWeaponPercent ?? 0.50;
-  const secondaryWeaponBudget = Math.floor(weaponBudget * secondaryWeaponPercent);
   const secondaryWeaponRec = (isPure || isDivine || isMonk || level < 5) 
     ? null
     : getBestWeaponEnhancementForCharacter(level, normalizedClass, secondaryWeaponBudget);
@@ -797,17 +717,14 @@ export async function selectMagicItems(
   }
 
   const totalCost = weaponCost + secondaryWeaponCost + armorCost + shieldCost + wondrousCost + wandsCost + scrollsCost + potionsCost + rodsCost + staffCost;
-  // Get overspend from caster items (e.g., Staff of Power special purchase)
-  // NOTE: investmentOverspend is NOT added here - it's already reflected in the higher
-  // category budgets and thus already included in the item costs above.
-  // Only special purchase overspend (items that exceed even the boosted budget) counts.
   const casterOverspend = casterItemSelection?.overspend ?? 0;
-  const overspend = casterOverspend;  // Only special purchase overspend, NOT investment
+  const overspend = casterOverspend;
+
+  if (totalCost > totalBudget || overspend > 0) {
+    throw new Error(`Magic item selection exceeded its strict budget: spent ${totalCost} gp from ${totalBudget} gp.`);
+  }
   
   console.log(`\nTotal Magic Item Cost: ${totalCost} gp`);
-  if (investmentOverspend > 0) {
-    console.log(`💰 Self-investment: ${investmentOverspend} gp added to ${investmentTarget} budget (already included in costs above)`);
-  }
   if (casterOverspend > 0) {
     console.log(`⚠️ Special purchase overspend: ${casterOverspend} gp (will be deducted from final gold)`);
   }
@@ -857,6 +774,297 @@ export async function selectMagicItems(
   };
 }
 
+async function selectMagicItemsBySpendingPlan(
+  level: number,
+  characterClass: string,
+  totalBudget: number,
+  strScore: number,
+  hasShield: boolean,
+  hasWeapon: boolean,
+  plan: ReturnType<typeof resolveSpendingPlan>,
+): Promise<MagicItemSelection> {
+  const normalizedClass = normalizeClassName(characterClass);
+  const isMonk = plan.profile === 'monk';
+  const isPure = plan.profile === 'pureCaster';
+  const isDivine = ['clericMelee', 'clericCaster', 'druidWildshape', 'druidCaster'].includes(plan.profile);
+  const usesMightyFists = plan.categories.mightyFists.enabled;
+  const isCasterFocused = isPure || plan.profile === 'clericCaster' || plan.profile === 'druidCaster';
+
+  let weaponRec: any = null;
+  let secondaryWeaponRec: any = null;
+  let armorRec: any = null;
+  let shieldRec: any = null;
+  let casterItemSelection: ReturnType<typeof selectCasterItems> | null = null;
+  let wondrousItems: WondrousItemDefinition[] = [];
+  let hasHandyHaversack = false;
+  let hasScarabOfProtection = false;
+  let wandSelection: ReturnType<typeof selectWands> = { wands: [], totalCost: 0 };
+  let scrollSelection: ReturnType<typeof selectScrolls> = { scrolls: [], totalCost: 0 };
+  let potionSelection: ReturnType<typeof selectPotions> = { potions: [], totalCost: 0 };
+
+  const addWondrousStage = (
+    availableGp: number,
+    budgets: { ability?: number; resistance?: number; protection?: number; mightyFists?: number },
+    includeUtility: boolean,
+    itemLimit?: number,
+  ) => {
+    const ringPercent = plan.splits.ringBasisPoints / BASIS_POINTS_TOTAL;
+    const remainingProtectionPercent = 1 - ringPercent;
+    const protectionSplits = isMonk
+      ? { ringPercent, amuletPercent: 0, bracersPercent: remainingProtectionPercent }
+      : isPure
+        ? {
+            ringPercent,
+            amuletPercent: remainingProtectionPercent / 2,
+            bracersPercent: remainingProtectionPercent / 2,
+          }
+        : { ringPercent, amuletPercent: remainingProtectionPercent, bracersPercent: 0 };
+    const result = selectWondrousItems(
+      level,
+      normalizedClass,
+      budgets.ability ?? 0,
+      budgets.resistance ?? 0,
+      budgets.protection ?? 0,
+      protectionSplits,
+      strScore,
+      budgets.mightyFists ?? 0,
+      usesMightyFists,
+      wondrousItems,
+      includeUtility,
+    );
+    const limit = itemLimit ?? Number.POSITIVE_INFINITY;
+    const keptItems = result.wondrousItems.slice(0, limit);
+    const keepHaversack = result.hasHandyHaversack && keptItems.length < limit;
+    wondrousItems.push(...keptItems);
+    hasHandyHaversack ||= keepHaversack;
+    hasScarabOfProtection ||= keptItems.some(item => item.name.includes('Scarab of Protection'));
+    const spentGp = keptItems.reduce((sum, item) => sum + item.price, 0)
+      + (keepHaversack ? 2000 : 0);
+    return {
+      value: { ...result, wondrousItems: keptItems, hasHandyHaversack: keepHaversack },
+      spentGp,
+      selectedItems: [
+        ...keptItems.map(item => ({ name: item.name, cost: item.price })),
+        ...(keepHaversack ? [{ name: 'Handy Haversack', cost: 2000 }] : []),
+      ],
+      warnings: spentGp > availableGp ? [`Wondrous selection exceeded ${availableGp} gp.`] : [],
+    };
+  };
+
+  const execution = await executeSpendingPlan(plan, {
+    weapon: availableGp => {
+      if (!hasWeapon) return { value: { weaponRec: null, secondaryWeaponRec: null }, spentGp: 0, selectedItems: [] };
+      const primaryBaseGp = isCasterFocused
+        ? availableGp
+        : Math.floor(availableGp * plan.splits.primaryWeaponBasisPoints / BASIS_POINTS_TOTAL);
+      const secondaryBaseGp = availableGp - primaryBaseGp;
+      weaponRec = primaryBaseGp > 0
+        ? getBestWeaponEnhancementForCharacter(level, normalizedClass, primaryBaseGp)
+        : null;
+      if (!weaponRec && isCasterFocused && primaryBaseGp > 0) {
+        for (let bonus = 5; bonus >= 1; bonus--) {
+          const totalCost = 300 + getEnhancementCost(bonus);
+          if (totalCost <= primaryBaseGp) {
+            weaponRec = {
+              enhancementBonus: bonus,
+              specialAbilities: [],
+              totalBonusLevels: bonus,
+              totalCost,
+              reasoning: 'Simple enhancement for a caster backup weapon.',
+            };
+            break;
+          }
+        }
+      }
+      let primaryCost = weaponRec
+        ? calculateWeaponEnhancementCost(weaponRec.enhancementBonus, weaponRec.specialAbilities as string[])
+        : 0;
+      if (primaryCost > primaryBaseGp) {
+        weaponRec = null;
+        primaryCost = 0;
+      }
+      const secondaryAvailableGp = secondaryBaseGp + primaryBaseGp - primaryCost;
+      secondaryWeaponRec = (!isCasterFocused && !isDivine && !isMonk && level >= 5 && secondaryAvailableGp > 0)
+        ? getBestWeaponEnhancementForCharacter(level, normalizedClass, secondaryAvailableGp)
+        : null;
+      let secondaryCost = secondaryWeaponRec
+        ? calculateWeaponEnhancementCost(secondaryWeaponRec.enhancementBonus, secondaryWeaponRec.specialAbilities as string[])
+        : 0;
+      if (secondaryCost > secondaryAvailableGp) {
+        secondaryWeaponRec = null;
+        secondaryCost = 0;
+      }
+      return {
+        value: { weaponRec, secondaryWeaponRec },
+        spentGp: primaryCost + secondaryCost,
+        selectedItems: [
+          ...(weaponRec ? [{ name: `Primary weapon +${weaponRec.enhancementBonus}`, cost: primaryCost }] : []),
+          ...(secondaryWeaponRec ? [{ name: `Secondary weapon +${secondaryWeaponRec.enhancementBonus}`, cost: secondaryCost }] : []),
+        ],
+      };
+    },
+    armor: availableGp => {
+      const armorBaseGp = Math.floor(availableGp * plan.splits.armorBasisPoints / BASIS_POINTS_TOTAL);
+      const shieldBaseGp = availableGp - armorBaseGp;
+      armorRec = armorBaseGp > 0
+        ? getBestArmorEnhancementForCharacter(level, normalizedClass, armorBaseGp)
+        : null;
+      let armorCost = armorRec
+        ? calculateArmorEnhancementCost(armorRec.enhancementBonus, armorRec.specialAbilities)
+        : 0;
+      if (armorCost > armorBaseGp) {
+        armorRec = null;
+        armorCost = 0;
+      }
+      const shieldAvailableGp = shieldBaseGp + armorBaseGp - armorCost;
+      shieldRec = hasShield && level >= 4 && shieldAvailableGp > 0
+        ? getBestShieldEnhancementForCharacter(level, normalizedClass, shieldAvailableGp, armorRec)
+        : null;
+      let shieldCost = shieldRec
+        ? calculateArmorEnhancementCost(shieldRec.enhancementBonus, shieldRec.specialAbilities)
+        : 0;
+      if (shieldCost > shieldAvailableGp) {
+        shieldRec = null;
+        shieldCost = 0;
+      }
+      return {
+        value: { armorRec, shieldRec },
+        spentGp: armorCost + shieldCost,
+        selectedItems: [
+          ...(armorRec ? [{ name: `Armor +${armorRec.enhancementBonus}`, cost: armorCost }] : []),
+          ...(shieldRec ? [{ name: `Shield +${shieldRec.enhancementBonus}`, cost: shieldCost }] : []),
+        ],
+      };
+    },
+    abilityItem: (availableGp, rule) => addWondrousStage(availableGp, { ability: availableGp }, false, rule.itemLimit),
+    resistance: (availableGp, rule) => addWondrousStage(availableGp, { resistance: availableGp }, false, rule.itemLimit),
+    protection: (availableGp, rule) => addWondrousStage(availableGp, { protection: availableGp }, true, rule.itemLimit),
+    mightyFists: (availableGp, rule) => addWondrousStage(availableGp, { mightyFists: availableGp }, false, rule.itemLimit),
+    rodsStaves: (availableGp, rule) => {
+      const selected = selectCasterItems(level, availableGp, characterClass, true);
+      if (rule.itemLimit !== undefined) {
+        const keepStaff = rule.itemLimit > 0 && selected.staff !== null;
+        const rodLimit = Math.max(0, rule.itemLimit - (keepStaff ? 1 : 0));
+        selected.rods = selected.rods.slice(0, rodLimit);
+        selected.rodsCost = selected.rods.reduce((sum, rod) => sum + rod.rod.price, 0);
+        if (!keepStaff) {
+          selected.staff = null;
+          selected.staffCost = 0;
+        }
+        selected.totalCost = selected.rodsCost + selected.staffCost;
+      }
+      casterItemSelection = selected;
+      return {
+        value: selected,
+        spentGp: selected.totalCost,
+        selectedItems: [
+          ...selected.rods.map(rod => ({ name: rod.rod.name, cost: rod.rod.price })),
+          ...(selected.staff ? [{ name: selected.staff.staff.name, cost: selected.staff.staff.price }] : []),
+        ],
+      };
+    },
+    consumables: (availableGp, rule) => {
+      let remainingItemLimit = rule.itemLimit ?? Number.POSITIVE_INFINITY;
+      const wandBaseGp = Math.floor(availableGp * plan.splits.wandsBasisPoints / BASIS_POINTS_TOTAL);
+      const selectedWands = selectWands(characterClass, level, wandBaseGp);
+      selectedWands.wands = selectedWands.wands.slice(0, remainingItemLimit);
+      selectedWands.totalCost = selectedWands.wands.reduce((sum, wand) => sum + wand.cost, 0);
+      remainingItemLimit -= selectedWands.wands.length;
+
+      const scrollBaseGp = Math.floor(availableGp * plan.splits.scrollsBasisPoints / BASIS_POINTS_TOTAL);
+      const scrollAvailableGp = scrollBaseGp + wandBaseGp - selectedWands.totalCost;
+      const selectedScrolls = selectScrolls(characterClass, level, scrollAvailableGp);
+      selectedScrolls.scrolls = selectedScrolls.scrolls.slice(0, remainingItemLimit);
+      selectedScrolls.totalCost = selectedScrolls.scrolls.reduce((sum, scroll) => sum + scroll.cost, 0);
+      remainingItemLimit -= selectedScrolls.scrolls.length;
+
+      const potionBaseGp = Math.floor(availableGp * plan.splits.potionsBasisPoints / BASIS_POINTS_TOTAL);
+      const allocatedBeforePotions = wandBaseGp + scrollBaseGp + potionBaseGp;
+      const roundingRemainder = availableGp - allocatedBeforePotions;
+      const potionAvailableGp = potionBaseGp
+        + (wandBaseGp - selectedWands.totalCost)
+        + (scrollAvailableGp - selectedScrolls.totalCost - (wandBaseGp - selectedWands.totalCost))
+        + roundingRemainder;
+      const selectedPotions = selectPotions(characterClass, level, potionAvailableGp);
+      if (Number.isFinite(remainingItemLimit)) {
+        let unitsRemaining = Math.max(0, remainingItemLimit);
+        selectedPotions.potions = selectedPotions.potions.flatMap(potion => {
+          const quantity = Math.min(potion.quantity, unitsRemaining);
+          unitsRemaining -= quantity;
+          return quantity > 0 ? [{ ...potion, quantity }] : [];
+        });
+        selectedPotions.totalCost = selectedPotions.potions.reduce(
+          (sum, potion) => sum + potion.cost * potion.quantity,
+          0,
+        );
+      }
+
+      wandSelection = selectedWands;
+      scrollSelection = selectedScrolls;
+      potionSelection = selectedPotions;
+      return {
+        value: { wandSelection, scrollSelection, potionSelection },
+        spentGp: wandSelection.totalCost + scrollSelection.totalCost + potionSelection.totalCost,
+        selectedItems: [
+          ...wandSelection.wands.map(wand => ({ name: `Wand of ${wand.spell.name}`, cost: wand.cost })),
+          ...scrollSelection.scrolls.map(scroll => ({ name: `Scroll of ${scroll.spell.name}`, cost: scroll.cost })),
+          ...potionSelection.potions.map(potion => ({ name: `${potion.quantity}x Potion of ${potion.name}`, cost: potion.cost * potion.quantity })),
+        ],
+      };
+    },
+  });
+
+  const weaponCost = weaponRec
+    ? calculateWeaponEnhancementCost(weaponRec.enhancementBonus, weaponRec.specialAbilities as string[])
+    : 0;
+  const secondaryWeaponCost = secondaryWeaponRec
+    ? calculateWeaponEnhancementCost(secondaryWeaponRec.enhancementBonus, secondaryWeaponRec.specialAbilities as string[])
+    : 0;
+  const armorCost = armorRec
+    ? calculateArmorEnhancementCost(armorRec.enhancementBonus, armorRec.specialAbilities)
+    : 0;
+  const shieldCost = shieldRec
+    ? calculateArmorEnhancementCost(shieldRec.enhancementBonus, shieldRec.specialAbilities)
+    : 0;
+  const wondrousCost = wondrousItems.reduce((sum, item) => sum + item.price, 0) + (hasHandyHaversack ? 2000 : 0);
+  const rodsCost = casterItemSelection?.rodsCost ?? 0;
+  const staffCost = casterItemSelection?.staffCost ?? 0;
+  const totalCost = weaponCost + secondaryWeaponCost + armorCost + shieldCost + wondrousCost
+    + wandSelection.totalCost + scrollSelection.totalCost + potionSelection.totalCost + rodsCost + staffCost;
+
+  if (totalCost !== execution.report.totalSpentGp || totalCost > totalBudget) {
+    throw new Error(`Magic item spending ledger mismatch: selected ${totalCost} gp, ledger recorded ${execution.report.totalSpentGp} gp, budget ${totalBudget} gp.`);
+  }
+
+  return {
+    weaponEnhancement: weaponRec ? { bonus: weaponRec.enhancementBonus, abilities: weaponRec.specialAbilities as string[] } : null,
+    secondaryWeaponEnhancement: secondaryWeaponRec ? { bonus: secondaryWeaponRec.enhancementBonus, abilities: secondaryWeaponRec.specialAbilities as string[] } : null,
+    armorEnhancement: armorRec ? { bonus: armorRec.enhancementBonus, abilities: armorRec.specialAbilities } : null,
+    shieldEnhancement: shieldRec ? { bonus: shieldRec.enhancementBonus, abilities: shieldRec.specialAbilities } : null,
+    wondrousItems,
+    hasHandyHaversack,
+    hasScarabOfProtection,
+    wands: wandSelection.wands,
+    scrolls: scrollSelection.scrolls,
+    potions: potionSelection.potions,
+    rods: casterItemSelection?.rods ?? [],
+    staff: casterItemSelection?.staff ?? null,
+    weaponCost,
+    secondaryWeaponCost,
+    armorCost,
+    shieldCost,
+    wondrousCost,
+    wandsCost: wandSelection.totalCost,
+    scrollsCost: scrollSelection.totalCost,
+    potionsCost: potionSelection.totalCost,
+    rodsCost,
+    staffCost,
+    totalCost,
+    overspend: 0,
+    spendingReport: execution.report,
+  };
+}
+
 /**
  * Select wondrous items (Big Six) based on class, level, and available budgets
  * Returns both the wondrous items array and a flag for custom Handy Haversack
@@ -877,9 +1085,12 @@ function selectWondrousItems(
   },
   strScore: number = 10,
   mightyFistsBudget: number = 0,  // Monks and wildshape druids: Amulet of Mighty Fists budget
-  usesMightyFists: boolean = false  // Whether this build uses Mighty Fists (monk or wildshape druid)
+  usesMightyFists: boolean = false,  // Whether this build uses Mighty Fists (monk or wildshape druid)
+  existingItems: WondrousItemDefinition[] = [],
+  includeUtility: boolean = true,
 ): { wondrousItems: WondrousItemDefinition[]; hasHandyHaversack: boolean; hasScarabOfProtection: boolean } {
-  const selectedItems: WondrousItemDefinition[] = [];
+  const selectedItems: WondrousItemDefinition[] = [...existingItems];
+  const initialItemCount = selectedItems.length;
   let spentBudget = 0;
   const totalBudget = statItemBudget + resistanceBudget + protectionBudget + mightyFistsBudget;
   let hasScarabOfProtection = false;
@@ -891,7 +1102,8 @@ function selectWondrousItems(
   // ========== AMULET OF MIGHTY FISTS (Monks & Wildshape Druids) ==========
   // This is THE signature item for unarmed/natural attack builds
   // Uses neck slot, so these builds can't use Periapt or Amulet of Natural Armor
-  if (usesMightyFists && mightyFistsBudget >= 6000) {
+  const neckOccupiedBeforeMightyFists = selectedItems.some(item => item.slot === 'neck');
+  if (usesMightyFists && mightyFistsBudget >= 6000 && !neckOccupiedBeforeMightyFists) {
     const buildType = isMonk ? 'Monk' : 'Wildshape Druid';
     console.log(`\n${buildType} Amulet of Mighty Fists Selection:`);
     console.log(`  Budget: ${mightyFistsBudget} gp`);
@@ -915,11 +1127,12 @@ function selectWondrousItems(
   // - DEX for rangers via gloves (hands slot - no conflicts)
   // - MONKS: Get BOTH Belt (STR) AND Gloves (DEX) from their expanded stat budget!
   if (statItemBudget >= 4000) {
-    const usesBelt = (priorities as readonly string[]).includes('belt');
-    const usesHeadband = (priorities as readonly string[]).includes('headband');
-    const usesPeriapt = (priorities as readonly string[]).includes('periapt');
-    const usesCharismaCloak = (priorities as readonly string[]).includes('charisma-cloak');
-    const usesGloves = (priorities as readonly string[]).includes('gloves');
+    const occupiedSlots = new Set(selectedItems.map(item => item.slot).filter(Boolean));
+    const usesBelt = (priorities as readonly string[]).includes('belt') && !occupiedSlots.has('belt');
+    const usesHeadband = (priorities as readonly string[]).includes('headband') && !occupiedSlots.has('headband');
+    const usesPeriapt = (priorities as readonly string[]).includes('periapt') && !occupiedSlots.has('neck');
+    const usesCharismaCloak = (priorities as readonly string[]).includes('charisma-cloak') && !occupiedSlots.has('shoulders');
+    const usesGloves = (priorities as readonly string[]).includes('gloves') && !occupiedSlots.has('hands');
     
     // MONKS: Special handling - they need BOTH Belt (STR) AND Gloves (DEX)
     // Split their stat budget: 55% Belt (STR more important for damage), 45% Gloves
@@ -1092,7 +1305,7 @@ function selectWondrousItems(
   let hasHandyHaversack = false;
   let haversackCost = 0;
   
-  if (remainingBudget >= 2000) {
+  if (includeUtility && remainingBudget >= 2000) {
     hasHandyHaversack = true;
     haversackCost = 2000;
     spentBudget += 2000;
@@ -1103,7 +1316,7 @@ function selectWondrousItems(
 
   const utilityBudgetAfterHaversack = remainingBudget - haversackCost;
 
-  if (utilityBudgetAfterHaversack >= 2000) {
+  if (includeUtility && utilityBudgetAfterHaversack >= 2000) {
     // Priority utility items for ALL characters
     // Items are ordered by impact, not price - high-impact items first
     // NOTE: Handy Haversack removed from this list - it's always given above
@@ -1274,7 +1487,11 @@ function selectWondrousItems(
     }
   }
 
-  return { wondrousItems: selectedItems, hasHandyHaversack, hasScarabOfProtection };
+  return {
+    wondrousItems: selectedItems.slice(initialItemCount),
+    hasHandyHaversack,
+    hasScarabOfProtection,
+  };
 }
 
 
@@ -1617,10 +1834,10 @@ export async function addWondrousItemsToActor(
   actor: any,
   wondrousItems: WondrousItemDefinition[],
   identifyItems: boolean = false
-): Promise<void> {
+): Promise<ItemCreateResult> {
   if (wondrousItems.length === 0) {
     console.log("No wondrous items to add");
-    return;
+    return { createdIds: [], createdCost: 0, failed: [] };
   }
 
   console.log(`\n=== ADDING WONDROUS ITEMS ===`);
@@ -1628,8 +1845,20 @@ export async function addWondrousItemsToActor(
   const magicItemsPack = (game as any).packs.get('D35E.magicitems');
   if (!magicItemsPack) {
     console.error("D35E.magicitems compendium not found!");
-    return;
+    return {
+      createdIds: [],
+      createdCost: 0,
+      failed: wondrousItems.map((item) => ({
+        name: item.name,
+        reason: 'compendium_missing',
+        plannedCost: item.price,
+      })),
+    };
   }
+
+  const createdIds: string[] = [];
+  let createdCost = 0;
+  const failed: ItemCreateFailure[] = [];
 
   for (const itemDef of wondrousItems) {
     try {
@@ -1680,12 +1909,29 @@ export async function addWondrousItemsToActor(
       };
 
       // Create the item on the actor
-      await actor.createEmbeddedDocuments("Item", [itemData]);
-      console.log(`  ✓ Added ${itemDef.name} (${itemDef.price} gp)${identifyItems ? '' : ' [unidentified]'}`);
-    } catch (error) {
+      const created = await actor.createEmbeddedDocuments("Item", [itemData]);
+      const createdId = created?.[0]?.id;
+      if (createdId) {
+        createdIds.push(createdId);
+        createdCost += itemDef.price;
+        console.log(`  ✓ Added ${itemDef.name} (${itemDef.price} gp)${identifyItems ? '' : ' [unidentified]'}`);
+      } else {
+        failed.push({
+          name: itemDef.name,
+          reason: 'create_returned_no_id',
+          plannedCost: itemDef.price,
+        });
+      }
+    } catch (error: any) {
       console.error(`Failed to add ${itemDef.name}:`, error);
+      failed.push({
+        name: itemDef.name,
+        reason: String(error?.message || error || 'create_failed'),
+        plannedCost: itemDef.price,
+      });
     }
   }
 
   console.log(`=== WONDROUS ITEMS ADDED ===\n`);
+  return { createdIds, createdCost, failed };
 }

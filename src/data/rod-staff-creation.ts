@@ -15,6 +15,18 @@ import {
   StaffRecommendation
 } from './rod-staff-recommendations';
 
+export interface ItemCreateFailure {
+  name: string;
+  reason: string;
+  plannedCost: number;
+}
+
+export interface ItemCreateResult {
+  createdIds: string[];
+  createdCost: number;
+  failed: ItemCreateFailure[];
+}
+
 // @ts-ignore - game is global in Foundry
 declare const game: any;
 
@@ -135,14 +147,36 @@ export async function addRodsAndStaffToActor(
   rods: RodRecommendation[],
   staff: StaffRecommendation | null,
   identifyItems: boolean = true
-): Promise<void> {
+): Promise<ItemCreateResult> {
   console.log('\n=== ADDING RODS AND STAFF ===');
+
+  const createdIds: string[] = [];
+  let createdCost = 0;
+  const failed: ItemCreateFailure[] = [];
   
   // Add rods
   if (rods.length > 0) {
     console.log(`Adding ${rods.length} metamagic rod(s)...`);
     for (const rodRec of rods) {
-      await createMetamagicRod(actor, rodRec.rod, identifyItems);
+      try {
+        const createdRod = await createMetamagicRod(actor, rodRec.rod, identifyItems);
+        if (createdRod?.id) {
+          createdIds.push(createdRod.id);
+          createdCost += rodRec.rod.price;
+        } else {
+          failed.push({
+            name: rodRec.rod.name,
+            reason: 'create_failed',
+            plannedCost: rodRec.rod.price,
+          });
+        }
+      } catch (error: any) {
+        failed.push({
+          name: rodRec.rod.name,
+          reason: String(error?.message || error || 'create_failed'),
+          plannedCost: rodRec.rod.price,
+        });
+      }
     }
   } else {
     console.log('No metamagic rods to add');
@@ -151,7 +185,27 @@ export async function addRodsAndStaffToActor(
   // Add staff
   if (staff) {
     console.log(`Adding staff: ${staff.staff.name}...`);
-    const createdStaff = await createStaff(actor, staff.staff, identifyItems);
+    let createdStaff: any = null;
+
+    try {
+      createdStaff = await createStaff(actor, staff.staff, identifyItems);
+      if (createdStaff?.id) {
+        createdIds.push(createdStaff.id);
+        createdCost += staff.staff.price;
+      } else {
+        failed.push({
+          name: staff.staff.name,
+          reason: 'create_failed',
+          plannedCost: staff.staff.price,
+        });
+      }
+    } catch (error: any) {
+      failed.push({
+        name: staff.staff.name,
+        reason: String(error?.message || error || 'create_failed'),
+        plannedCost: staff.staff.price,
+      });
+    }
     
     // If we successfully added a magic staff, remove the mundane quarterstaff
     // The magic staff IS a quarterstaff (for combat purposes) but better!
@@ -163,6 +217,7 @@ export async function addRodsAndStaffToActor(
   }
   
   console.log('=== RODS AND STAFF COMPLETE ===\n');
+  return { createdIds, createdCost, failed };
 }
 
 /**

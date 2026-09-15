@@ -27,13 +27,49 @@
 .motwm-townie-maker .tabs {
   padding: 8px 16px;
   display: flex;
-  gap: 12px;
+  gap: 5px;
+  align-items: center;
 }
 
 .motwm-townie-maker .tabs .item {
-  padding: 6px 12px;
+  min-width: 0;
+  padding: 6px 8px;
   cursor: pointer;
   border-radius: 4px;
+  font-size: 12px;
+  white-space: nowrap;
+}
+
+.motwm-townie-maker .tabs .creation-step {
+  flex: 1 1 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 5px;
+}
+
+.motwm-townie-maker .step-number {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 20px;
+  height: 20px;
+  flex: 0 0 20px;
+  border: 1px solid currentColor;
+  border-radius: 50%;
+  font-size: 10px;
+  font-weight: 800;
+}
+
+.motwm-townie-maker .tabs .item.active .step-number {
+  color: white;
+  background: #44191a;
+  border-color: #44191a;
+}
+
+.motwm-townie-maker .tabs .settings-tab {
+  margin-left: 5px;
+  border-left: 1px solid rgba(0, 0, 0, 0.18);
 }
 
 /* ── Content area ── */
@@ -52,11 +88,15 @@
 }
 
 .motwm-townie-maker .template-card {
+  width: 100%;
+  min-height: 125px;
   border: 1px solid rgba(0, 0, 0, 0.2);
   border-radius: 8px;
   padding: 12px;
   cursor: pointer;
   transition: all 0.12s ease;
+  color: inherit;
+  background: rgba(255, 255, 255, 0.2);
 }
 
 .motwm-townie-maker .template-card:hover {
@@ -67,6 +107,94 @@
 .motwm-townie-maker .template-card.selected {
   border-color: #44191A;
   box-shadow: 0 0 4px rgba(68, 25, 26, 0.4);
+}
+
+.motwm-townie-maker button:focus-visible,
+.motwm-townie-maker .tabs .item:focus-visible {
+  outline: 2px solid #8b4a31;
+  outline-offset: 2px;
+}
+
+.motwm-townie-maker .template-detail-back {
+  width: auto;
+  margin-bottom: 10px;
+}
+
+.motwm-townie-maker .template-detail-header {
+  display: grid;
+  grid-template-columns: 58px minmax(0, 1fr);
+  gap: 12px;
+  align-items: center;
+  padding-bottom: 12px;
+  border-bottom: 2px groove #eeede0;
+}
+
+.motwm-townie-maker .template-detail-icon {
+  font-size: 38px;
+  text-align: center;
+  opacity: 0.8;
+}
+
+.motwm-townie-maker .template-detail-header h2 {
+  margin: 2px 0 3px;
+  font-size: 20px;
+  letter-spacing: 0;
+}
+
+.motwm-townie-maker .template-detail-header p {
+  margin: 0;
+  opacity: 0.72;
+}
+
+.motwm-townie-maker .template-applied {
+  color: #32632f;
+  font-size: 11px;
+  font-weight: 700;
+}
+
+.motwm-townie-maker .template-detail-sections {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0 18px;
+  margin-top: 8px;
+}
+
+.motwm-townie-maker .template-detail-section {
+  min-width: 0;
+  padding: 8px 0;
+  border-bottom: 1px solid rgba(0, 0, 0, 0.12);
+}
+
+.motwm-townie-maker .template-detail-section h3 {
+  margin: 0 0 6px;
+  font-size: 13px;
+  letter-spacing: 0;
+}
+
+.motwm-townie-maker .template-detail-section dl,
+.motwm-townie-maker .template-detail-section ul {
+  margin: 0;
+}
+
+.motwm-townie-maker .template-detail-section dl > div {
+  display: grid;
+  grid-template-columns: minmax(85px, 0.35fr) minmax(0, 1fr);
+  gap: 8px;
+  padding: 2px 0;
+}
+
+.motwm-townie-maker .template-detail-section dt {
+  font-weight: 700;
+}
+
+.motwm-townie-maker .template-detail-section dd {
+  min-width: 0;
+  margin: 0;
+  overflow-wrap: anywhere;
+}
+
+.motwm-townie-maker .template-detail-section li {
+  margin-bottom: 3px;
 }
 
 .motwm-townie-maker .template-card .icon {
@@ -136,11 +264,226 @@
   font-weight: 600;
 }
 
+.motwm-townie-maker .ability-methods {
+  display: grid;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  gap: 6px;
+  margin-bottom: 12px;
+}
+
+.motwm-townie-maker .ability-method {
+  min-height: 46px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 3px;
+  padding: 5px;
+  border: 1px solid rgba(68, 25, 26, 0.3);
+  border-radius: 4px;
+  font-size: 11px;
+  line-height: 1.15;
+}
+
+.motwm-townie-maker .ability-method.selected {
+  border-color: #44191a;
+  background: rgba(120, 46, 34, 0.18);
+  box-shadow: inset 0 0 0 1px rgba(68, 25, 26, 0.2);
+}
+
+.motwm-townie-maker .ability-buy-controls {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 12px;
+  padding: 8px;
+  border-left: 3px solid #78612e;
+  background: rgba(120, 97, 46, 0.1);
+}
+
+.motwm-townie-maker .ability-buy-controls select {
+  width: 110px;
+}
+
+.motwm-townie-maker .ability-buy-controls span,
+.motwm-townie-maker .ability-generation-note {
+  font-size: 11px;
+  opacity: 0.78;
+}
+
+.motwm-townie-maker .ability-workspace {
+  display: grid;
+  grid-template-columns: minmax(245px, 1fr) minmax(260px, 1fr);
+  gap: 14px;
+}
+
+.motwm-townie-maker .ability-priority-panel,
+.motwm-townie-maker .ability-score-panel {
+  min-width: 0;
+}
+
+.motwm-townie-maker .ability-panel-heading {
+  margin-bottom: 6px;
+  padding-bottom: 5px;
+  border-bottom: 1px solid rgba(0, 0, 0, 0.18);
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.motwm-townie-maker .ability-priority-list {
+  display: grid;
+  gap: 4px;
+}
+
+.motwm-townie-maker .ability-priority-row {
+  display: grid;
+  grid-template-columns: 24px minmax(90px, 1fr) 62px 88px;
+  align-items: center;
+  min-height: 34px;
+  padding: 3px 5px;
+  border-bottom: 1px solid rgba(0, 0, 0, 0.1);
+}
+
+.motwm-townie-maker .ability-priority-rank {
+  font-weight: 800;
+  opacity: 0.65;
+}
+
+.motwm-townie-maker .ability-pin {
+  color: #6f321f;
+  font-size: 11px;
+  font-weight: 700;
+}
+
+.motwm-townie-maker .ability-allocation-note {
+  font-size: 10px;
+  opacity: 0.68;
+}
+
+.motwm-townie-maker .ability-warnings {
+  margin-top: 8px;
+  padding: 7px 9px;
+  border-left: 3px solid #8a6427;
+  background: rgba(138, 100, 39, 0.1);
+  font-size: 11px;
+}
+
+.motwm-townie-maker .ability-priority-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 2px;
+}
+
+.motwm-townie-maker .ability-priority-actions button {
+  width: 27px;
+  min-width: 27px;
+  height: 27px;
+  padding: 0;
+}
+
+.motwm-townie-maker .ability-score-panel .abilities-grid {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.motwm-townie-maker .ability-input.pinned {
+  padding-left: 7px;
+  border-left: 3px solid #78612e;
+}
+
+.motwm-townie-maker .ability-generation-footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-top: 12px;
+  padding-top: 10px;
+  border-top: 1px solid rgba(0, 0, 0, 0.18);
+}
+
+.motwm-townie-maker .ability-generation-footer button {
+  width: auto;
+  min-width: 130px;
+}
+
+@media (max-width: 620px) {
+  .motwm-townie-maker .ability-methods {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+
+  .motwm-townie-maker .ability-workspace {
+    grid-template-columns: 1fr;
+  }
+}
+
 /* ── Buttons ── */
 .motwm-townie-maker .button-group {
   display: flex;
   gap: 8px;
   margin-top: 16px;
+}
+
+.motwm-townie-maker .wizard-footer {
+  display: grid;
+  grid-template-columns: 1fr 1fr 1fr;
+  align-items: center;
+  min-height: 58px;
+  padding: 10px 16px;
+  border-top: 1px solid var(--color-border-light-2, #2c2f3a);
+}
+
+.motwm-townie-maker .wizard-footer-slot {
+  display: flex;
+  min-width: 0;
+}
+
+.motwm-townie-maker .wizard-footer-center {
+  justify-content: center;
+}
+
+.motwm-townie-maker .wizard-footer-right {
+  justify-content: flex-end;
+}
+
+.motwm-townie-maker .wizard-footer button {
+  width: auto;
+  min-width: 105px;
+  max-width: 100%;
+  margin: 0;
+}
+
+.motwm-townie-maker .wizard-footer button[hidden] {
+  display: none;
+}
+
+@media (max-width: 620px) {
+  .motwm-townie-maker .tabs {
+    padding-inline: 8px;
+  }
+
+  .motwm-townie-maker .tabs .item {
+    padding-inline: 5px;
+    font-size: 10px;
+  }
+
+  .motwm-townie-maker .step-number {
+    width: 17px;
+    height: 17px;
+    flex-basis: 17px;
+  }
+
+  .motwm-townie-maker .template-detail-sections {
+    grid-template-columns: 1fr;
+  }
+
+  .motwm-townie-maker .wizard-footer {
+    padding-inline: 8px;
+  }
+
+  .motwm-townie-maker .wizard-footer button {
+    min-width: 88px;
+    padding-inline: 6px;
+    font-size: 11px;
+  }
 }
 
 /* ── Section headers ── */
@@ -150,6 +493,283 @@
   margin-bottom: 12px;
   padding-bottom: 8px;
   border-bottom: 2px groove #eeede0;
+}
+
+/* ── Wealth spending plan ── */
+.motwm-townie-maker .budget-intro {
+  margin-bottom: 10px;
+  color: var(--color-text-dark-2, #2d3038);
+  font-size: 12px;
+}
+
+.motwm-townie-maker .budget-presets {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(125px, 1fr));
+  gap: 6px;
+  margin-bottom: 12px;
+}
+
+.motwm-townie-maker .budget-preset {
+  min-height: 34px;
+  padding: 5px 8px;
+  border: 1px solid rgba(68, 25, 26, 0.35);
+  border-radius: 4px;
+  background: rgba(255, 255, 255, 0.35);
+  font-size: 11px;
+  line-height: 1.2;
+}
+
+.motwm-townie-maker .budget-preset.selected {
+  border-color: #44191a;
+  background: rgba(120, 46, 34, 0.18);
+  box-shadow: inset 0 0 0 1px rgba(68, 25, 26, 0.25);
+}
+
+.motwm-townie-maker .budget-ledger {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 1px;
+  overflow: hidden;
+  border: 1px solid rgba(0, 0, 0, 0.2);
+  border-radius: 4px;
+  background: rgba(0, 0, 0, 0.18);
+}
+
+.motwm-townie-maker .budget-ledger > div {
+  display: flex;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 7px 9px;
+  background: rgba(255, 255, 255, 0.58);
+}
+
+.motwm-townie-maker .budget-ledger__total {
+  color: #44191a;
+}
+
+.motwm-townie-maker .budget-advanced-toggle {
+  width: 100%;
+  margin-top: 8px;
+  min-height: 32px;
+}
+
+.motwm-townie-maker .budget-category-list {
+  margin-top: 8px;
+  border: 1px solid rgba(0, 0, 0, 0.2);
+  border-radius: 4px;
+  overflow-x: auto;
+}
+
+.motwm-townie-maker .budget-category-row input[type="number"] {
+  width: 58px;
+  text-align: right;
+}
+
+.motwm-townie-maker .budget-scale-section {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 14px;
+  margin-top: 8px;
+  padding: 9px 10px;
+  border-left: 3px solid #78612e;
+  background: rgba(120, 97, 46, 0.09);
+}
+
+.motwm-townie-maker .budget-scale-section > div,
+.motwm-townie-maker .budget-scale-section label {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.motwm-townie-maker .budget-scale-section > div span {
+  font-size: 10px;
+  opacity: 0.75;
+}
+
+.motwm-townie-maker .budget-scale-section label {
+  align-items: flex-end;
+  flex: 0 0 auto;
+  font-size: 11px;
+  font-weight: 700;
+}
+
+.motwm-townie-maker .budget-scale-section input,
+.motwm-townie-maker .budget-split-member input {
+  width: 58px;
+  text-align: right;
+}
+
+.motwm-townie-maker .budget-subheading {
+  display: flex;
+  justify-content: space-between;
+  gap: 10px;
+  margin-top: 12px;
+  padding-bottom: 5px;
+  border-bottom: 1px solid rgba(0, 0, 0, 0.18);
+  font-size: 12px;
+  font-weight: 800;
+}
+
+.motwm-townie-maker .budget-subheading span {
+  font-size: 10px;
+  font-weight: 400;
+  opacity: 0.72;
+  text-align: right;
+}
+
+.motwm-townie-maker .budget-split-groups {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+  margin-top: 8px;
+}
+
+.motwm-townie-maker .budget-split-group {
+  min-width: 0;
+  padding: 8px;
+  border: 1px solid rgba(0, 0, 0, 0.18);
+  border-radius: 4px;
+  background: rgba(255, 255, 255, 0.22);
+}
+
+.motwm-townie-maker .budget-split-group.incomplete {
+  border-color: rgba(138, 100, 39, 0.65);
+}
+
+.motwm-townie-maker .budget-split-group > header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 8px;
+  margin-bottom: 7px;
+}
+
+.motwm-townie-maker .budget-split-group > header > div:first-child {
+  display: flex;
+  flex-direction: column;
+}
+
+.motwm-townie-maker .budget-split-group > header span {
+  font-size: 9px;
+  opacity: 0.7;
+}
+
+.motwm-townie-maker .budget-split-total {
+  flex: 0 0 auto;
+  color: #32632f;
+  font-size: 10px;
+  font-weight: 800;
+  text-align: right;
+}
+
+.motwm-townie-maker .budget-split-total.invalid {
+  color: #8a6427;
+}
+
+.motwm-townie-maker .budget-split-total span {
+  display: block;
+}
+
+.motwm-townie-maker .budget-split-members {
+  display: grid;
+  gap: 5px;
+}
+
+.motwm-townie-maker .budget-split-member {
+  display: grid;
+  grid-template-columns: minmax(90px, 1fr) auto;
+  align-items: center;
+  gap: 5px 8px;
+  font-size: 11px;
+}
+
+.motwm-townie-maker .budget-split-input {
+  white-space: nowrap;
+}
+
+.motwm-townie-maker .budget-split-member small {
+  grid-column: 1 / -1;
+  color: #9d241c;
+  line-height: 1.2;
+}
+
+.motwm-townie-maker .budget-split-member.invalid input {
+  color: #9d241c;
+  border-color: #b62d22;
+  background: rgba(182, 45, 34, 0.09);
+  box-shadow: inset 0 0 0 1px rgba(182, 45, 34, 0.2);
+}
+
+.motwm-townie-maker .budget-overall-heading {
+  margin-top: 14px;
+}
+
+.motwm-townie-maker .budget-category-list__header,
+.motwm-townie-maker .budget-category-row {
+  display: grid;
+  grid-template-columns: 30px 58px minmax(105px, 1fr) 74px 92px 72px 80px;
+  gap: 8px;
+  align-items: center;
+  min-height: 32px;
+  min-width: 650px;
+  padding: 5px 8px;
+}
+
+.motwm-townie-maker .budget-priority-controls {
+  display: flex;
+  gap: 2px;
+}
+
+.motwm-townie-maker .budget-priority-controls button {
+  width: 26px;
+  min-width: 26px;
+  height: 25px;
+  padding: 0;
+}
+
+.motwm-townie-maker .budget-category-list__header {
+  background: rgba(68, 25, 26, 0.13);
+  font-size: 10px;
+  font-weight: 700;
+  text-transform: uppercase;
+}
+
+.motwm-townie-maker .budget-category-row + .budget-category-row {
+  border-top: 1px solid rgba(0, 0, 0, 0.12);
+}
+
+.motwm-townie-maker .budget-rollover-note {
+  margin: 7px 2px 0;
+  font-size: 11px;
+  color: var(--color-text-dark-2, #2d3038);
+}
+
+@media (max-width: 560px) {
+  .motwm-townie-maker .budget-ledger {
+    grid-template-columns: 1fr;
+  }
+
+  .motwm-townie-maker .budget-category-list__header,
+  .motwm-townie-maker .budget-category-row {
+    grid-template-columns: 26px 54px minmax(90px, 1fr) 68px 84px 68px 72px;
+    gap: 5px;
+  }
+
+  .motwm-townie-maker .budget-split-groups {
+    grid-template-columns: 1fr;
+  }
+
+  .motwm-townie-maker .budget-scale-section,
+  .motwm-townie-maker .budget-subheading {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+
+  .motwm-townie-maker .budget-subheading span {
+    text-align: left;
+  }
 }
 
 /* ── Template load error panel ── */

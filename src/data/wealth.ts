@@ -1,6 +1,7 @@
 /**
  * Character Wealth by Level
- * Source: D&D 3.5e SRD - Experience and Level-Dependent Benefits
+ * Source: D&D 3.5 Dungeon Master's Guide wealth guidance.
+ * These wealth-by-level tables are not part of the Open Game Content SRD.
  */
 
 // PC Character wealth by level (in gold pieces)

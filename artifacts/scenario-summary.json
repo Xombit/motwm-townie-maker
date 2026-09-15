@@ -1,0 +1,14 @@
+{
+  "totalScenarios": 9,
+  "passedScenarios": 9,
+  "failedScenarios": 0,
+  "totalChecks": 64,
+  "passedChecks": 64,
+  "failedChecks": 0,
+  "failureRate": 0,
+  "failuresByVersion": {
+    "v11": 0,
+    "v14": 0
+  },
+  "failingScenarios": []
+}

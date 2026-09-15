@@ -62,7 +62,15 @@ export interface SpellSlots {
 /**
  * Caster class types
  */
-export type CasterClass = 'wizard' | 'sorcerer' | 'cleric' | 'druid' | 'bard' | 'paladin' | 'ranger';
+export type CasterClass = 'wizard' | 'sorcerer' | 'cleric' | 'druid' | 'bard' | 'paladin' | 'ranger' | 'adept';
+
+export function normalizeSpellClassName(characterClass: string): string {
+  return (characterClass || '')
+    .toLowerCase()
+    .trim()
+    .replace(/\s+/g, ' ')
+    .replace(/\s*\((npc|npc class)\)$/i, '');
+}
 
 /**
  * Spell school types
@@ -81,17 +89,18 @@ export type SpellSchool =
  * Main spell selection function - routes to class-specific selector
  */
 export async function selectSpells(
-  characterClass: CasterClass,
+  characterClass: string,
   level: number,
   abilityScores: { int: number; wis: number; cha: number }
 ): Promise<SpellSelection | null> {
+  const classLower = normalizeSpellClassName(characterClass);
+
   // Only casters get spells
-  if (!isCasterClass(characterClass)) {
+  if (!isCasterClass(classLower)) {
     return null;
   }
   
   // Paladin and Ranger start casting at level 4
-  const classLower = characterClass.toLowerCase();
   if ((classLower === 'paladin' || classLower === 'ranger') && level < 4) {
     return null;
   }
@@ -109,6 +118,11 @@ export async function selectSpells(
     case 'cleric':
       const { selectClericSpells } = await import('./cleric-spells');
       return selectClericSpells(level, abilityScores.wis);
+
+    case 'adept':
+      // Adepts are prepared divine casters; reuse cleric priorities/slots as baseline support.
+      const { selectClericSpells: selectAdeptSpells } = await import('./cleric-spells');
+      return selectAdeptSpells(level, abilityScores.wis);
       
     case 'druid':
       const { selectDruidSpells } = await import('./druid-spells');
@@ -135,8 +149,8 @@ export async function selectSpells(
  * Check if a class is a spellcaster
  */
 export function isCasterClass(characterClass: string): boolean {
-  const casters: CasterClass[] = ['wizard', 'sorcerer', 'cleric', 'druid', 'bard', 'paladin', 'ranger'];
-  return casters.includes(characterClass.toLowerCase() as CasterClass);
+  const casters: CasterClass[] = ['wizard', 'sorcerer', 'cleric', 'druid', 'bard', 'paladin', 'ranger', 'adept'];
+  return casters.includes(normalizeSpellClassName(characterClass) as CasterClass);
 }
 
 /**

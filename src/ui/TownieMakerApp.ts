@@ -14,23 +14,65 @@ import {
   WealthTier,
 } from "../data/cr-calculation";
 import { SRD_LOOT_PROFILES } from "../data/srd-treasure-profiles";
+import { parseBudgetPercentToDecimal, parseIntegerWithFallback } from "./form-parsing";
+import { buildCreationPipelinePlan } from "./pipeline-plan";
+import { budgetModeToFlags, deriveBudgetModeFromFlags, normalizeBudgetMode, type BudgetMode } from "./budget-mode";
+import {
+  BASIS_POINTS_TOTAL,
+  SPENDING_SPLIT_GROUPS,
+  clampSplitGroupEdit,
+  createDefaultSpendingPlanConfig,
+  resolveSpendingPlan,
+  type SpendingPlanConfig,
+  type SpendingCategory,
+  type SpendingPresetId,
+  type SpendingSplitGroupKey,
+  type SpendingSplitKey,
+} from "../data/spending-plan";
+import {
+  ABILITY_KEYS,
+  POINT_BUY_BUDGETS,
+  STANDARD_ARRAY,
+  assignRollPool,
+  generateAbilityScores,
+  normalizeAbilityPins,
+  normalizeAbilityPriority,
+  splitPointBuyBudget,
+  type AbilityGenerationMethod,
+  type AbilityKey,
+} from "../data/ability-generation";
+import { buildTemplateDetailView } from "./template-detail-view";
+import {
+  buildWizardFooterState,
+  isCreationTab,
+  nextCreationTab,
+  previousCreationTab,
+  type CreationTab,
+  type PrimaryTab,
+} from "./wizard-flow";
 
 // Temporary kill-switch for SRD loot generation while upstream D35E treasure output is unstable.
 const SRD_LOOT_FEATURE_ENABLED = false;
 
-// Module-level storage for Config tab settings that persists between app opens
+// Module-level storage for Equipment and Settings values that persists between app opens
 // This resets on page reload but persists during the session
 let persistedConfigSettings: {
   useStandardBudget?: boolean;
   useNpcWealth?: boolean;
+  budgetMode?: BudgetMode;
   includeLootPacks?: boolean;
   lootProfile?: "standard" | "none" | "double_goods_items" | "percent_goods_items_50";
   usePcSheet?: boolean;
   useMaxHpPerHD?: boolean;
   identifyItems?: boolean;
   extraMoneyInBank?: boolean;
+  reserveGoldPercent?: number;
+  keepPocketChange?: boolean;
   bankName?: string;
   tokenDisposition?: number;  // -1 = Hostile, 0 = Neutral, 1 = Friendly
+  spendingPlan?: SpendingPlanConfig;
+  abilityGenerationMethod?: AbilityGenerationMethod;
+  abilityPointBuyBudget?: number;
   magicItemBudgets?: {
     shieldPercent?: number;
     armorPercent?: number;
@@ -48,11 +90,26 @@ export class TownieMakerApp extends Application {
   private lastLoadingStepText: string | null = null;
   private formData: Partial<TownieFormData> = {
     magicItemBudgets: {}, // Initialize budget object
+    budgetMode: "standardBudget",
     useStandardBudget: true, // Default to standard adventurer budget
+    useNpcWealth: false,
     lootProfile: "standard", // Default SRD profile
     usePcSheet: true, // Default to PC sheet
-    useMaxHpPerHD: false // Default to rolling HP
+    useMaxHpPerHD: false, // Default to rolling HP
+    reserveGoldPercent: 0,
+    keepPocketChange: true,
+    spendingPlan: createDefaultSpendingPlanConfig(),
+    abilityPriority: [...ABILITY_KEYS],
+    abilityPins: {},
+    abilityRollPool: []
   };
+  private showAdvancedSpendingPlan = false;
+  private resolvedSpendingPriority: SpendingCategory[] = [];
+  private spendingSplitDraft: Partial<Record<SpendingSplitKey, number>> | null = null;
+  private splitClampFeedback: { group: SpendingSplitGroupKey; key: SpendingSplitKey; message: string } | null = null;
+  private activePrimaryTab: PrimaryTab = 'template';
+  private lastCreationTab: CreationTab = 'template';
+  private templateView: 'gallery' | 'details' = 'gallery';
   private availableRaces: Array<{ id: string; name: string }> = [];
   private availableClasses: Array<{ id: string; name: string }> = [];
 
@@ -127,11 +184,13 @@ export class TownieMakerApp extends Application {
     // Load persisted Config settings if available (first open after page load)
     if (persistedConfigSettings) {
       // Only restore config settings if they haven't been overwritten by template selection
-      if (this.formData.useStandardBudget === undefined || !this.selectedTemplate) {
-        this.formData.useStandardBudget = persistedConfigSettings.useStandardBudget ?? true;
-      }
-      if (this.formData.useNpcWealth === undefined || !this.selectedTemplate) {
-        this.formData.useNpcWealth = persistedConfigSettings.useNpcWealth ?? false;
+      if (this.formData.budgetMode === undefined || !this.selectedTemplate) {
+        this.applyBudgetMode(
+          normalizeBudgetMode(
+            persistedConfigSettings.budgetMode,
+            deriveBudgetModeFromFlags(persistedConfigSettings.useStandardBudget, persistedConfigSettings.useNpcWealth)
+          )
+        );
       }
       if (this.formData.includeLootPacks === undefined || !this.selectedTemplate) {
         this.formData.includeLootPacks = persistedConfigSettings.includeLootPacks ?? false;
@@ -143,6 +202,7 @@ export class TownieMakerApp extends Application {
       if (!SRD_LOOT_FEATURE_ENABLED) {
         this.formData.includeLootPacks = false;
       }
+      this.syncBudgetModeState();
       if (this.formData.usePcSheet === undefined || !this.selectedTemplate) {
         this.formData.usePcSheet = persistedConfigSettings.usePcSheet ?? true;
       }
@@ -155,6 +215,12 @@ export class TownieMakerApp extends Application {
       if (this.formData.extraMoneyInBank === undefined || !this.selectedTemplate) {
         this.formData.extraMoneyInBank = persistedConfigSettings.extraMoneyInBank ?? true;
       }
+      if (this.formData.reserveGoldPercent === undefined || !this.selectedTemplate) {
+        this.formData.reserveGoldPercent = persistedConfigSettings.reserveGoldPercent ?? 0;
+      }
+      if (this.formData.keepPocketChange === undefined || !this.selectedTemplate) {
+        this.formData.keepPocketChange = persistedConfigSettings.keepPocketChange ?? true;
+      }
       if (this.formData.bankName === undefined || !this.selectedTemplate) {
         this.formData.bankName = persistedConfigSettings.bankName ?? "The First Bank of Lower Everbrook";
       }
@@ -164,6 +230,11 @@ export class TownieMakerApp extends Application {
       if (!this.formData.magicItemBudgets || Object.keys(this.formData.magicItemBudgets).length === 0) {
         this.formData.magicItemBudgets = persistedConfigSettings.magicItemBudgets || {};
       }
+      if (!this.formData.spendingPlan && persistedConfigSettings.spendingPlan) {
+        this.formData.spendingPlan = structuredClone(persistedConfigSettings.spendingPlan);
+      }
+      this.formData.abilityGenerationMethod ??= persistedConfigSettings.abilityGenerationMethod;
+      this.formData.abilityPointBuyBudget ??= persistedConfigSettings.abilityPointBuyBudget;
     } else {
       // Initialize usePcSheet from settings if not already set
       if (this.formData.usePcSheet === undefined) {
@@ -176,6 +247,12 @@ export class TownieMakerApp extends Application {
       }
       if (this.formData.extraMoneyInBank === undefined) {
         this.formData.extraMoneyInBank = true;
+      }
+      if (this.formData.reserveGoldPercent === undefined) {
+        this.formData.reserveGoldPercent = 0;
+      }
+      if (this.formData.keepPocketChange === undefined) {
+        this.formData.keepPocketChange = true;
       }
       if (this.formData.bankName === undefined) {
         this.formData.bankName = "The First Bank of Lower Everbrook";
@@ -190,23 +267,66 @@ export class TownieMakerApp extends Application {
       if (!SRD_LOOT_FEATURE_ENABLED) {
         this.formData.includeLootPacks = false;
       }
+      this.syncBudgetModeState();
     }
 
     const settings = {
       defaultActorType: game.settings.get("motwm-townie-maker", "defaultActorType"),
       autoRollHP: game.settings.get("motwm-townie-maker", "autoRollHP"),
       abilityScoreMethod: game.settings.get("motwm-townie-maker", "abilityScoreMethod"),
+      defaultPointBuyBudget: game.settings.get("motwm-townie-maker", "defaultPointBuyBudget"),
       defaultFolder: game.settings.get("motwm-townie-maker", "defaultFolder")
     };
 
+    if (!this.formData.abilityGenerationMethod) {
+      this.formData.abilityGenerationMethod = this.normalizeAbilityGenerationMethod(settings.abilityScoreMethod);
+    }
+    if (!Number.isFinite(this.formData.abilityPointBuyBudget)) {
+      this.formData.abilityPointBuyBudget = Number(settings.defaultPointBuyBudget) || 15;
+    }
+    this.formData.abilityPriority = normalizeAbilityPriority(
+      this.formData.abilityPriority,
+      this.selectedTemplate?.primaryAbility,
+    );
+
     // Ability scores with labels
     const abilities = [
-      { key: "str", label: "Strength", value: this.formData.abilities?.str ?? 10 },
-      { key: "dex", label: "Dexterity", value: this.formData.abilities?.dex ?? 10 },
-      { key: "con", label: "Constitution", value: this.formData.abilities?.con ?? 10 },
-      { key: "int", label: "Intelligence", value: this.formData.abilities?.int ?? 10 },
-      { key: "wis", label: "Wisdom", value: this.formData.abilities?.wis ?? 10 },
-      { key: "cha", label: "Charisma", value: this.formData.abilities?.cha ?? 10 }
+      { key: "str", label: "Strength", value: this.formData.abilities?.str ?? 10, pinned: this.formData.abilityPins?.str !== undefined },
+      { key: "dex", label: "Dexterity", value: this.formData.abilities?.dex ?? 10, pinned: this.formData.abilityPins?.dex !== undefined },
+      { key: "con", label: "Constitution", value: this.formData.abilities?.con ?? 10, pinned: this.formData.abilityPins?.con !== undefined },
+      { key: "int", label: "Intelligence", value: this.formData.abilities?.int ?? 10, pinned: this.formData.abilityPins?.int !== undefined },
+      { key: "wis", label: "Wisdom", value: this.formData.abilities?.wis ?? 10, pinned: this.formData.abilityPins?.wis !== undefined },
+      { key: "cha", label: "Charisma", value: this.formData.abilities?.cha ?? 10, pinned: this.formData.abilityPins?.cha !== undefined }
+    ];
+    const abilityLabels: Record<AbilityKey, string> = {
+      str: 'Strength', dex: 'Dexterity', con: 'Constitution',
+      int: 'Intelligence', wis: 'Wisdom', cha: 'Charisma',
+    };
+    const pointShares = splitPointBuyBudget(this.formData.abilityPointBuyBudget ?? 15, this.formData.abilityPriority);
+    const abilityPriorityRows = this.formData.abilityPriority.map((key, index) => {
+      const pinnedValue = this.formData.abilityPins?.[key];
+      const allocationNote = pinnedValue !== undefined
+        ? `Pinned ${pinnedValue}`
+        : this.formData.abilityGenerationMethod === 'pointBuy'
+          ? `${pointShares[key]} pts`
+          : this.formData.abilityGenerationMethod === 'standardArray'
+            ? `Array ${STANDARD_ARRAY[index]}`
+            : '';
+      return {
+        key,
+        label: abilityLabels[key],
+        rank: index + 1,
+        pinned: pinnedValue !== undefined,
+        pinnedValue,
+        allocationNote,
+      };
+    });
+    const abilityMethods = [
+      { id: 'manual', label: 'Manual', icon: 'fas fa-pen', selected: this.formData.abilityGenerationMethod === 'manual' },
+      { id: 'standardArray', label: 'Standard Array', icon: 'fas fa-list-ol', selected: this.formData.abilityGenerationMethod === 'standardArray' },
+      { id: 'pointBuy', label: 'Auto Buy', icon: 'fas fa-coins', selected: this.formData.abilityGenerationMethod === 'pointBuy' },
+      { id: 'roll3d6', label: '3d6', icon: 'fas fa-dice', selected: this.formData.abilityGenerationMethod === 'roll3d6' },
+      { id: 'roll4d6DropLowest', label: '4d6 Drop Lowest', icon: 'fas fa-dice-d20', selected: this.formData.abilityGenerationMethod === 'roll4d6DropLowest' },
     ];
 
     // Get default budgets
@@ -231,21 +351,18 @@ export class TownieMakerApp extends Application {
         : defaultBudgets.amuletPercent
     };
 
-    // Calculate wealth and magic budget for display
-    let totalWealth = 0;
-    let magicBudget = 0;
+    // Resolve the same spending plan used by generation for the live preview.
     let budgetInfo = null;
     
     if (this.formData.classLevel && this.formData.className) {
       // Import wealth calculation (dynamic to avoid circular deps)
       const { getWealthForLevel } = await import('../data/wealth');
       const { calculateKitCost } = await import('../data/equipment-resolver');
-      const { MAGIC_ITEM_BUDGET_ALLOCATION, getClassType } = await import('../data/magic-item-system');
       
       const level = this.formData.classLevel;
       const className = this.formData.className;
       
-      totalWealth = getWealthForLevel(level, className, this.formData.useNpcWealth);
+      const totalWealth = getWealthForLevel(level, className, this.getBudgetMode() === "npcWealth");
       
       // Calculate mundane equipment cost if template has starting kit
       let mundaneCost = 0;
@@ -256,87 +373,159 @@ export class TownieMakerApp extends Application {
       // Display and budget math are in whole GP; ignore silver/copper-level precision.
       mundaneCost = Math.round(mundaneCost);
       
-      magicBudget = Math.max(0, totalWealth - mundaneCost);
+      const currentPlan = this.formData.spendingPlan ?? createDefaultSpendingPlanConfig(this.getBudgetMode());
+      const planConfig: SpendingPlanConfig = {
+        ...currentPlan,
+        wealth: {
+          ...currentPlan.wealth,
+          mode: this.getBudgetMode(),
+          reservePercent: this.formData.reserveGoldPercent ?? currentPlan.wealth.reservePercent,
+        },
+      };
+      this.formData.spendingPlan = planConfig;
+      const resolvedPlan = resolveSpendingPlan({
+        level,
+        className,
+        hasShield: !!this.selectedTemplate?.startingKit?.shield,
+        totalWealthGp: totalWealth,
+        mundaneCostGp: mundaneCost,
+        config: planConfig,
+        legacyMagicItemBudgets: this.formData.magicItemBudgets,
+      });
+      const casterFocused = ['pureCaster', 'clericCaster', 'druidCaster'].includes(resolvedPlan.profile);
+      const categoryLabels: Record<string, string> = {
+        weapon: casterFocused ? 'Backup Weapon' : 'Weapon',
+        armor: 'Armor & Shield',
+        abilityItem: 'Ability Item',
+        resistance: 'Save Resistance',
+        protection: 'AC Protection',
+        consumables: 'Consumables',
+        rodsStaves: casterFocused ? 'Caster Implements (Staffs & Rods)' : 'Rods & Staves',
+        mightyFists: 'Mighty Fists',
+      };
+      const categories = Object.values(resolvedPlan.categories)
+        .filter(category => category.applicable)
+        .sort((left, right) => left.priority - right.priority)
+        .map(category => ({
+          ...category,
+          label: categoryLabels[category.key],
+          percent: (category.shareBasisPoints / 100).toFixed(2).replace(/\.00$/, ''),
+          maxPercent: (category.maxShareBasisPoints / 100).toFixed(2).replace(/\.00$/, ''),
+          priorityDisplay: category.priority + 1,
+          itemLimit: category.itemLimit,
+        }));
+      this.resolvedSpendingPriority = categories.filter(category => category.enabled).map(category => category.key);
       
-      // Determine class type for budget allocation
-      const classType = getClassType(className);
-      const normalizedClassLower = className.toLowerCase();
-      const isPaladinOrRanger = normalizedClassLower === 'paladin' || normalizedClassLower === 'ranger';
-      const budgetAllocation = isPaladinOrRanger 
-        ? MAGIC_ITEM_BUDGET_ALLOCATION.partialCasterMartial
-        : (classType === 'martial' ? MAGIC_ITEM_BUDGET_ALLOCATION.martial : MAGIC_ITEM_BUDGET_ALLOCATION.caster);
-      
-      // Calculate parent budget categories
-      const weaponBudgetTotal = Math.floor(magicBudget * budgetAllocation.weapon);
-      const armorBudgetTotal = Math.floor(magicBudget * budgetAllocation.armor);
-      const protectionBudgetTotal = Math.floor(magicBudget * budgetAllocation.protection);
-      
-      // Calculate GP values for each sub-category (percentages of parent budgets)
-      const shieldGP = Math.round(armorBudgetTotal * (magicItemBudgets.shieldPercent / 100));
-      const armorGP = Math.round(armorBudgetTotal * (magicItemBudgets.armorPercent / 100));
-      const secondaryWeaponGP = Math.round(weaponBudgetTotal * (magicItemBudgets.secondaryWeaponPercent / 100));
-      const ringGP = Math.round(protectionBudgetTotal * (magicItemBudgets.ringPercent / 100));
-      const amuletGP = Math.round(protectionBudgetTotal * (magicItemBudgets.amuletPercent / 100));
+      const resolvedSplits = resolvedPlan.splits as Record<SpendingSplitKey, number>;
+      if (!this.spendingSplitDraft) this.spendingSplitDraft = { ...resolvedSplits };
+      const splitValues = { ...resolvedSplits, ...this.spendingSplitDraft } as Record<SpendingSplitKey, number>;
+      const protectionOtherLabel = resolvedPlan.profile === 'monk'
+        ? 'Bracers'
+        : resolvedPlan.profile === 'pureCaster'
+          ? 'Amulet & Bracers'
+          : 'Other Protection';
+      const splitLabels: Record<SpendingSplitKey, string> = {
+        primaryWeaponBasisPoints: casterFocused ? 'Backup Weapon' : 'Primary Weapon',
+        secondaryWeaponBasisPoints: 'Secondary Weapon',
+        armorBasisPoints: 'Armor',
+        shieldBasisPoints: 'Shield',
+        ringBasisPoints: 'Ring',
+        otherProtectionBasisPoints: protectionOtherLabel,
+        wandsBasisPoints: 'Wands',
+        scrollsBasisPoints: 'Scrolls',
+        potionsBasisPoints: 'Potions',
+      };
+      const splitGroupLabels: Record<SpendingSplitGroupKey, { label: string; parent: string }> = {
+        weapon: { label: casterFocused ? 'Backup Weapon Mix' : 'Weapon Mix', parent: casterFocused ? 'Backup Weapon category' : 'Weapon category' },
+        armor: { label: 'Armor Mix', parent: 'Armor & Shield category' },
+        protection: { label: 'Protection Mix', parent: 'AC Protection category' },
+        consumables: { label: 'Consumables Mix', parent: 'Consumables category' },
+      };
+      const splitGroups = (Object.keys(SPENDING_SPLIT_GROUPS) as SpendingSplitGroupKey[])
+        .filter(group => group === 'protection' || group === 'consumables' || resolvedPlan.categories[group].applicable)
+        .map(group => {
+        const keys = SPENDING_SPLIT_GROUPS[group] as readonly SpendingSplitKey[];
+        const totalBasisPoints = keys.reduce((sum, key) => sum + (splitValues[key] ?? 0), 0);
+        return {
+          key: group,
+          ...splitGroupLabels[group],
+          totalPercent: totalBasisPoints / 100,
+          remainingPercent: Math.max(0, BASIS_POINTS_TOTAL - totalBasisPoints) / 100,
+          valid: totalBasisPoints === BASIS_POINTS_TOTAL,
+          members: keys.map(key => {
+            const otherTotal = keys.filter(other => other !== key).reduce((sum, other) => sum + (splitValues[other] ?? 0), 0);
+            const feedback = this.splitClampFeedback?.group === group && this.splitClampFeedback.key === key
+              ? this.splitClampFeedback
+              : null;
+            return {
+              key,
+              label: splitLabels[key],
+              percent: (splitValues[key] ?? 0) / 100,
+              maxPercent: Math.max(0, BASIS_POINTS_TOTAL - otherTotal) / 100,
+              invalid: feedback !== null,
+              message: feedback?.message,
+            };
+          }),
+        };
+      });
+      const overallCategoryTotal = categories.reduce((sum, category) => sum + category.shareBasisPoints, 0) / 100;
 
-      // These sliders are SUB-allocations within each parent budget category.
-      // Show allocated/unallocated per-category (summing across categories is not meaningful).
-      const armorAllocatedPercent = magicItemBudgets.shieldPercent + magicItemBudgets.armorPercent;
-      const armorUnallocatedPercent = Math.max(0, 100 - armorAllocatedPercent);
-
-      const weaponPrimaryPercent = 50;
-      const weaponAllocatedPercent = weaponPrimaryPercent + magicItemBudgets.secondaryWeaponPercent;
-      const weaponUnallocatedPercent = Math.max(0, 100 - weaponAllocatedPercent);
-      const weaponPrimaryGP = Math.round(weaponBudgetTotal * (weaponPrimaryPercent / 100));
-
-      const protectionAllocatedPercent = magicItemBudgets.ringPercent + magicItemBudgets.amuletPercent;
-      const protectionUnallocatedPercent = Math.max(0, 100 - protectionAllocatedPercent);
-
-      // Calculate unallocated GP from each parent budget
-      const armorUnallocatedGP = Math.max(0, armorBudgetTotal - shieldGP - armorGP);
-      const weaponUnallocatedGP = Math.max(0, weaponBudgetTotal - weaponPrimaryGP - secondaryWeaponGP);
-      const protectionUnallocatedGP = Math.max(0, protectionBudgetTotal - ringGP - amuletGP);
-      const unallocatedGP = armorUnallocatedGP + weaponUnallocatedGP + protectionUnallocatedGP;
-      
       budgetInfo = {
-        totalWealth,
-        mundaneCost,
-        magicBudget,
-        weaponBudgetTotal,
-        armorBudgetTotal,
-        protectionBudgetTotal,
-        weaponPrimaryPercent,
-        weaponPrimaryGP,
-        shieldGP,
-        armorGP,
-        secondaryWeaponGP,
-        ringGP,
-        amuletGP,
-        armorAllocatedPercent,
-        armorUnallocatedPercent,
-        weaponAllocatedPercent,
-        weaponUnallocatedPercent,
-        protectionAllocatedPercent,
-        protectionUnallocatedPercent,
-        armorUnallocatedGP,
-        weaponUnallocatedGP,
-        protectionUnallocatedGP,
-        unallocatedGP
+        totalWealth: resolvedPlan.totalWealthGp,
+        mundaneCost: resolvedPlan.mundaneCostGp,
+        grossMagicBudget: resolvedPlan.grossMagicBudgetGp,
+        reservedGp: resolvedPlan.reservedGp,
+        spendableGp: resolvedPlan.spendableGp,
+        profile: resolvedPlan.profile,
+        preset: resolvedPlan.preset,
+        categories,
+        warnings: resolvedPlan.warnings,
+        showAdvanced: this.showAdvancedSpendingPlan,
+        multiplierPercent: resolvedPlan.wealth.multiplierPercent,
+        splitGroups,
+        overallCategoryTotal,
+        categoryHeading: casterFocused ? 'Overall Magic Budget (includes Backup Weapon and Caster Implements)' : 'Overall Magic Budget',
       };
     }
 
     return {
       templates: this.templates,
       selectedTemplate: this.selectedTemplate,
+      selectedTemplateDetail: this.selectedTemplate ? buildTemplateDetailView(this.selectedTemplate) : null,
+      showTemplateDetail: this.templateView === 'details' && this.selectedTemplate !== null,
       templateLoadError: this.templateLoadError,
       formData: {
         ...this.formData,
         magicItemBudgets
       },
       abilities,
+      abilityPriorityRows,
+      abilityMethods,
+      pointBuyBudgets: POINT_BUY_BUDGETS.map(value => ({
+        value,
+        selected: this.formData.abilityPointBuyBudget === value,
+      })),
+      isPointBuy: this.formData.abilityGenerationMethod === 'pointBuy',
+      isRollMethod: this.formData.abilityGenerationMethod === 'roll3d6'
+        || this.formData.abilityGenerationMethod === 'roll4d6DropLowest',
+      abilityRollPool: this.formData.abilityRollPool?.join(', '),
+      abilityWarnings: normalizeAbilityPins(this.formData.abilityPins).warnings,
       settings,
       races: this.availableRaces,
       classes: this.availableClasses,
       lootProfiles: SRD_LOOT_PROFILES,
+      spendingPresets: [
+        { id: 'classRecommended', label: 'Class Recommended', selected: this.formData.spendingPlan?.preset === 'classRecommended' },
+        { id: 'frontlineOffense', label: 'Frontline Offense', selected: this.formData.spendingPlan?.preset === 'frontlineOffense' },
+        { id: 'defensive', label: 'Defensive', selected: this.formData.spendingPlan?.preset === 'defensive' },
+        { id: 'spellcaster', label: 'Spellcaster', selected: this.formData.spendingPlan?.preset === 'spellcaster' },
+        { id: 'support', label: 'Consumables & Support', selected: this.formData.spendingPlan?.preset === 'support' },
+      ],
+      wizardFooter: buildWizardFooterState(
+        this.activePrimaryTab,
+        this.selectedTemplate !== null,
+        this.lastCreationTab,
+      ),
       budgetInfo
     };
   }
@@ -353,6 +542,39 @@ export class TownieMakerApp extends Application {
       this.selectTemplate(templateId);
     });
 
+    events.on("click", ".tabs [data-tab]", (ev) => {
+      const tab = ev.currentTarget.dataset.tab as PrimaryTab | undefined;
+      if (!tab) return;
+      this.activePrimaryTab = tab;
+      if (isCreationTab(tab)) this.lastCreationTab = tab;
+      setTimeout(() => this.updateWizardFooterDom(), 0);
+    });
+
+    events.on("click", "[data-action='template-gallery-back']", () => {
+      this.templateView = 'gallery';
+      this.renderAndRestoreTab();
+    });
+
+    events.on("click", "[data-action='wizard-back']", () => {
+      this.syncFormDataFromRenderedInputs();
+      const previous = isCreationTab(this.activePrimaryTab)
+        ? previousCreationTab(this.activePrimaryTab)
+        : null;
+      if (previous) this.navigateToTab(previous);
+    });
+
+    events.on("click", "[data-action='wizard-next']", () => {
+      this.syncFormDataFromRenderedInputs();
+      if (!this.validateWizardStep(this.activePrimaryTab)) return;
+      const next = isCreationTab(this.activePrimaryTab) ? nextCreationTab(this.activePrimaryTab) : null;
+      if (next) this.navigateToTab(next);
+    });
+
+    events.on("click", "[data-action='return-to-flow']", () => {
+      this.syncFormDataFromRenderedInputs();
+      this.navigateToTab(this.lastCreationTab);
+    });
+
     // Form inputs
     events.on("change", "[data-field]", (ev) => {
       const current = ev.currentTarget;
@@ -366,17 +588,32 @@ export class TownieMakerApp extends Application {
       }
 
       if (
-        field === "useStandardBudget" ||
         field === "usePcSheet" ||
         field === "useMaxHpPerHD" ||
-        field === "useNpcWealth" ||
         field === "includeLootPacks" ||
         field === "lootProfile" ||
         field === "identifyItems" ||
-        field === "extraMoneyInBank"
+        field === "extraMoneyInBank" ||
+        field === "keepPocketChange"
       ) {
         // @ts-ignore
         this.formData[field] = value;
+        this.persistConfigSettings();
+        this.render(false);
+        return;
+      }
+
+      if (field === "budgetMode") {
+        this.applyBudgetMode(value as BudgetMode);
+        this.persistConfigSettings();
+        this.render(false);
+        return;
+      }
+
+      if (field === "useStandardBudget" || field === "useNpcWealth") {
+        this.applyBudgetMode(field === "useStandardBudget"
+          ? (value ? "standardBudget" : "noBudget")
+          : (value ? "npcWealth" : "noBudget"));
         this.persistConfigSettings();
         this.render(false);
         return;
@@ -400,6 +637,15 @@ export class TownieMakerApp extends Application {
         }
       }
 
+      if (field === "reserveGoldPercent") {
+        value = parseIntegerWithFallback(value, this.formData.reserveGoldPercent ?? 0, 0, 100);
+        const currentPlan = this.formData.spendingPlan ?? createDefaultSpendingPlanConfig(this.getBudgetMode());
+        this.formData.spendingPlan = {
+          ...currentPlan,
+          wealth: { ...currentPlan.wealth, reservePercent: value },
+        };
+      }
+
       this.updateFormData(field, value);
 
       // Smart name regeneration based on what changed
@@ -409,8 +655,12 @@ export class TownieMakerApp extends Application {
       } else if (field === "gender" && this.formData.gender && this.formData.name) {
         this.regenerateFirstName();
         this.render(false);
-      } else if (field === "className" && this.formData.className && this.formData.race && this.formData.name) {
-        this.regenerateClassTitle();
+      } else if (field === "className") {
+        this.spendingSplitDraft = null;
+        this.splitClampFeedback = null;
+        if (this.formData.className && this.formData.race && this.formData.name) {
+          this.regenerateClassTitle();
+        }
         this.render(false);
       } else if (field === "classLevel") {
         this.render(false);
@@ -421,7 +671,8 @@ export class TownieMakerApp extends Application {
     events.on("change", "[data-ability]", (ev) => {
       const ability = ev.currentTarget.dataset.ability;
       if (!ability) return;
-      const value = parseInt(getElementValue(ev.currentTarget)) || 10;
+      const parsed = Number.parseInt(String(getElementValue(ev.currentTarget)), 10);
+      const value = Number.isFinite(parsed) ? parsed : 10;
       this.updateAbilityScore(ability, value);
     });
 
@@ -451,6 +702,104 @@ export class TownieMakerApp extends Application {
       console.log("Budget updated:", budgetField, this.formData.magicItemBudgets);
     });
 
+    events.on("click", "[data-action='select-spending-preset']", (ev) => {
+      const preset = ev.currentTarget.dataset.preset as SpendingPresetId | undefined;
+      if (!preset) return;
+      const current = this.formData.spendingPlan ?? createDefaultSpendingPlanConfig(this.getBudgetMode());
+      this.formData.spendingPlan = {
+        ...current,
+        preset,
+        categories: undefined,
+      };
+      this.spendingSplitDraft = null;
+      this.splitClampFeedback = null;
+      this.persistConfigSettings();
+      this.render(false);
+    });
+
+    events.on("click", "[data-action='toggle-advanced-spending']", () => {
+      this.showAdvancedSpendingPlan = !this.showAdvancedSpendingPlan;
+      this.render(false);
+    });
+
+    events.on("change", "[data-spending-share]", (ev) => {
+      const category = ev.currentTarget.dataset.spendingShare as SpendingCategory | undefined;
+      if (!category) return;
+      const percent = parseIntegerWithFallback(getElementValue(ev.currentTarget), 0, 0, 100);
+      this.updateSpendingCategory(category, { shareBasisPoints: percent * 100 });
+    });
+
+    events.on("change", "[data-spending-cap]", (ev) => {
+      const category = ev.currentTarget.dataset.spendingCap as SpendingCategory | undefined;
+      if (!category) return;
+      const percent = parseIntegerWithFallback(getElementValue(ev.currentTarget), 100, 0, 100);
+      this.updateSpendingCategory(category, { maxShareBasisPoints: percent * 100 });
+    });
+
+    events.on("change", "[data-spending-enabled]", (ev) => {
+      const category = ev.currentTarget.dataset.spendingEnabled as SpendingCategory | undefined;
+      if (!category) return;
+      this.updateSpendingCategory(category, { enabled: getElementChecked(ev.currentTarget) });
+    });
+
+    events.on("change", "[data-spending-item-limit]", (ev) => {
+      const category = ev.currentTarget.dataset.spendingItemLimit as SpendingCategory | undefined;
+      if (!category) return;
+      const raw = getElementValue(ev.currentTarget);
+      const itemLimit = raw === '' ? undefined : parseIntegerWithFallback(raw, 0, 0, 100);
+      this.updateSpendingCategory(category, { itemLimit });
+    });
+
+    events.on("click", "[data-action='move-spending-category']", (ev) => {
+      const category = ev.currentTarget.dataset.category as SpendingCategory | undefined;
+      const direction = ev.currentTarget.dataset.direction === 'up' ? -1 : 1;
+      if (!category) return;
+      const currentIndex = this.resolvedSpendingPriority.indexOf(category);
+      const targetIndex = currentIndex + direction;
+      if (currentIndex < 0 || targetIndex < 0 || targetIndex >= this.resolvedSpendingPriority.length) return;
+      const reordered = [...this.resolvedSpendingPriority];
+      [reordered[currentIndex], reordered[targetIndex]] = [reordered[targetIndex], reordered[currentIndex]];
+      reordered.forEach((key, priority) => this.updateSpendingCategory(key, { priority }, false));
+      this.persistConfigSettings();
+      this.render(false);
+    });
+
+    events.on("change", "[data-spending-multiplier]", (ev) => {
+      const multiplierPercent = parseIntegerWithFallback(getElementValue(ev.currentTarget), 100, 0, 200);
+      const current = this.formData.spendingPlan ?? createDefaultSpendingPlanConfig(this.getBudgetMode());
+      this.formData.spendingPlan = {
+        ...current,
+        wealth: { ...current.wealth, multiplierPercent },
+      };
+      this.persistConfigSettings();
+      this.render(false);
+    });
+
+    events.on("change", "[data-spending-split]", (ev) => {
+      const split = ev.currentTarget.dataset.spendingSplit as SpendingSplitKey | undefined;
+      const group = ev.currentTarget.dataset.spendingGroup as SpendingSplitGroupKey | undefined;
+      if (!split || !group) return;
+      const requestedPercent = Number.parseFloat(String(getElementValue(ev.currentTarget)));
+      const percent = Number.isFinite(requestedPercent) ? Math.min(100, Math.max(0, requestedPercent)) : 0;
+      const current = this.formData.spendingPlan ?? createDefaultSpendingPlanConfig(this.getBudgetMode());
+      const resolvedCurrent = this.spendingSplitDraft ?? current.splits ?? {};
+      const completeCurrent = Object.fromEntries(
+        Object.values(SPENDING_SPLIT_GROUPS).flat().map(key => [key, resolvedCurrent[key] ?? 0]),
+      ) as Record<SpendingSplitKey, number>;
+      const result = clampSplitGroupEdit(completeCurrent, group, split, Math.round(percent * 100));
+      this.spendingSplitDraft = result.values;
+      this.splitClampFeedback = result.clamped
+        ? {
+            group,
+            key: split,
+            message: `Clamped to ${result.acceptedBasisPoints / 100}%; the other items already use ${(BASIS_POINTS_TOTAL - result.maximumBasisPoints) / 100}%.`,
+          }
+        : null;
+      this.formData.spendingPlan = { ...current, splits: { ...result.values } };
+      this.persistConfigSettings();
+      this.render(false);
+    });
+
     // Reset budgets button - restore to current defaults
     events.on("click", "[data-action='reset-budgets']", () => {
       const defaults = this.getDefaultBudgets();
@@ -469,14 +818,62 @@ export class TownieMakerApp extends Application {
     });
 
     events.on("click", "[data-action='roll-abilities']", () => {
-      this.rollAbilityScores();
+      this.generateCurrentAbilityScores(true);
+    });
+
+    events.on("click", "[data-action='select-ability-method']", (ev) => {
+      const method = ev.currentTarget.dataset.method as AbilityGenerationMethod | undefined;
+      if (!method) return;
+      this.formData.abilityGenerationMethod = method;
+      this.persistConfigSettings();
+      if (method === 'manual') {
+        this.render(false);
+      } else {
+        this.generateCurrentAbilityScores(method === 'roll3d6' || method === 'roll4d6DropLowest');
+      }
+    });
+
+    events.on("change", "[data-ability-budget]", (ev) => {
+      this.formData.abilityPointBuyBudget = parseIntegerWithFallback(getElementValue(ev.currentTarget), 15, 0, 100);
+      this.persistConfigSettings();
+      if (this.formData.abilityGenerationMethod === 'pointBuy') this.generateCurrentAbilityScores(false);
+    });
+
+    events.on("click", "[data-action='move-ability-priority']", (ev) => {
+      const ability = ev.currentTarget.dataset.ability as AbilityKey | undefined;
+      const direction = ev.currentTarget.dataset.direction === 'up' ? -1 : 1;
+      if (!ability) return;
+      const priority = normalizeAbilityPriority(this.formData.abilityPriority);
+      const currentIndex = priority.indexOf(ability);
+      const targetIndex = currentIndex + direction;
+      if (currentIndex < 0 || targetIndex < 0 || targetIndex >= priority.length) return;
+      [priority[currentIndex], priority[targetIndex]] = [priority[targetIndex], priority[currentIndex]];
+      this.formData.abilityPriority = priority;
+      if (this.formData.abilityGenerationMethod === 'roll3d6'
+        || this.formData.abilityGenerationMethod === 'roll4d6DropLowest') {
+        this.formData.abilities = assignRollPool(
+          this.formData.abilityRollPool ?? [],
+          priority,
+          this.formData.abilityPins,
+        );
+        this.render(false);
+      } else {
+        this.generateCurrentAbilityScores(false);
+      }
+    });
+
+    events.on("click", "[data-action='unpin-ability']", (ev) => {
+      const ability = ev.currentTarget.dataset.ability as AbilityKey | undefined;
+      if (!ability || !this.formData.abilityPins) return;
+      delete this.formData.abilityPins[ability];
+      this.generateCurrentAbilityScores(false);
     });
 
     events.on("click", "[data-action='randomize-name']", () => {
       this.randomizeName();
     });
 
-    events.on("mousedown", "[data-action='create-npc']", (ev) => {
+    events.on("click", "[data-action='create-npc']", (ev) => {
       ev.preventDefault();
       this.createNPC();
     });
@@ -484,6 +881,8 @@ export class TownieMakerApp extends Application {
     events.on("click", "[data-action='cancel']", () => {
       this.close();
     });
+
+    setTimeout(() => this.activatePrimaryTab(this.activePrimaryTab), 0);
   }
 
   private selectTemplate(templateId: string): void {
@@ -492,11 +891,16 @@ export class TownieMakerApp extends Application {
     const scrollTop = templateTab?.scrollTop || 0;
     
     this.selectedTemplate = this.templates.find(t => t.id === templateId) || null;
+    this.templateView = this.selectedTemplate ? 'details' : 'gallery';
+    this.activePrimaryTab = 'template';
+    this.lastCreationTab = 'template';
     
     if (this.selectedTemplate) {
       // Pre-fill form with template data
       this.formData.race = this.selectedTemplate.race || "";
       this.formData.classes = this.selectedTemplate.classes || [];
+      this.formData.className = "";
+      this.formData.classLevel = 1;
       this.formData.alignment = this.selectedTemplate.alignment || "";
       
       // Set first class name and level from template
@@ -508,8 +912,19 @@ export class TownieMakerApp extends Application {
       
       // Apply ability score modifiers
       if (this.selectedTemplate.abilities) {
-        this.formData.abilities = { ...this.selectedTemplate.abilities } as any;
+        this.formData.abilityPins = { ...this.selectedTemplate.abilities };
+      } else {
+        this.formData.abilityPins = {};
       }
+      this.formData.abilityPriority = normalizeAbilityPriority(
+        this.selectedTemplate.abilityPriority,
+        this.selectedTemplate.primaryAbility,
+      );
+      this.generateCurrentAbilityScores(
+        this.formData.abilityGenerationMethod === 'roll3d6'
+          || this.formData.abilityGenerationMethod === 'roll4d6DropLowest',
+        false,
+      );
       
       // Load magic item budget overrides from template
       if (this.selectedTemplate.magicItemBudgets) {
@@ -517,13 +932,26 @@ export class TownieMakerApp extends Application {
       } else {
         this.formData.magicItemBudgets = {};
       }
+      this.formData.spendingPlan = this.selectedTemplate.spendingPlan
+        ? structuredClone(this.selectedTemplate.spendingPlan)
+        : createDefaultSpendingPlanConfig();
+      this.spendingSplitDraft = null;
+      this.splitClampFeedback = null;
       
-      // Load useStandardBudget from template (default to true if not specified)
-      this.formData.useStandardBudget = this.selectedTemplate.useStandardBudget !== false;
-      
-      // Auto-detect NPC wealth from class name
+      // A complete spending plan is canonical; legacy fields remain fallbacks.
       const primaryClassName = this.selectedTemplate.classes?.[0]?.name || '';
-      this.formData.useNpcWealth = primaryClassName.includes('(NPC)');
+      this.applyBudgetMode(
+        normalizeBudgetMode(
+          this.selectedTemplate.spendingPlan?.wealth.mode ?? this.selectedTemplate.budgetMode,
+          deriveBudgetModeFromFlags(
+            this.selectedTemplate.useStandardBudget !== false,
+            primaryClassName.includes('(NPC)')
+          )
+        )
+      );
+      this.formData.reserveGoldPercent = this.selectedTemplate.spendingPlan?.wealth.reservePercent
+        ?? this.formData.reserveGoldPercent
+        ?? 0;
       
       // Load usePcSheet from template (default to true if not specified)
       this.formData.usePcSheet = this.selectedTemplate.usePcSheet !== false;
@@ -568,12 +996,139 @@ export class TownieMakerApp extends Application {
     this.formData[field] = value;
   }
 
+  private renderAndRestoreTab(): void {
+    const result = this.render(false);
+    if (result && typeof result.then === 'function') {
+      result.then(() => this.activatePrimaryTab(this.activePrimaryTab));
+    } else {
+      setTimeout(() => this.activatePrimaryTab(this.activePrimaryTab), 10);
+    }
+  }
+
+  private activatePrimaryTab(tab: PrimaryTab): void {
+    const tabController = (this as any)._tabs?.[0];
+    if (tabController?.activate) {
+      tabController.activate(tab, { triggerCallback: false });
+    } else {
+      const root = this.getRootElement();
+      root?.querySelector<HTMLElement>(`.tabs [data-tab="${tab}"]`)?.click();
+    }
+    this.updateWizardFooterDom();
+  }
+
+  private navigateToTab(tab: CreationTab): void {
+    this.activePrimaryTab = tab;
+    this.lastCreationTab = tab;
+    this.activatePrimaryTab(tab);
+    setTimeout(() => {
+      const heading = this.getRootElement()?.querySelector<HTMLElement>(`.tab[data-tab="${tab}"] .section-header`);
+      if (heading) {
+        heading.tabIndex = -1;
+        heading.focus();
+      }
+    }, 0);
+  }
+
+  private validateWizardStep(tab: PrimaryTab): boolean {
+    if (tab === 'template' && !this.selectedTemplate) {
+      ui.notifications?.warn('Choose a template before continuing.');
+      return false;
+    }
+    if (tab === 'details') {
+      const missing = [
+        !this.formData.name ? 'name' : '',
+        !this.formData.race ? 'race' : '',
+        !this.formData.className ? 'class' : '',
+      ].filter(Boolean);
+      if (missing.length > 0) {
+        ui.notifications?.warn(`Complete the required details: ${missing.join(', ')}.`);
+        return false;
+      }
+    }
+    return true;
+  }
+
+  private updateWizardFooterDom(): void {
+    const state = buildWizardFooterState(
+      this.activePrimaryTab,
+      this.selectedTemplate !== null,
+      this.lastCreationTab,
+    );
+    const root = this.getRootElement();
+    if (!root) return;
+    const visibility: Record<string, boolean> = {
+      cancel: state.showCancel,
+      back: state.showBack,
+      createNow: state.showCreateNow,
+      next: state.showNext,
+      finalCreate: state.showFinalCreate,
+      returnToFlow: state.showReturnToFlow,
+    };
+    for (const [key, visible] of Object.entries(visibility)) {
+      const element = root.querySelector<HTMLElement>(`[data-footer-action="${key}"]`);
+      if (element) element.hidden = !visible;
+    }
+    const nextButton = root.querySelector<HTMLButtonElement>('[data-footer-action="next"]');
+    if (nextButton) nextButton.disabled = state.nextDisabled;
+    const returnLabel = root.querySelector<HTMLElement>('[data-return-label]');
+    if (returnLabel) returnLabel.textContent = state.returnLabel;
+  }
+
+  private updateSpendingCategory(
+    category: SpendingCategory,
+    updates: Partial<NonNullable<SpendingPlanConfig['categories']>[SpendingCategory]>,
+    render: boolean = true,
+  ): void {
+    const current = this.formData.spendingPlan ?? createDefaultSpendingPlanConfig(this.getBudgetMode());
+    this.formData.spendingPlan = {
+      ...current,
+      categories: {
+        ...current.categories,
+        [category]: { ...current.categories?.[category], ...updates },
+      },
+    };
+    if (render) {
+      this.persistConfigSettings();
+      this.render(false);
+    }
+  }
+
   private updateAbilityScore(ability: string, value: number): void {
     if (!this.formData.abilities) {
       this.formData.abilities = { str: 10, dex: 10, con: 10, int: 10, wis: 10, cha: 10 };
     }
     // @ts-ignore
     this.formData.abilities[ability] = value;
+    if (this.formData.abilityPins && this.formData.abilityPins[ability as AbilityKey] !== undefined) {
+      this.formData.abilityPins[ability as AbilityKey] = value;
+    }
+  }
+
+  private applyBudgetMode(mode: BudgetMode): void {
+    const normalized = normalizeBudgetMode(mode);
+    const flags = budgetModeToFlags(normalized);
+
+    this.formData.budgetMode = normalized;
+    this.formData.useStandardBudget = flags.useStandardBudget;
+    this.formData.useNpcWealth = flags.useNpcWealth;
+    const currentPlan = this.formData.spendingPlan ?? createDefaultSpendingPlanConfig(normalized);
+    this.formData.spendingPlan = {
+      ...currentPlan,
+      wealth: { ...currentPlan.wealth, mode: normalized },
+    };
+  }
+
+  private syncBudgetModeState(): void {
+    const mode = normalizeBudgetMode(
+      this.formData.budgetMode,
+      deriveBudgetModeFromFlags(this.formData.useStandardBudget, this.formData.useNpcWealth)
+    );
+
+    this.applyBudgetMode(mode);
+  }
+
+  private getBudgetMode(): BudgetMode {
+    return normalizeBudgetMode(this.formData.budgetMode, deriveBudgetModeFromFlags(this.formData.useStandardBudget, this.formData.useNpcWealth));
   }
 
   /**
@@ -590,6 +1145,14 @@ export class TownieMakerApp extends Application {
 
       if (!field) return;
 
+      // Radios share the same data-field; only sync the checked option.
+      if (el instanceof HTMLInputElement && el.type === "radio") {
+        if (!el.checked) return;
+        // @ts-ignore
+        this.formData[field] = el.value;
+        return;
+      }
+
       // Checkboxes
       if (el instanceof HTMLInputElement && el.type === "checkbox") {
         // @ts-ignore
@@ -600,17 +1163,25 @@ export class TownieMakerApp extends Application {
       // Numbers
       if (field === "classLevel") {
         const raw = getElementValue(el);
-        const parsed = parseInt(raw);
+        const parsed = parseIntegerWithFallback(raw, this.formData.classLevel || 1, 1, 20);
         // @ts-ignore
-        this.formData[field] = Number.isFinite(parsed) ? parsed : (this.formData.classLevel || 1);
+        this.formData[field] = parsed;
+        return;
+      }
+
+      if (field === "reserveGoldPercent") {
+        const raw = getElementValue(el);
+        const parsed = parseIntegerWithFallback(raw, this.formData.reserveGoldPercent || 0, 0, 100);
+        // @ts-ignore
+        this.formData[field] = parsed;
         return;
       }
 
       if (field === "tokenDisposition") {
         const raw = getElementValue(el);
-        const parsed = parseInt(raw);
+        const parsed = parseIntegerWithFallback(raw, 0, -1, 1);
         // @ts-ignore
-        this.formData[field] = Number.isFinite(parsed) ? parsed : 0;
+        this.formData[field] = parsed;
         return;
       }
 
@@ -622,7 +1193,8 @@ export class TownieMakerApp extends Application {
     // Abilities
     root.querySelectorAll<HTMLElement>("input[data-ability]").forEach((el) => {
       const ability = el.dataset.ability;
-      const value = parseInt(getElementValue(el)) || 10;
+      const parsed = Number.parseInt(String(getElementValue(el)), 10);
+      const value = Number.isFinite(parsed) ? parsed : 10;
       if (ability) this.updateAbilityScore(ability, value);
     });
 
@@ -639,84 +1211,83 @@ export class TownieMakerApp extends Application {
         return;
       }
 
-      const numValue = parseFloat(raw as string);
-      if (!isNaN(numValue) && numValue >= 0 && numValue <= 100) {
+      const decimalBudget = parseBudgetPercentToDecimal(raw as string);
+      if (decimalBudget !== null) {
         if (!this.formData.magicItemBudgets) {
           this.formData.magicItemBudgets = {};
         }
-        this.formData.magicItemBudgets[budgetField] = numValue / 100;
+        this.formData.magicItemBudgets[budgetField] = decimalBudget;
       }
     });
 
-    // Keep persisted config in sync as well (so the next open reflects what was typed).
     this.persistConfigSettings();
   }
 
   /**
-   * Persist Config tab settings to module-level storage
+  * Persist Equipment and Settings values to module-level storage
    * These persist between app opens but reset on page reload
    */
   private persistConfigSettings(): void {
+    const budgetMode = this.getBudgetMode();
     persistedConfigSettings = {
-      useStandardBudget: this.formData.useStandardBudget,
-      useNpcWealth: this.formData.useNpcWealth,
+      budgetMode,
+      ...budgetModeToFlags(budgetMode),
       includeLootPacks: this.formData.includeLootPacks,
       lootProfile: this.formData.lootProfile,
       usePcSheet: this.formData.usePcSheet,
       useMaxHpPerHD: this.formData.useMaxHpPerHD,
       identifyItems: this.formData.identifyItems,
       extraMoneyInBank: this.formData.extraMoneyInBank,
+      reserveGoldPercent: this.formData.reserveGoldPercent,
+      keepPocketChange: this.formData.keepPocketChange,
       bankName: this.formData.bankName,
       tokenDisposition: this.formData.tokenDisposition,
-      magicItemBudgets: this.formData.magicItemBudgets ? { ...this.formData.magicItemBudgets } : {}
+      magicItemBudgets: this.formData.magicItemBudgets ? { ...this.formData.magicItemBudgets } : {},
+      spendingPlan: this.formData.spendingPlan ? structuredClone(this.formData.spendingPlan) : undefined,
+      abilityGenerationMethod: this.formData.abilityGenerationMethod,
+      abilityPointBuyBudget: this.formData.abilityPointBuyBudget
     };
     console.log("TownieMakerApp | Persisted config settings:", persistedConfigSettings);
   }
 
+  private normalizeAbilityGenerationMethod(value: unknown): AbilityGenerationMethod {
+    if (value === 'manual' || value === 'custom') return 'manual';
+    if (value === 'pointBuy') return 'pointBuy';
+    if (value === 'roll3d6') return 'roll3d6';
+    if (value === 'roll4d6DropLowest' || value === 'roll') return 'roll4d6DropLowest';
+    return 'standardArray';
+  }
+
   private applyStandardArray(): void {
-    this.formData.abilities = {
-      str: 15,
-      dex: 14,
-      con: 13,
-      int: 12,
-      wis: 10,
-      cha: 8
-    };
-    this.render(false);
+    this.formData.abilityGenerationMethod = 'standardArray';
+    this.generateCurrentAbilityScores(false);
   }
 
-  private rollAbilityScores(): void {
-    const roll4d6DropLowest = () => {
-      const rolls = [
-        Math.ceil(Math.random() * 6),
-        Math.ceil(Math.random() * 6),
-        Math.ceil(Math.random() * 6),
-        Math.ceil(Math.random() * 6)
-      ].sort((a, b) => b - a);
-      return rolls[0] + rolls[1] + rolls[2]; // Take top 3
-    };
-
-    this.formData.abilities = {
-      str: roll4d6DropLowest(),
-      dex: roll4d6DropLowest(),
-      con: roll4d6DropLowest(),
-      int: roll4d6DropLowest(),
-      wis: roll4d6DropLowest(),
-      cha: roll4d6DropLowest()
-    };
-    
-    ui.notifications?.info("Ability scores rolled!");
-    this.render(false);
+  private generateCurrentAbilityScores(reroll: boolean, render: boolean = true): void {
+    const method = this.formData.abilityGenerationMethod ?? 'standardArray';
+    const isRollMethod = method === 'roll3d6' || method === 'roll4d6DropLowest';
+    const result = generateAbilityScores({
+      method,
+      priority: this.formData.abilityPriority,
+      primaryAbility: this.selectedTemplate?.primaryAbility,
+      pins: this.formData.abilityPins,
+      pointBuyBudget: this.formData.abilityPointBuyBudget,
+      rollPool: isRollMethod && !reroll ? this.formData.abilityRollPool : undefined,
+    });
+    this.formData.abilities = result.scores;
+    this.formData.abilityPriority = result.metadata.priority;
+    this.formData.abilityPins = result.metadata.pins;
+    this.formData.abilityRollPool = result.metadata.rollPool ?? [];
+    if (isRollMethod && reroll) ui.notifications?.info('Ability scores rolled!');
+    if (render) this.render(false);
   }
 
-  private generateAndSetName(): void {
+  private generateAndSetName(genderOverride?: 'male' | 'female'): void {
     if (!this.formData.race || !this.formData.className) {
       return;
     }
     
-    // Default to male, but randomly select gender if not set
-    const gender: 'male' | 'female' = this.formData.gender || (Math.random() < 0.5 ? 'male' : 'female');
-    this.formData.gender = gender;
+    const gender: 'male' | 'female' = genderOverride || this.formData.gender || 'male';
     
     const name = generateCharacterName(this.formData.race, this.formData.className, gender);
     this.formData.name = name;
@@ -809,17 +1380,7 @@ export class TownieMakerApp extends Application {
       ui.notifications?.warn("Please select a race and class first");
       return;
     }
-    
-    // Toggle gender or pick randomly
-    if (!this.formData.gender) {
-      this.formData.gender = Math.random() < 0.5 ? 'male' : 'female';
-    } else {
-      // 50% chance to toggle gender, 50% chance to keep same
-      if (Math.random() < 0.5) {
-        this.formData.gender = this.formData.gender === 'male' ? 'female' : 'male';
-      }
-    }
-    
+
     this.generateAndSetName();
     this.render(false);
   }
@@ -842,8 +1403,9 @@ export class TownieMakerApp extends Application {
   }
 
   private deriveWealthTier(className: string): "unequipped" | "npc_wealth" | "pc_wealth" {
-    if (this.formData.useStandardBudget === false) return WealthTier.UNEQUIPPED;
-    if (this.formData.useNpcWealth) return WealthTier.NPC;
+    const budgetMode = this.getBudgetMode();
+    if (budgetMode === "noBudget") return WealthTier.UNEQUIPPED;
+    if (budgetMode === "npcWealth") return WealthTier.NPC;
 
     const normalized = normalizeClassKey(className);
     const tier = resolveClassTier(normalized);
@@ -942,6 +1504,16 @@ export class TownieMakerApp extends Application {
     // Ensure we capture the latest typed values even if the user didn't blur the input.
     this.syncFormDataFromRenderedInputs();
 
+    if (this.spendingSplitDraft && this.getBudgetMode() !== 'noBudget') {
+      const incompleteGroups = (Object.keys(SPENDING_SPLIT_GROUPS) as SpendingSplitGroupKey[])
+        .filter(group => (SPENDING_SPLIT_GROUPS[group] as readonly SpendingSplitKey[])
+          .reduce((sum, key) => sum + (this.spendingSplitDraft?.[key] ?? 0), 0) !== BASIS_POINTS_TOTAL);
+      if (incompleteGroups.length > 0) {
+        ui.notifications?.warn(`Complete each item mix to 100% before creating: ${incompleteGroups.join(', ')}.`);
+        return;
+      }
+    }
+
     const name = this.formData.name;
     if (!name) {
       ui.notifications?.warn("Please enter a name for the NPC");
@@ -962,17 +1534,29 @@ export class TownieMakerApp extends Application {
       const folder = game.settings.get("motwm-townie-maker", "defaultFolder") as string;
       const autoRollHP = game.settings.get("motwm-townie-maker", "autoRollHP") as boolean;
       
-      // Use formData for loot options (these are now in the Config tab)
+      // Use formData for loot options from the Equipment tab.
       const identifyItems = this.formData.identifyItems === true;
       const extraMoneyInBank = this.formData.extraMoneyInBank === true;
+      const reserveGoldPercent = Number.isFinite(this.formData.reserveGoldPercent)
+        ? Number(this.formData.reserveGoldPercent)
+        : 0;
+      const keepPocketChange = this.formData.keepPocketChange !== false;
       const bankName = this.formData.bankName || "The First Bank of Lower Everbrook";
       
       console.log(`TownieMakerApp | Creating actor - usePcSheet: ${usePcSheet}, actorType: ${actorType}, useMaxHp: ${useMaxHp}, identifyItems: ${identifyItems}, extraMoneyInBank: ${extraMoneyInBank}`);
+      console.log(`TownieMakerApp | Reserve Gold %: ${reserveGoldPercent}, Keep Pocket Change: ${keepPocketChange}`);
       console.log(`TownieMakerApp | Bank name: ${bankName}`);
 
       // Resolve character images based on race, class, and gender
       await this.showLoadingStep('Resolving character images...', 5);
       const className = this.formData.className || (this.formData.classes?.[0]?.name);
+      const classLevel = parseInt(this.formData.classLevel as any) || parseInt(this.formData.classes?.[0]?.level as any) || 1;
+      const creationPlan = buildCreationPipelinePlan({
+        className,
+        classLevel,
+        usePcSheet,
+        autoRollHP,
+      });
       const gender = normalizeGender(this.formData.gender);
       let characterImages = getDefaultImages();
       
@@ -997,7 +1581,7 @@ export class TownieMakerApp extends Application {
       await this.showLoadingStep('Creating actor...', 10);
       const actor = await D35EAdapter.createActor({
         name,
-        type: actorType,
+            type: creationPlan.actorType,
         folder: folder || undefined,
         img: characterImages.portrait,
         tokenImg: characterImages.token,
@@ -1012,15 +1596,17 @@ export class TownieMakerApp extends Application {
       await this.showLoadingStep('Setting ability scores...', 15);
       await D35EAdapter.setAbilityScores(actor, abilities);
 
+      // Set alignment on the actor (supports legacy text mode and D35E 3.1+ axes mode).
+      if (this.formData.alignment) {
+        await D35EAdapter.setAlignment(actor, this.formData.alignment);
+      }
+
       // Add race if specified
       if (this.formData.race) {
         await this.showLoadingStep(`Adding race: ${this.formData.race}...`, 20);
         await D35EAdapter.addRace(actor, this.formData.race);
       }
 
-      // Add class if specified (use className/classLevel or fall back to classes array)
-      const classLevel = parseInt(this.formData.classLevel as any) || parseInt(this.formData.classes?.[0]?.level as any) || 1;
-      
       // Branch based on sheet type
       if (!usePcSheet) {
         // SIMPLE NPC SHEET PATH
@@ -1031,7 +1617,7 @@ export class TownieMakerApp extends Application {
           const hitDie = await D35EAdapter.addNpcClass(actor, className, classLevel);
           
           // Calculate and set HP for NPC (pass className to set system.classes.X.hp)
-          if (autoRollHP) {
+          if (creationPlan.shouldCalculateNpcHp) {
             await this.showLoadingStep('Calculating hit points...', 30);
             const conMod = Math.floor((abilities.con - 10) / 2);
             await D35EAdapter.calculateAndSetNpcHP(actor, classLevel, hitDie, conMod, useMaxHp, className);
@@ -1056,7 +1642,7 @@ export class TownieMakerApp extends Application {
         }
 
         // Roll HP if enabled (MUST be before addSkills to create levelUpData)
-        if (autoRollHP) {
+        if (creationPlan.shouldRollHpOnPcPath) {
           await this.showLoadingStep('Rolling hit points...', 30);
           // Get primary ability from template or default based on highest ability score
           const primaryAbility = this.selectedTemplate?.primaryAbility || this.getPrimaryAbilityFromScores(abilities);
@@ -1125,13 +1711,13 @@ export class TownieMakerApp extends Application {
       }
 
       // Add spells for caster classes (MUST be after class/level set, before equipment)
-      if (className) {
+      if (creationPlan.shouldConfigureSpells && className) {
         await this.showLoadingStep('Configuring spells...', 55);
         console.log(`TownieMakerApp | About to call addSpells for ${className} level ${classLevel}`);
         console.log(`TownieMakerApp | Ability scores:`, abilities);
         await D35EAdapter.addSpells(actor, className, classLevel, abilities);
       } else {
-        console.warn(`TownieMakerApp | No className set, skipping spell configuration`);
+        console.log(`TownieMakerApp | Spell configuration skipped for class '${className ?? "(none)"}' at level ${classLevel}`);
       }
 
       // Add equipment from template if available
@@ -1139,22 +1725,45 @@ export class TownieMakerApp extends Application {
       console.log("TownieMakerApp | About to call addEquipment...");
       console.log("TownieMakerApp | selectedTemplate:", this.selectedTemplate?.name);
       console.log("TownieMakerApp | has startingKit:", !!this.selectedTemplate?.startingKit);
-      console.log("TownieMakerApp | useStandardBudget:", this.formData.useStandardBudget);
+      console.log("TownieMakerApp | budgetMode:", this.getBudgetMode());
       console.log("TownieMakerApp | identifyItems:", identifyItems);
       console.log("TownieMakerApp | extraMoneyInBank:", extraMoneyInBank);
+      console.log("TownieMakerApp | reserveGoldPercent:", reserveGoldPercent);
+      console.log("TownieMakerApp | keepPocketChange:", keepPocketChange);
       console.log("TownieMakerApp | bankName:", bankName);
       if (this.selectedTemplate) {
+        const budgetMode = this.getBudgetMode();
+        const budgetFlags = budgetModeToFlags(budgetMode);
+
+        if (budgetMode === "noBudget" && classLevel >= 3) {
+          const warning = "No-budget mode is active: magic items and wealth-by-level are disabled for this generation.";
+          console.warn(`TownieMakerApp | ${warning}`);
+          ui.notifications?.warn(warning);
+        }
+
         // Merge form data budget overrides into template for this creation
         const templateWithOverrides = {
           ...this.selectedTemplate,
           magicItemBudgets: this.formData.magicItemBudgets && Object.keys(this.formData.magicItemBudgets).length > 0
             ? this.formData.magicItemBudgets
             : this.selectedTemplate.magicItemBudgets,
-          // Pass useStandardBudget from form (defaults to true if not explicitly set)
-          useStandardBudget: this.formData.useStandardBudget !== false
+          spendingPlan: this.formData.spendingPlan
+            ? structuredClone(this.formData.spendingPlan)
+            : this.selectedTemplate.spendingPlan,
+          ...budgetFlags,
         };
         
-        await D35EAdapter.addEquipment(actor, templateWithOverrides, classLevel, identifyItems, extraMoneyInBank, bankName, this.formData.useNpcWealth);
+        await D35EAdapter.addEquipment(
+          actor,
+          templateWithOverrides,
+          classLevel,
+          identifyItems,
+          extraMoneyInBank,
+          bankName,
+          budgetMode === "npcWealth",
+          reserveGoldPercent,
+          keepPocketChange
+        );
         
         // IMPORTANT: Complete container moves AFTER character is fully created
         await this.showLoadingStep('Organizing inventory...', 80);

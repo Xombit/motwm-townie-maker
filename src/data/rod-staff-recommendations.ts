@@ -17,6 +17,18 @@
  * - Levels 17-20: Greater rods + Staff of Power (73,000-211,000 gp)
  */
 
+import {
+  getPrimaryClassToken,
+  isDivineClass,
+  isPureArcaneClass,
+} from './class-utils';
+import {
+  getAllArcaneScrollSpells,
+  getAllArcaneSpells,
+  getAllDivineScrollSpells,
+  getAllDivineSpells,
+} from './spells';
+
 // =============================================================================
 // ROD DEFINITIONS
 // =============================================================================
@@ -668,7 +680,8 @@ export function selectRods(
   level: number,
   budget: number,
   characterClass: string,
-  forceGreaterQuicken: boolean = false
+  forceGreaterQuicken: boolean = false,
+  deterministic: boolean = false,
 ): { rods: RodRecommendation[]; totalCost: number; overspend: number } {
   const selectedRods: RodRecommendation[] = [];
   let remainingBudget = budget;
@@ -702,7 +715,8 @@ export function selectRods(
   // 60% chance to prioritize Quicken (the "optimal" choice)
   // 40% chance to skip Quicken entirely and focus on other metamagics
   // Skip this roll if we already bought Greater Quicken
-  const prioritizeQuicken = forceGreaterQuicken ? false : (Math.random() < 0.60);
+  const prioritizeQuicken = forceGreaterQuicken ? false : (deterministic || Math.random() < 0.60);
+  const orderRods = <T>(values: T[]): T[] => deterministic ? values : shuffleArray(values);
   if (!forceGreaterQuicken) {
     console.log(`Rod Selection: ${prioritizeQuicken ? 'PRIORITIZING Quicken' : 'SKIPPING Quicken'} (random roll)`);
   }
@@ -714,25 +728,25 @@ export function selectRods(
     if (prioritizeQuicken) {
       rodPools = [
         // Tier 1: Quicken rods (action economy is king)
-        { tier: 1, rods: shuffleArray([
+        { tier: 1, rods: orderRods([
           { key: 'quicken-greater', minLevel: 20 },
           { key: 'quicken-normal', minLevel: 17 },
           { key: 'quicken-lesser', minLevel: 17 }
         ])},
         // Tier 2: Greater rods (shuffled for variety)
-        { tier: 2, rods: shuffleArray([
+        { tier: 2, rods: orderRods([
           { key: 'extend-greater', minLevel: 17 },
           { key: 'empower-greater', minLevel: 17 },
           { key: 'maximize-greater', minLevel: 19 }
         ])},
         // Tier 3: Normal rods (shuffled)
-        { tier: 3, rods: shuffleArray([
+        { tier: 3, rods: orderRods([
           { key: 'extend-normal', minLevel: 17 },
           { key: 'empower-normal', minLevel: 17 },
           { key: 'maximize-normal', minLevel: 17 }
         ])},
         // Tier 4: Lesser rods (shuffled)
-        { tier: 4, rods: shuffleArray([
+        { tier: 4, rods: orderRods([
           { key: 'extend-lesser', minLevel: 17 },
           { key: 'empower-lesser', minLevel: 17 },
           { key: 'maximize-lesser', minLevel: 17 }
@@ -742,19 +756,19 @@ export function selectRods(
       // Skip Quicken - focus on other metamagics
       rodPools = [
         // Tier 1: Greater rods first (shuffled)
-        { tier: 1, rods: shuffleArray([
+        { tier: 1, rods: orderRods([
           { key: 'extend-greater', minLevel: 17 },
           { key: 'empower-greater', minLevel: 17 },
           { key: 'maximize-greater', minLevel: 19 }
         ])},
         // Tier 2: Normal rods (shuffled)
-        { tier: 2, rods: shuffleArray([
+        { tier: 2, rods: orderRods([
           { key: 'extend-normal', minLevel: 17 },
           { key: 'empower-normal', minLevel: 17 },
           { key: 'maximize-normal', minLevel: 17 }
         ])},
         // Tier 3: Lesser rods (shuffled)
-        { tier: 3, rods: shuffleArray([
+        { tier: 3, rods: orderRods([
           { key: 'extend-lesser', minLevel: 17 },
           { key: 'empower-lesser', minLevel: 17 },
           { key: 'maximize-lesser', minLevel: 17 }
@@ -770,13 +784,13 @@ export function selectRods(
           { key: 'quicken-lesser', minLevel: 13 }
         ]},
         // Tier 2: Normal rods (shuffled)
-        { tier: 2, rods: shuffleArray([
+        { tier: 2, rods: orderRods([
           { key: 'extend-normal', minLevel: 13 },
           { key: 'empower-normal', minLevel: 13 },
           { key: 'maximize-normal', minLevel: 15 }
         ])},
         // Tier 3: Lesser rods (shuffled)
-        { tier: 3, rods: shuffleArray([
+        { tier: 3, rods: orderRods([
           { key: 'extend-lesser', minLevel: 13 },
           { key: 'empower-lesser', minLevel: 13 },
           { key: 'maximize-lesser', minLevel: 13 }
@@ -786,13 +800,13 @@ export function selectRods(
       // Skip Quicken
       rodPools = [
         // Tier 1: Normal rods first (shuffled)
-        { tier: 1, rods: shuffleArray([
+        { tier: 1, rods: orderRods([
           { key: 'extend-normal', minLevel: 13 },
           { key: 'empower-normal', minLevel: 13 },
           { key: 'maximize-normal', minLevel: 15 }
         ])},
         // Tier 2: Lesser rods (shuffled)
-        { tier: 2, rods: shuffleArray([
+        { tier: 2, rods: orderRods([
           { key: 'extend-lesser', minLevel: 13 },
           { key: 'empower-lesser', minLevel: 13 },
           { key: 'maximize-lesser', minLevel: 13 }
@@ -808,7 +822,7 @@ export function selectRods(
           { key: 'quicken-lesser', minLevel: 11 }
         ]},
         // Tier 2: Other lesser rods (shuffled for variety)
-        { tier: 2, rods: shuffleArray([
+        { tier: 2, rods: orderRods([
           { key: 'extend-lesser', minLevel: 5 },
           { key: 'empower-lesser', minLevel: 7 },
           { key: 'maximize-lesser', minLevel: 9 }
@@ -818,7 +832,7 @@ export function selectRods(
       // Skip Quicken or too low level
       rodPools = [
         // Just other lesser rods (shuffled)
-        { tier: 1, rods: shuffleArray([
+        { tier: 1, rods: orderRods([
           { key: 'extend-lesser', minLevel: 5 },
           { key: 'empower-lesser', minLevel: 7 },
           { key: 'maximize-lesser', minLevel: 9 }
@@ -968,6 +982,197 @@ export interface StaffRecommendation {
   reasoning: string;
 }
 
+const ARCANE_STAFF_KEYS = [
+  'power',
+  'passage',
+  'evocation',
+  'transmutation',
+  'conjuration',
+  'necromancy',
+  'enchantment',
+  'illusion',
+  'abjuration',
+  'divination',
+  'frost',
+  'fire',
+  'charming',
+  'sizeAlteration',
+] as const;
+
+const CLERIC_STAFF_KEYS = [
+  'life',
+  'healing',
+  'abjuration',
+  'defense',
+  'illumination',
+  'necromancy',
+  'divination',
+  'passage',
+] as const;
+
+const DRUID_STAFF_KEYS = [
+  'woodlands',
+  'swarmingInsects',
+  'earthAndStone',
+  'healing',
+  'illumination',
+  'defense',
+  'life',
+] as const;
+
+const BARD_STAFF_KEYS = [
+  'enchantment',
+  'illusion',
+  'charming',
+  'divination',
+  'illumination',
+] as const;
+
+const FALLBACK_STAFF_SPELL_CLASS_ACCESS: Record<string, string[]> = {
+  'charm person': ['wizard', 'sorcerer', 'bard'],
+  'charm monster': ['wizard', 'sorcerer', 'bard'],
+  'burning hands': ['wizard', 'sorcerer'],
+  'fireball': ['wizard', 'sorcerer'],
+  'wall of fire': ['wizard', 'sorcerer', 'druid'],
+  'lesser restoration': ['cleric', 'druid'],
+  'cure serious wounds': ['cleric', 'druid'],
+  'remove blindness/deafness': ['cleric', 'druid'],
+  'remove disease': ['cleric', 'druid'],
+  'dancing lights': ['wizard', 'sorcerer', 'bard'],
+  flare: ['cleric', 'druid'],
+  daylight: ['cleric', 'druid', 'bard'],
+  sunburst: ['cleric', 'druid'],
+  'ice storm': ['wizard', 'sorcerer', 'druid'],
+  'wall of ice': ['wizard', 'sorcerer'],
+  'cone of cold': ['wizard', 'sorcerer'],
+  shield: ['wizard', 'sorcerer'],
+  'shield of faith': ['cleric'],
+  'shield other': ['cleric', 'paladin'],
+  'shield of law': ['cleric'],
+  'magic missile': ['wizard', 'sorcerer'],
+  shatter: ['wizard', 'sorcerer', 'bard'],
+  'wall of force': ['wizard', 'sorcerer'],
+  'chain lightning': ['wizard', 'sorcerer'],
+  'unseen servant': ['wizard', 'sorcerer', 'bard'],
+  'stinking cloud': ['wizard', 'sorcerer'],
+  'minor creation': ['wizard', 'sorcerer'],
+  cloudkill: ['wizard', 'sorcerer'],
+  'major creation': ['wizard', 'sorcerer'],
+  sleep: ['wizard', 'sorcerer', 'bard'],
+  'hideous laughter': ['wizard', 'sorcerer', 'bard'],
+  suggestion: ['wizard', 'sorcerer', 'bard'],
+  'crushing despair': ['bard'],
+  'mind fog': ['wizard', 'sorcerer'],
+  'mass suggestion': ['bard', 'wizard', 'sorcerer'],
+  'cause fear': ['wizard', 'sorcerer'],
+  'ghoul touch': ['wizard', 'sorcerer'],
+  'halt undead': ['wizard', 'sorcerer'],
+  enervation: ['wizard', 'sorcerer'],
+  'waves of fatigue': ['wizard', 'sorcerer'],
+  'circle of death': ['wizard', 'sorcerer'],
+  'expeditious retreat': ['wizard', 'sorcerer', 'bard'],
+  'alter self': ['wizard', 'sorcerer', 'bard'],
+  blink: ['wizard', 'sorcerer'],
+  polymorph: ['wizard', 'sorcerer'],
+  'baleful polymorph': ['wizard', 'sorcerer', 'druid'],
+  disintegrate: ['wizard', 'sorcerer'],
+  'resist energy': ['wizard', 'sorcerer', 'cleric', 'druid', 'bard', 'paladin', 'ranger'],
+  'dispel magic': ['wizard', 'sorcerer', 'cleric', 'druid', 'bard'],
+  'lesser globe of invulnerability': ['wizard', 'sorcerer'],
+  dismissal: ['wizard', 'sorcerer', 'cleric', 'druid'],
+  repulsion: ['wizard', 'sorcerer', 'cleric', 'druid'],
+  'disguise self': ['wizard', 'sorcerer', 'bard'],
+  'mirror image': ['wizard', 'sorcerer', 'bard'],
+  'major image': ['wizard', 'sorcerer', 'bard'],
+  'rainbow pattern': ['wizard', 'sorcerer', 'bard'],
+  'persistent image': ['wizard', 'sorcerer', 'bard'],
+  mislead: ['wizard', 'sorcerer', 'bard'],
+  'detect secret doors': ['wizard', 'sorcerer', 'bard'],
+  'locate object': ['wizard', 'sorcerer', 'bard', 'cleric'],
+  tongues: ['wizard', 'sorcerer', 'bard', 'cleric'],
+  'locate creature': ['wizard', 'sorcerer', 'bard', 'cleric', 'druid'],
+  'prying eyes': ['wizard', 'sorcerer'],
+  'true seeing': ['wizard', 'sorcerer', 'cleric', 'druid', 'bard'],
+  passwall: ['wizard', 'sorcerer'],
+  'move earth': ['wizard', 'sorcerer', 'druid'],
+  'charm animal': ['druid'],
+  'speak with animals': ['druid'],
+  barkskin: ['druid'],
+  "summon nature's ally vi": ['druid'],
+  'wall of thorns': ['druid'],
+  'animate plants': ['druid'],
+  heal: ['cleric', 'druid'],
+  resurrection: ['cleric'],
+  'dimension door': ['wizard', 'sorcerer', 'bard'],
+  'phase door': ['wizard', 'sorcerer'],
+  'greater teleport': ['wizard', 'sorcerer', 'bard'],
+  'astral projection': ['cleric', 'wizard'],
+  'ray of enfeeblement': ['wizard', 'sorcerer'],
+  'continual flame': ['wizard', 'sorcerer', 'cleric'],
+  levitate: ['wizard', 'sorcerer'],
+  'hold monster': ['wizard', 'sorcerer', 'bard'],
+  'globe of invulnerability': ['wizard', 'sorcerer'],
+  'summon swarm': ['wizard', 'sorcerer', 'druid', 'bard'],
+  'insect plague': ['druid', 'cleric'],
+  'enlarge person': ['wizard', 'sorcerer'],
+  'reduce person': ['wizard', 'sorcerer'],
+  'shrink item': ['wizard', 'sorcerer'],
+  'mass enlarge person': ['wizard', 'sorcerer'],
+};
+
+function normalizeStaffSpellName(name: string): string {
+  return (name || '')
+    .toLowerCase()
+    .replace(/\s+/g, ' ')
+    .replace(/[.,;:!?]/g, '')
+    .trim();
+}
+
+function buildClassStaffSpellSet(className: string): Set<string> {
+  const classToken = getPrimaryClassToken(className);
+  const known = new Set<string>();
+
+  const addSpellNames = (spellNames: string[]) => {
+    for (const name of spellNames) {
+      known.add(normalizeStaffSpellName(name));
+    }
+  };
+
+  if (classToken === 'wizard' || classToken === 'sorcerer' || classToken === 'bard') {
+    addSpellNames(getAllArcaneSpells().map((spell) => spell.name));
+    addSpellNames(getAllArcaneScrollSpells().map((spell) => spell.name));
+  }
+
+  if (classToken === 'cleric' || classToken === 'druid' || classToken === 'adept') {
+    addSpellNames(getAllDivineSpells().map((spell) => spell.name));
+    addSpellNames(getAllDivineScrollSpells().map((spell) => spell.name));
+  }
+
+  for (const [spellName, classes] of Object.entries(FALLBACK_STAFF_SPELL_CLASS_ACCESS)) {
+    if (classes.includes(classToken)) {
+      known.add(normalizeStaffSpellName(spellName));
+    }
+  }
+
+  return known;
+}
+
+function hasAnyUsableStaffSpell(staff: StaffDefinition, className: string): boolean {
+  const classSpellSet = buildClassStaffSpellSet(className);
+  if (classSpellSet.size === 0) return false;
+
+  return staff.spells.some((staffSpell) => classSpellSet.has(normalizeStaffSpellName(staffSpell.name)));
+}
+
+function getPreferredStaffKeys(className: string): string[] {
+  const classToken = getPrimaryClassToken(className);
+  if (classToken === 'wizard' || classToken === 'sorcerer') return [...ARCANE_STAFF_KEYS];
+  if (classToken === 'cleric' || classToken === 'adept') return [...CLERIC_STAFF_KEYS];
+  if (classToken === 'druid') return [...DRUID_STAFF_KEYS];
+  if (classToken === 'bard') return [...BARD_STAFF_KEYS];
+  return [];
+}
+
 /**
  * Get recommended staff for a caster at a given level and budget
  * 
@@ -995,7 +1200,8 @@ export function selectStaff(
   level: number,
   budget: number,
   characterClass: string,
-  forceStaffOfPower: boolean = false
+  forceStaffOfPower: boolean = false,
+  deterministic: boolean = false,
 ): { staff: StaffRecommendation | null; totalCost: number; overspend: number } {
   // Debug: Show incoming budget
   console.log(`selectStaff called: Level ${level}, Budget ${budget} gp, Class ${characterClass}${forceStaffOfPower ? ' [FORCE STAFF OF POWER]' : ''}`);
@@ -1005,11 +1211,11 @@ export function selectStaff(
     return { staff: null, totalCost: 0, overspend: 0 };
   }
 
-  const className = characterClass.toLowerCase();
+  const className = getPrimaryClassToken(characterClass);
   
   // SPECIAL PURCHASE: Staff of Power (if decision was made in selectCasterItems)
   const staffOfPower = STAFFS['power'];
-  if (forceStaffOfPower && staffOfPower) {
+  if (forceStaffOfPower && staffOfPower && (className === 'wizard' || className === 'sorcerer')) {
     const overspend = Math.max(0, staffOfPower.price - budget);
     console.log(`  🎯 SPECIAL PURCHASE: Staff of Power: ${staffOfPower.price} gp, Budget: ${budget} gp, Overspend: ${overspend} gp`);
     
@@ -1022,68 +1228,11 @@ export function selectStaff(
     return { staff: staffRec, totalCost: staffOfPower.price, overspend };
   }
   
-  // Define preferred staffs by class - larger lists for more variety
-  // The algorithm will pick the most expensive affordable one from this list
-  let preferredStaffs: string[] = [];
-  
-  if (className === 'wizard' || className === 'sorcerer') {
-    // Arcane casters - wide variety of options
-    // Power > Passage > school staffs > affordable staffs
-    preferredStaffs = [
-      'power',          // 211,000 - ultimate arcane staff
-      'passage',        // 170,500 - teleportation on demand
-      'evocation',      // 65,000 - blaster classics
-      'transmutation',  // 65,000 - polymorph, disintegrate
-      'conjuration',    // 65,000 - cloudkill, summoning
-      'necromancy',     // 65,000 - enervation, circle of death  
-      'enchantment',    // 65,000 - mind control
-      'illusion',       // 65,000 - deception
-      'abjuration',     // 65,000 - protection, dispel
-      'frost',          // 56,250 - cold damage + weapon
-      'fire',           // 17,750 - classic fire spells
-      'charming'        // 16,500 - budget enchantment
-    ];
-  } else if (className === 'cleric') {
-    // Clerics prefer healing, defense, and necromancy (for evil clerics)
-    preferredStaffs = [
-      'life',           // 155,750 - heal + resurrection!
-      'passage',        // 170,500 - mobility for the party
-      'healing',        // 27,750 - affordable healing
-      'abjuration',     // 65,000 - protection spells
-      'necromancy',     // 65,000 - death effects (some deities)
-      'defense',        // 58,250 - shield spells
-      'illumination'    // 48,250 - sunburst vs undead!
-    ];
-  } else if (className === 'druid') {
-    // Druids prefer nature-themed staffs
-    preferredStaffs = [
-      'woodlands',      // 101,250 - the druid's best friend
-      'life',           // 155,750 - heal + resurrection
-      'passage',        // 170,500 - mobility
-      'swarmingInsects',// 24,750 - insect plague
-      'healing',        // 27,750 - affordable healing
-      'conjuration',    // 65,000 - summoning
-      'earthAndStone'   // 80,500 - terrain manipulation
-    ];
-  } else if (className === 'bard') {
-    // Bards prefer enchantment and utility
-    preferredStaffs = [
-      'passage',        // 170,500 - mobility
-      'enchantment',    // 65,000 - mass suggestion
-      'illusion',       // 65,000 - deception
-      'charming',       // 16,500 - social encounters
-      'divination',     // 73,500 - true seeing, info gathering
-      'illumination'    // 48,250 - light-based utility
-    ];
-  } else {
-    // Default priority for other casters
-    preferredStaffs = [
-      'passage',        // 170,500 - universally useful
-      'life',           // 155,750 - if they can use it
-      'evocation',      // 65,000 - damage spells
-      'fire',           // 17,750 - affordable damage
-      'healing'         // 27,750 - if they can use it
-    ];
+  // Strict tradition routing plus class-list eligibility.
+  const preferredStaffs = getPreferredStaffKeys(className);
+  if (preferredStaffs.length === 0) {
+    console.log(`Staff Selection for Level ${level} ${className}: no staff tradition configured`);
+    return { staff: null, totalCost: 0, overspend: 0 };
   }
 
   // Filter to staffs this character can afford and meets level requirements for
@@ -1106,6 +1255,7 @@ export function selectStaff(
       if (staff.price >= 100000 && level < 17) return false;  // Life, Passage, Woodlands
       if (staff.price >= 65000 && level < 15) return false;   // School staffs
       if (staff.price >= 48000 && level < 13) return false;   // Mid-tier
+      if (!hasAnyUsableStaffSpell(staff, className)) return false;
       
       return true;
     });
@@ -1125,7 +1275,7 @@ export function selectStaff(
   const roll = Math.random();
   let chosen;
   
-  if (roll < 0.50 || affordableStaffs.length === 1) {
+  if (deterministic || roll < 0.50 || affordableStaffs.length === 1) {
     // 50%: Pick the most expensive (optimal choice)
     chosen = affordableStaffs[0];
     console.log(`Staff Selection: Rolled optimal (${(roll * 100).toFixed(0)}%) - picking most expensive`);
@@ -1155,7 +1305,7 @@ export function selectStaff(
 }
 
 function getStaffReasoning(staff: StaffDefinition, characterClass: string): string {
-  const className = characterClass.toLowerCase();
+  const className = getPrimaryClassToken(characterClass);
   
   switch (staff.name) {
     case 'Staff of Fire':
@@ -1185,7 +1335,7 @@ export interface CasterItemSelection {
   rodsCost: number;
   staffCost: number;
   totalCost: number;
-  overspend: number;  // Amount over budget (e.g., for Staff of Power special purchase)
+  overspend: number;  // Retained for compatibility; strict selection always returns 0
 }
 
 /**
@@ -1196,38 +1346,15 @@ export interface CasterItemSelection {
  * - Levels 10-12: 40% rods, 60% staff (get first staff)
  * - Levels 13-16: 50% rods, 50% staff (balance both)
  * - Levels 17-19: 30% rods, 70% staff (high-end staffs priority)
- * - Level 20: 40% rods, 60% staff (special purchases handled separately)
- * 
- * SPECIAL PURCHASES (Level 20 arcane casters only):
- * - 50% chance to "decide" on a special purchase
- * - If yes, randomly choose between Staff of Power OR Greater Quicken Rod
- * - The overspend is tracked and deducted from final gold
+ * - Level 20: 40% rods, 60% staff
  */
 export function selectCasterItems(
   level: number,
   budget: number,
-  characterClass: string
+  characterClass: string,
+  deterministic: boolean = false,
 ): CasterItemSelection {
   console.log(`\n=== CASTER ITEM SELECTION (Level ${level}, ${budget} gp) ===`);
-  
-  const className = characterClass.toLowerCase();
-  const isArcaneCaster = ['wizard', 'sorcerer'].includes(className);
-  
-  // SPECIAL PURCHASE DECISION (Level 20 arcane casters only)
-  // Decide FIRST before any budget splits, so staff and rod selection know what's happening
-  type SpecialPurchase = 'staff-of-power' | 'greater-quicken' | 'none';
-  let specialPurchase: SpecialPurchase = 'none';
-  
-  if (level >= 20 && isArcaneCaster) {
-    const wantsSpecialPurchase = Math.random() < 0.50;
-    if (wantsSpecialPurchase) {
-      // 50/50 between Staff of Power and Greater Quicken Rod
-      specialPurchase = Math.random() < 0.50 ? 'staff-of-power' : 'greater-quicken';
-      console.log(`🎯 Level 20 ${className}: SPECIAL PURCHASE - ${specialPurchase === 'staff-of-power' ? 'Staff of Power' : 'Greater Quicken Rod'}!`);
-    } else {
-      console.log(`Level 20 ${className}: Decided to skip special purchase, buying normally.`);
-    }
-  }
   
   // Determine budget split
   let rodPercent: number;
@@ -1250,7 +1377,7 @@ export function selectCasterItems(
     rodPercent = 0.30;
     staffPercent = 0.70;
   } else {
-    // Level 20: Normal split - special purchases handled via overspend logic
+    // Level 20: Balanced high-tier split
     rodPercent = 0.40;
     staffPercent = 0.60;
   }
@@ -1260,28 +1387,22 @@ export function selectCasterItems(
   
   console.log(`Budget split: Rods ${rodBudget} gp (${(rodPercent * 100).toFixed(0)}%), Staff ${staffBudget} gp (${(staffPercent * 100).toFixed(0)}%)`);
   
-  // Select staff first (more important at higher levels)
-  // Pass the special purchase decision so it knows whether to buy Staff of Power
-  const staffResult = selectStaff(level, staffBudget, characterClass, specialPurchase === 'staff-of-power');
+  // Select staff first (more important at higher levels).
+  const staffResult = selectStaff(level, staffBudget, characterClass, false, deterministic);
   
   // Give leftover staff budget to rods
   const leftoverBudget = staffBudget - staffResult.totalCost;
   const actualRodBudget = rodBudget + leftoverBudget;
   
-  // Select rods
-  // Pass the special purchase decision so it knows whether to buy Greater Quicken
-  const rodsResult = selectRods(level, actualRodBudget, characterClass, specialPurchase === 'greater-quicken');
+  const rodsResult = selectRods(level, actualRodBudget, characterClass, false, deterministic);
   
   const totalCost = rodsResult.totalCost + staffResult.totalCost;
-  const totalOverspend = staffResult.overspend + rodsResult.overspend;
+  const totalOverspend = 0;
   
   console.log(`\nFinal Selection:`);
   console.log(`  Rods: ${rodsResult.rods.length} items (${rodsResult.totalCost} gp)`);
   console.log(`  Staff: ${staffResult.staff ? staffResult.staff.staff.name : 'None'} (${staffResult.totalCost} gp)`);
   console.log(`  Total: ${totalCost} gp`);
-  if (totalOverspend > 0) {
-    console.log(`  ⚠️ Special purchase overspend: ${totalOverspend} gp (will be deducted from final gold)`);
-  }
   console.log(`  Remaining: ${budget - totalCost} gp`);
   console.log(`=== CASTER ITEM SELECTION COMPLETE ===\n`);
   
@@ -1304,8 +1425,7 @@ export function selectCasterItems(
  * and use rods/staffs instead
  */
 export function isPureCaster(characterClass: string): boolean {
-  const className = characterClass.toLowerCase();
-  return ['wizard', 'sorcerer'].includes(className);
+  return isPureArcaneClass(characterClass);
 }
 
 /**
@@ -1313,15 +1433,13 @@ export function isPureCaster(characterClass: string): boolean {
  * (uses Bracers of Armor instead)
  */
 export function skipArmorEnhancements(characterClass: string): boolean {
-  const className = characterClass.toLowerCase();
   // Wizards and Sorcerers can't wear armor (arcane spell failure)
-  return ['wizard', 'sorcerer'].includes(className);
+  return isPureArcaneClass(characterClass);
 }
 
 /**
  * Determine if a class is a divine caster who CAN wear armor
  */
 export function isDivineCaster(characterClass: string): boolean {
-  const className = characterClass.toLowerCase();
-  return ['cleric', 'druid'].includes(className);
+  return isDivineClass(characterClass);
 }

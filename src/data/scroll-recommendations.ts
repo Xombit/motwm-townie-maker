@@ -8,6 +8,7 @@
 
 import { SpellDefinition, calculateScrollCost } from './spells.js';
 import * as Spells from './spells.js';
+import { getPrimaryClassToken, isDivineClass } from './class-utils';
 
 /**
  * Scroll recommendation for a specific spell
@@ -79,7 +80,7 @@ export function getScrollRecommendations(
   characterLevel: number,
   budget: number
 ): ScrollRecommendation[] {
-  const className = characterClass.toLowerCase();
+  const className = getPrimaryClassToken(characterClass);
   const priorities = SCROLL_PRIORITIES_BY_CLASS[className] || [];
   
   console.log(`DEBUG: Scroll selection for ${characterClass} (${className}), priorities: ${priorities.length}, budget: ${budget} gp, level: ${characterLevel}`);
@@ -98,7 +99,7 @@ export function getScrollRecommendations(
   const recommendations: ScrollRecommendation[] = [];
   
   // Collect all available scrolls
-  const isDivine = ['cleric', 'druid', 'paladin', 'ranger'].includes(className);
+  const isDivine = isDivineClass(className) || ['paladin', 'ranger'].includes(className);
   const arcaneScrolls = Spells.getAllArcaneScrollSpells();
   const divineScrolls = Spells.getAllDivineScrollSpells();
   

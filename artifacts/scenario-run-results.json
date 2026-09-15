@@ -1,0 +1,680 @@
+[
+  {
+    "id": "v11_fighter_l1_pc_standard",
+    "version": "v11",
+    "checks": [
+      {
+        "name": "actor_created",
+        "passed": true
+      },
+      {
+        "name": "class_item_present",
+        "passed": true
+      },
+      {
+        "name": "race_item_present",
+        "passed": true
+      },
+      {
+        "name": "no_uncaught_errors",
+        "passed": true,
+        "details": ""
+      },
+      {
+        "name": "hp_is_positive",
+        "passed": true,
+        "details": "hpValue=5"
+      },
+      {
+        "name": "budget_spend_within_bounds",
+        "passed": true,
+        "details": "budgetSpentRatio=0.95"
+      },
+      {
+        "name": "biography_notes_tabs_routed",
+        "passed": true,
+        "details": "biography=true notes=true"
+      }
+    ],
+    "durationMs": 8,
+    "telemetry": {
+      "actorType": "character",
+      "className": "Fighter",
+      "classLevel": 1,
+      "branch": "pc",
+      "spellPathEnabled": false,
+      "hpPath": "pc-roll",
+      "budgetPath": "standard",
+      "biographyPath": "routed",
+      "specialFeatureBranches": [],
+      "selectedSpellCount": 0,
+      "callTrace": [
+        "createActor",
+        "setAbilityScores",
+        "addRace",
+        "addClass",
+        "rollHP",
+        "addFeats",
+        "addEquipment",
+        "completePendingContainerMoves",
+        "setActorCR",
+        "setBiography",
+        "openSheet"
+      ]
+    },
+    "observed": {
+      "actorCreated": true,
+      "classItemPresent": true,
+      "raceItemPresent": true,
+      "uncaughtErrors": [],
+      "hpValue": 5,
+      "budgetSpentRatio": 0.95,
+      "biographyPresent": true,
+      "notesPresent": true
+    }
+  },
+  {
+    "id": "v11_wizard_l10_pc_standard",
+    "version": "v11",
+    "checks": [
+      {
+        "name": "actor_created",
+        "passed": true
+      },
+      {
+        "name": "class_item_present",
+        "passed": true
+      },
+      {
+        "name": "race_item_present",
+        "passed": true
+      },
+      {
+        "name": "no_uncaught_errors",
+        "passed": true,
+        "details": ""
+      },
+      {
+        "name": "hp_is_positive",
+        "passed": true,
+        "details": "hpValue=50"
+      },
+      {
+        "name": "spells_configured",
+        "passed": true,
+        "details": "spellCount=51"
+      },
+      {
+        "name": "budget_spend_within_bounds",
+        "passed": true,
+        "details": "budgetSpentRatio=0.95"
+      },
+      {
+        "name": "biography_notes_tabs_routed",
+        "passed": true,
+        "details": "biography=true notes=true"
+      }
+    ],
+    "durationMs": 12,
+    "telemetry": {
+      "actorType": "character",
+      "className": "Wizard",
+      "classLevel": 10,
+      "branch": "pc",
+      "spellPathEnabled": true,
+      "hpPath": "pc-roll",
+      "budgetPath": "standard",
+      "biographyPath": "routed",
+      "specialFeatureBranches": [],
+      "selectedSpellCount": 51,
+      "callTrace": [
+        "createActor",
+        "setAbilityScores",
+        "addRace",
+        "addClass",
+        "rollHP",
+        "addSpells",
+        "addFeats",
+        "addEquipment",
+        "completePendingContainerMoves",
+        "setActorCR",
+        "setBiography",
+        "openSheet"
+      ]
+    },
+    "observed": {
+      "actorCreated": true,
+      "classItemPresent": true,
+      "raceItemPresent": true,
+      "uncaughtErrors": [],
+      "hpValue": 50,
+      "spellCount": 51,
+      "budgetSpentRatio": 0.95,
+      "biographyPresent": true,
+      "notesPresent": true
+    }
+  },
+  {
+    "id": "v11_ranger_l11_pc_standard",
+    "version": "v11",
+    "checks": [
+      {
+        "name": "actor_created",
+        "passed": true
+      },
+      {
+        "name": "class_item_present",
+        "passed": true
+      },
+      {
+        "name": "race_item_present",
+        "passed": true
+      },
+      {
+        "name": "no_uncaught_errors",
+        "passed": true,
+        "details": ""
+      },
+      {
+        "name": "hp_is_positive",
+        "passed": true,
+        "details": "hpValue=55"
+      },
+      {
+        "name": "spells_configured",
+        "passed": true,
+        "details": "spellCount=12"
+      },
+      {
+        "name": "budget_spend_within_bounds",
+        "passed": true,
+        "details": "budgetSpentRatio=0.95"
+      },
+      {
+        "name": "biography_notes_tabs_routed",
+        "passed": true,
+        "details": "biography=false notes=false"
+      }
+    ],
+    "durationMs": 9,
+    "telemetry": {
+      "actorType": "character",
+      "className": "Ranger",
+      "classLevel": 11,
+      "branch": "pc",
+      "spellPathEnabled": true,
+      "hpPath": "pc-roll",
+      "budgetPath": "standard",
+      "biographyPath": "not-routed",
+      "specialFeatureBranches": [
+        "favored-enemies"
+      ],
+      "selectedSpellCount": 12,
+      "callTrace": [
+        "createActor",
+        "setAbilityScores",
+        "addRace",
+        "addClass",
+        "rollHP",
+        "addFavoredEnemies",
+        "addSpells",
+        "addFeats",
+        "addEquipment",
+        "completePendingContainerMoves",
+        "setActorCR",
+        "openSheet"
+      ]
+    },
+    "observed": {
+      "actorCreated": true,
+      "classItemPresent": true,
+      "raceItemPresent": true,
+      "uncaughtErrors": [],
+      "hpValue": 55,
+      "spellCount": 12,
+      "budgetSpentRatio": 0.95,
+      "biographyPresent": false,
+      "notesPresent": false
+    }
+  },
+  {
+    "id": "v11_cleric_l12_npc_npcwealth",
+    "version": "v11",
+    "checks": [
+      {
+        "name": "actor_created",
+        "passed": true
+      },
+      {
+        "name": "class_item_present",
+        "passed": true
+      },
+      {
+        "name": "race_item_present",
+        "passed": true
+      },
+      {
+        "name": "no_uncaught_errors",
+        "passed": true,
+        "details": ""
+      },
+      {
+        "name": "spells_configured",
+        "passed": true,
+        "details": "spellCount=59"
+      },
+      {
+        "name": "budget_spend_within_bounds",
+        "passed": true,
+        "details": "budgetSpentRatio=0.95"
+      },
+      {
+        "name": "biography_notes_tabs_routed",
+        "passed": true,
+        "details": "biography=false notes=false"
+      }
+    ],
+    "durationMs": 8,
+    "telemetry": {
+      "actorType": "npc",
+      "className": "Cleric",
+      "classLevel": 12,
+      "branch": "npc",
+      "spellPathEnabled": true,
+      "hpPath": "none",
+      "budgetPath": "standard",
+      "biographyPath": "not-routed",
+      "specialFeatureBranches": [],
+      "selectedSpellCount": 59,
+      "callTrace": [
+        "createActor",
+        "setAbilityScores",
+        "addRace",
+        "addNpcClass",
+        "addNpcSkills",
+        "addSpells",
+        "addFeats",
+        "addEquipment",
+        "completePendingContainerMoves",
+        "setActorCR",
+        "openSheet"
+      ]
+    },
+    "observed": {
+      "actorCreated": true,
+      "classItemPresent": true,
+      "raceItemPresent": true,
+      "uncaughtErrors": [],
+      "spellCount": 59,
+      "budgetSpentRatio": 0.95,
+      "biographyPresent": false,
+      "notesPresent": false
+    }
+  },
+  {
+    "id": "v14_fighter_l1_pc_standard",
+    "version": "v14",
+    "checks": [
+      {
+        "name": "actor_created",
+        "passed": true
+      },
+      {
+        "name": "class_item_present",
+        "passed": true
+      },
+      {
+        "name": "race_item_present",
+        "passed": true
+      },
+      {
+        "name": "no_uncaught_errors",
+        "passed": true,
+        "details": ""
+      },
+      {
+        "name": "hp_is_positive",
+        "passed": true,
+        "details": "hpValue=5"
+      },
+      {
+        "name": "budget_spend_within_bounds",
+        "passed": true,
+        "details": "budgetSpentRatio=0.95"
+      },
+      {
+        "name": "biography_notes_tabs_routed",
+        "passed": true,
+        "details": "biography=false notes=false"
+      }
+    ],
+    "durationMs": 2,
+    "telemetry": {
+      "actorType": "character",
+      "className": "Fighter",
+      "classLevel": 1,
+      "branch": "pc",
+      "spellPathEnabled": false,
+      "hpPath": "pc-roll",
+      "budgetPath": "standard",
+      "biographyPath": "not-routed",
+      "specialFeatureBranches": [],
+      "selectedSpellCount": 0,
+      "callTrace": [
+        "createActor",
+        "setAbilityScores",
+        "addRace",
+        "addClass",
+        "rollHP",
+        "addFeats",
+        "addEquipment",
+        "completePendingContainerMoves",
+        "setActorCR",
+        "openSheet"
+      ]
+    },
+    "observed": {
+      "actorCreated": true,
+      "classItemPresent": true,
+      "raceItemPresent": true,
+      "uncaughtErrors": [],
+      "hpValue": 5,
+      "budgetSpentRatio": 0.95,
+      "biographyPresent": false,
+      "notesPresent": false
+    }
+  },
+  {
+    "id": "v14_sorcerer_l10_pc_standard",
+    "version": "v14",
+    "checks": [
+      {
+        "name": "actor_created",
+        "passed": true
+      },
+      {
+        "name": "class_item_present",
+        "passed": true
+      },
+      {
+        "name": "race_item_present",
+        "passed": true
+      },
+      {
+        "name": "no_uncaught_errors",
+        "passed": true,
+        "details": ""
+      },
+      {
+        "name": "hp_is_positive",
+        "passed": true,
+        "details": "hpValue=50"
+      },
+      {
+        "name": "spells_configured",
+        "passed": true,
+        "details": "spellCount=24"
+      },
+      {
+        "name": "budget_spend_within_bounds",
+        "passed": true,
+        "details": "budgetSpentRatio=0.95"
+      },
+      {
+        "name": "biography_notes_tabs_routed",
+        "passed": true,
+        "details": "biography=false notes=false"
+      }
+    ],
+    "durationMs": 6,
+    "telemetry": {
+      "actorType": "character",
+      "className": "Sorcerer",
+      "classLevel": 10,
+      "branch": "pc",
+      "spellPathEnabled": true,
+      "hpPath": "pc-roll",
+      "budgetPath": "standard",
+      "biographyPath": "not-routed",
+      "specialFeatureBranches": [],
+      "selectedSpellCount": 24,
+      "callTrace": [
+        "createActor",
+        "setAbilityScores",
+        "addRace",
+        "addClass",
+        "rollHP",
+        "addSpells",
+        "addFeats",
+        "addEquipment",
+        "completePendingContainerMoves",
+        "setActorCR",
+        "openSheet"
+      ]
+    },
+    "observed": {
+      "actorCreated": true,
+      "classItemPresent": true,
+      "raceItemPresent": true,
+      "uncaughtErrors": [],
+      "hpValue": 50,
+      "spellCount": 24,
+      "budgetSpentRatio": 0.95,
+      "biographyPresent": false,
+      "notesPresent": false
+    }
+  },
+  {
+    "id": "v14_rogue_l16_pc_standard",
+    "version": "v14",
+    "checks": [
+      {
+        "name": "actor_created",
+        "passed": true
+      },
+      {
+        "name": "class_item_present",
+        "passed": true
+      },
+      {
+        "name": "race_item_present",
+        "passed": true
+      },
+      {
+        "name": "no_uncaught_errors",
+        "passed": true,
+        "details": ""
+      },
+      {
+        "name": "hp_is_positive",
+        "passed": true,
+        "details": "hpValue=80"
+      },
+      {
+        "name": "budget_spend_within_bounds",
+        "passed": true,
+        "details": "budgetSpentRatio=0.95"
+      },
+      {
+        "name": "biography_notes_tabs_routed",
+        "passed": true,
+        "details": "biography=false notes=false"
+      }
+    ],
+    "durationMs": 1,
+    "telemetry": {
+      "actorType": "character",
+      "className": "Rogue",
+      "classLevel": 16,
+      "branch": "pc",
+      "spellPathEnabled": false,
+      "hpPath": "pc-roll",
+      "budgetPath": "standard",
+      "biographyPath": "not-routed",
+      "specialFeatureBranches": [
+        "rogue-special-abilities"
+      ],
+      "selectedSpellCount": 0,
+      "callTrace": [
+        "createActor",
+        "setAbilityScores",
+        "addRace",
+        "addClass",
+        "rollHP",
+        "addRogueSpecialAbilities",
+        "addFeats",
+        "addEquipment",
+        "completePendingContainerMoves",
+        "setActorCR",
+        "openSheet"
+      ]
+    },
+    "observed": {
+      "actorCreated": true,
+      "classItemPresent": true,
+      "raceItemPresent": true,
+      "uncaughtErrors": [],
+      "hpValue": 80,
+      "budgetSpentRatio": 0.95,
+      "biographyPresent": false,
+      "notesPresent": false
+    }
+  },
+  {
+    "id": "v14_fighter_l8_npc_no_budget",
+    "version": "v14",
+    "checks": [
+      {
+        "name": "actor_created",
+        "passed": true
+      },
+      {
+        "name": "class_item_present",
+        "passed": true
+      },
+      {
+        "name": "race_item_present",
+        "passed": true
+      },
+      {
+        "name": "no_uncaught_errors",
+        "passed": true,
+        "details": ""
+      },
+      {
+        "name": "biography_notes_tabs_routed",
+        "passed": true,
+        "details": "biography=false notes=false"
+      }
+    ],
+    "durationMs": 1,
+    "telemetry": {
+      "actorType": "npc",
+      "className": "Fighter",
+      "classLevel": 8,
+      "branch": "npc",
+      "spellPathEnabled": false,
+      "hpPath": "none",
+      "budgetPath": "npc-wealth",
+      "biographyPath": "not-routed",
+      "specialFeatureBranches": [],
+      "selectedSpellCount": 0,
+      "callTrace": [
+        "createActor",
+        "setAbilityScores",
+        "addRace",
+        "addNpcClass",
+        "addNpcSkills",
+        "addFeats",
+        "addEquipment",
+        "completePendingContainerMoves",
+        "setActorCR",
+        "openSheet"
+      ]
+    },
+    "observed": {
+      "actorCreated": true,
+      "classItemPresent": true,
+      "raceItemPresent": true,
+      "uncaughtErrors": [],
+      "budgetSpentRatio": 0.72,
+      "biographyPresent": false,
+      "notesPresent": false
+    }
+  },
+  {
+    "id": "v14_adept_l8_npc_standard",
+    "version": "v14",
+    "checks": [
+      {
+        "name": "actor_created",
+        "passed": true
+      },
+      {
+        "name": "class_item_present",
+        "passed": true
+      },
+      {
+        "name": "race_item_present",
+        "passed": true
+      },
+      {
+        "name": "no_uncaught_errors",
+        "passed": true,
+        "details": ""
+      },
+      {
+        "name": "spells_configured",
+        "passed": true,
+        "details": "spellCount=45"
+      },
+      {
+        "name": "budget_spend_within_bounds",
+        "passed": true,
+        "details": "budgetSpentRatio=0.95"
+      },
+      {
+        "name": "biography_notes_tabs_routed",
+        "passed": true,
+        "details": "biography=true notes=true"
+      }
+    ],
+    "durationMs": 5,
+    "telemetry": {
+      "actorType": "npc",
+      "className": "Adept (NPC)",
+      "classLevel": 8,
+      "branch": "npc",
+      "spellPathEnabled": true,
+      "hpPath": "none",
+      "budgetPath": "standard",
+      "biographyPath": "routed",
+      "specialFeatureBranches": [],
+      "selectedSpellCount": 45,
+      "callTrace": [
+        "createActor",
+        "setAbilityScores",
+        "addRace",
+        "addNpcClass",
+        "addNpcSkills",
+        "addSpells",
+        "addFeats",
+        "addEquipment",
+        "completePendingContainerMoves",
+        "setActorCR",
+        "setBiography",
+        "openSheet"
+      ]
+    },
+    "observed": {
+      "actorCreated": true,
+      "classItemPresent": true,
+      "raceItemPresent": true,
+      "uncaughtErrors": [],
+      "spellCount": 45,
+      "budgetSpentRatio": 0.95,
+      "biographyPresent": true,
+      "notesPresent": true
+    }
+  }
+]

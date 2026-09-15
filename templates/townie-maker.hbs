@@ -1,22 +1,59 @@
 <div class="motwm-townie-maker">
   <nav class="tabs" data-group="primary-tabs">
-    <a class="item" data-tab="template">
-      <i class="fas fa-images"></i> Templates
+    <a class="item creation-step" data-tab="template">
+      <span class="step-number">1</span> Templates
     </a>
-    <a class="item" data-tab="details">
-      <i class="fas fa-edit"></i> Details
+    <a class="item creation-step" data-tab="details">
+      <span class="step-number">2</span> Details
     </a>
-    <a class="item" data-tab="abilities">
-      <i class="fas fa-dice-d20"></i> Abilities
+    <a class="item creation-step" data-tab="abilities">
+      <span class="step-number">3</span> Abilities
     </a>
-    <a class="item" data-tab="config">
-      <i class="fas fa-cog"></i> Config
+    <a class="item creation-step" data-tab="equipment">
+      <span class="step-number">4</span> Equipment
+    </a>
+    <a class="item settings-tab" data-tab="settings">
+      <i class="fas fa-cog"></i> Settings
     </a>
   </nav>
 
   <div class="content">
     <!-- Template Selection Tab -->
     <div class="tab" data-tab="template">
+      {{#if showTemplateDetail}}
+      <div class="template-detail">
+        <button type="button" class="template-detail-back" data-action="template-gallery-back">
+          <i class="fas fa-arrow-left"></i> Back to Templates
+        </button>
+        <header class="template-detail-header">
+          <div class="template-detail-icon"><i class="{{selectedTemplateDetail.icon}}"></i></div>
+          <div>
+            <div class="template-applied"><i class="fas fa-check"></i> Applied to draft</div>
+            <h2>{{selectedTemplateDetail.name}}</h2>
+            <p>{{selectedTemplateDetail.description}}</p>
+          </div>
+        </header>
+        <div class="template-detail-sections">
+          {{#each selectedTemplateDetail.sections}}
+          <section class="template-detail-section">
+            <h3>{{title}}</h3>
+            {{#if rows}}
+            <dl>
+              {{#each rows}}
+              <div><dt>{{label}}</dt><dd>{{value}}</dd></div>
+              {{/each}}
+            </dl>
+            {{/if}}
+            {{#if items}}
+            <ul>
+              {{#each items}}<li>{{this}}</li>{{/each}}
+            </ul>
+            {{/if}}
+          </section>
+          {{/each}}
+        </div>
+      </div>
+      {{else}}
       <div class="section-header">Choose a Template</div>
 
       {{#if templateLoadError}}
@@ -43,15 +80,16 @@
 
       <div class="template-grid">
         {{#each templates}}
-        <div class="template-card {{#if (eq ../selectedTemplate.id this.id)}}selected{{/if}}"
-             data-action="select-template"
-             data-template-id="{{this.id}}">
+        <button type="button" class="template-card {{#if (eq ../selectedTemplate.id this.id)}}selected{{/if}}"
+                data-action="select-template"
+                data-template-id="{{this.id}}">
           <div class="icon"><i class="{{this.icon}}"></i></div>
           <div class="name">{{this.name}}</div>
           <div class="description">{{this.description}}</div>
-        </div>
+        </button>
         {{/each}}
       </div>
+      {{/if}}
     </div>
 
     <!-- Details Tab -->
@@ -135,34 +173,89 @@
     <!-- Abilities Tab -->
     <div class="tab" data-tab="abilities">
       <div class="section-header">Ability Scores</div>
-      
-      <div class="button-group">
-        <button data-action="apply-standard-array">
-          <i class="fas fa-list-ol"></i> Standard Array
-        </button>
-        <button data-action="roll-abilities">
-          <i class="fas fa-dice"></i> Roll 4d6 Drop Lowest
-        </button>
-      </div>
 
-      <div class="abilities-grid">
-        {{#each abilities}}
-        <div class="ability-input">
-          <label for="ability-{{this.key}}">{{this.label}}</label>
-          <input type="number" 
-                 id="ability-{{this.key}}" 
-                 data-ability="{{this.key}}" 
-                 value="{{this.value}}" 
-                 min="3" 
-                 max="25">
-        </div>
+      <div class="ability-methods" role="group" aria-label="Ability generation method">
+        {{#each abilityMethods}}
+        <button type="button" data-action="select-ability-method" data-method="{{id}}" class="ability-method {{#if selected}}selected{{/if}}">
+          <i class="{{icon}}"></i>
+          <span>{{label}}</span>
+        </button>
         {{/each}}
       </div>
+
+      {{#if isPointBuy}}
+      <div class="ability-buy-controls">
+        <label for="ability-point-budget">Auto Buy Budget</label>
+        <select id="ability-point-budget" data-ability-budget>
+          {{#each pointBuyBudgets}}
+          <option value="{{value}}" {{#if selected}}selected{{/if}}>{{value}} points</option>
+          {{/each}}
+        </select>
+        <span>Higher priorities receive stronger scores; the final ranks become deliberate dump stats.</span>
+      </div>
+      {{/if}}
+
+      <div class="ability-workspace">
+        <section class="ability-priority-panel" aria-labelledby="ability-priority-heading">
+          <div class="ability-panel-heading" id="ability-priority-heading">Allocation Priority</div>
+          <div class="ability-priority-list">
+            {{#each abilityPriorityRows}}
+            <div class="ability-priority-row">
+              <span class="ability-priority-rank">{{rank}}</span>
+              <strong>{{label}}</strong>
+              {{#if pinned}}
+              <span class="ability-pin"><i class="fas fa-thumbtack"></i> {{allocationNote}}</span>
+              {{else}}
+              <span class="ability-allocation-note">{{allocationNote}}</span>
+              {{/if}}
+              <span class="ability-priority-actions">
+                <button type="button" data-action="move-ability-priority" data-ability="{{key}}" data-direction="up" title="Move {{label}} higher"><i class="fas fa-chevron-up"></i></button>
+                <button type="button" data-action="move-ability-priority" data-ability="{{key}}" data-direction="down" title="Move {{label}} lower"><i class="fas fa-chevron-down"></i></button>
+                {{#if pinned}}
+                <button type="button" data-action="unpin-ability" data-ability="{{key}}" title="Unpin {{label}} for this draft"><i class="fas fa-unlock"></i></button>
+                {{/if}}
+              </span>
+            </div>
+            {{/each}}
+          </div>
+        </section>
+
+        <section class="ability-score-panel" aria-labelledby="ability-score-heading">
+          <div class="ability-panel-heading" id="ability-score-heading">Current Scores</div>
+          <div class="abilities-grid">
+            {{#each abilities}}
+            <div class="ability-input {{#if pinned}}pinned{{/if}}">
+              <label for="ability-{{this.key}}">{{this.label}} {{#if pinned}}<i class="fas fa-thumbtack" title="Pinned by template"></i>{{/if}}</label>
+              <input type="number" id="ability-{{this.key}}" data-ability="{{this.key}}" value="{{this.value}}">
+            </div>
+            {{/each}}
+          </div>
+        </section>
+      </div>
+
+      <div class="ability-generation-footer">
+        <div class="ability-generation-note">
+          {{#if isRollMethod}}
+          Current roll pool: <strong>{{abilityRollPool}}</strong>. Reordering assigns the same rolls in the new order.
+          {{else}}
+          Pinned values stay fixed. Unpinned values follow the priority order.
+          {{/if}}
+        </div>
+        <button type="button" data-action="roll-abilities" {{#if (eq formData.abilityGenerationMethod "manual")}}disabled{{/if}}>
+          <i class="fas fa-sync-alt"></i>
+          {{#if isRollMethod}}Reroll{{else}}Generate Scores{{/if}}
+        </button>
+      </div>
+      {{#if abilityWarnings}}
+      <div class="ability-warnings">
+        {{#each abilityWarnings}}<div><i class="fas fa-exclamation-triangle"></i> {{this}}</div>{{/each}}
+      </div>
+      {{/if}}
     </div>
 
-    <!-- Config Tab -->
-    <div class="tab" data-tab="config">
-      <div class="section-header">Character Options</div>
+    <!-- Settings Tab -->
+    <div class="tab" data-tab="settings">
+      <div class="section-header">Townie Settings</div>
       
       <div class="form-group" style="margin-bottom: 16px;">
         <label style="display: flex; align-items: center; gap: 8px; cursor: pointer;">
@@ -192,38 +285,8 @@
         </div>
       </div>
 
-      <div class="section-header">Budget Options</div>
-      
-      <div class="form-group" style="margin-bottom: 16px;">
-        <label style="display: flex; align-items: center; gap: 8px; cursor: pointer;">
-          <input type="checkbox" 
-                 data-field="useStandardBudget" 
-                 {{#if formData.useStandardBudget}}checked{{/if}}
-                 style="width: 18px; height: 18px;">
-          <span style="font-weight: bold;">Use Standard Adventurer Budget</span>
-        </label>
-        <div style="font-size: 11px; color: var(--color-text-dark-6, #3b3f4a); margin-left: 26px; margin-top: 4px;">
-          When enabled, NPC receives wealth-by-level appropriate gear and magic items.<br>
-          When disabled, NPC receives no magic items and only token gold as loot.
-        </div>
-      </div>
-
-      <div class="form-group" style="margin-bottom: 16px;">
-        <label style="display: flex; align-items: center; gap: 8px; cursor: pointer;">
-          <input type="checkbox" 
-                 data-field="useNpcWealth" 
-                 {{#if formData.useNpcWealth}}checked{{/if}}
-                 style="width: 18px; height: 18px;">
-          <span style="font-weight: bold;">Use NPC Gear Value (DMG Table 4-23)</span>
-        </label>
-        <div style="font-size: 11px; color: var(--color-text-dark-6, #3b3f4a); margin-left: 26px; margin-top: 4px;">
-          When enabled, uses the lower NPC gear value table instead of PC wealth-by-level.<br>
-          Auto-enabled for NPC classes (Warrior, Expert, Aristocrat, etc.).
-        </div>
-      </div>
-
       <div class="section-header">Token Options</div>
-      
+
       <div class="form-group" style="margin-bottom: 16px;">
         <label style="font-weight: bold; display: block; margin-bottom: 4px;">Token Disposition</label>
         <select data-field="tokenDisposition" style="width: 200px; padding: 4px 8px;">
@@ -232,8 +295,58 @@
           <option value="-1" {{#if (eq formData.tokenDisposition -1)}}selected{{/if}}>Hostile</option>
         </select>
         <div style="font-size: 11px; color: var(--color-text-dark-6, #3b3f4a); margin-top: 4px;">
-          Sets the default disposition for tokens placed from this character.<br>
-          Friendly = green border, Neutral = yellow border, Hostile = red border.
+          Sets the default disposition for placed tokens.
+        </div>
+      </div>
+    </div>
+
+    <!-- Equipment Tab -->
+    <div class="tab" data-tab="equipment">
+      <div class="section-header">Equipment and Wealth</div>
+
+      <div class="section-header">Budget Options</div>
+
+      <div class="form-group" style="margin-bottom: 16px;">
+        <label style="font-weight: bold; display: block; margin-bottom: 8px;">Wealth Mode</label>
+        <div style="display: grid; gap: 8px;">
+          <label style="display: flex; align-items: center; gap: 8px; cursor: pointer;">
+            <input type="radio"
+                   name="budgetMode"
+                   data-field="budgetMode"
+                   value="standardBudget"
+                   {{#if (eq formData.budgetMode "standardBudget")}}checked{{/if}}
+                   style="width: 18px; height: 18px;">
+            <span style="font-weight: bold;">Standard Adventurer Budget</span>
+          </label>
+          <div style="font-size: 11px; color: var(--color-text-dark-6, #3b3f4a); margin-left: 26px; margin-top: -2px;">
+            Uses wealth-by-level appropriate gear and magic items.
+          </div>
+
+          <label style="display: flex; align-items: center; gap: 8px; cursor: pointer;">
+            <input type="radio"
+                   name="budgetMode"
+                   data-field="budgetMode"
+                   value="npcWealth"
+                   {{#if (eq formData.budgetMode "npcWealth")}}checked{{/if}}
+                   style="width: 18px; height: 18px;">
+            <span style="font-weight: bold;">NPC Gear Value</span>
+          </label>
+          <div style="font-size: 11px; color: var(--color-text-dark-6, #3b3f4a); margin-left: 26px; margin-top: -2px;">
+            Uses the lower NPC gear value table instead of PC wealth-by-level.
+          </div>
+
+          <label style="display: flex; align-items: center; gap: 8px; cursor: pointer;">
+            <input type="radio"
+                   name="budgetMode"
+                   data-field="budgetMode"
+                   value="noBudget"
+                   {{#if (eq formData.budgetMode "noBudget")}}checked{{/if}}
+                   style="width: 18px; height: 18px;">
+            <span style="font-weight: bold;">No Budget</span>
+          </label>
+          <div style="font-size: 11px; color: var(--color-text-dark-6, #3b3f4a); margin-left: 26px; margin-top: -2px;">
+            Disables automatic gear and magic items, leaving only token gold as loot.
+          </div>
         </div>
       </div>
 
@@ -266,6 +379,30 @@
           When disabled, all remaining gold is given as coins.
         </div>
         <div style="margin-left: 26px; margin-top: 8px;">
+          <label style="font-size: 12px; font-weight: bold; display: block; margin-bottom: 4px;">Reserve Gold For Cash/Deposit (%)</label>
+          <input type="range"
+                 data-field="reserveGoldPercent"
+                 min="0"
+                 max="100"
+                 step="1"
+                 value="{{formData.reserveGoldPercent}}"
+                 style="width: 100%; max-width: 300px;">
+          <div style="font-size: 11px; color: var(--color-text-dark-6, #3b3f4a); margin-top: 4px;">
+            Current reserve: <strong>{{formData.reserveGoldPercent}}%</strong> of post-mundane budget.
+          </div>
+
+          <label style="display: flex; align-items: center; gap: 8px; cursor: pointer; margin-top: 10px;">
+            <input type="checkbox"
+                   data-field="keepPocketChange"
+                   {{#if formData.keepPocketChange}}checked{{/if}}
+                   style="width: 18px; height: 18px;">
+            <span style="font-size: 12px; font-weight: bold;">Keep Pocket Change</span>
+          </label>
+          <div style="font-size: 11px; color: var(--color-text-dark-6, #3b3f4a); margin-top: 2px;">
+            When enabled, keep some coins on-hand and deposit the rest.
+            When disabled, all reserved remainder goes to bank deposit.
+          </div>
+
           <label style="font-size: 12px; font-weight: bold; display: block; margin-bottom: 4px;">Bank Name</label>
           <input type="text" 
                  data-field="bankName" 
@@ -289,10 +426,10 @@
         </div>
       </div>
 
-      {{#if formData.useStandardBudget}}
+      {{#unless (eq formData.budgetMode "noBudget")}}
       <div class="section-header" style="margin-top: 20px;">Magic Item Budget Allocation</div>
-      <div style="font-size: 11px; color: var(--color-text-dark-6, #3b3f4a); margin-bottom: 8px; padding: 0 4px;">
-        Fine-tune how specific budget categories are split between related items.
+      <div class="budget-intro">
+        Choose a spending strategy. Percentages are Townie Maker recommendations, not official D&amp;D rules.
       </div>
 
       {{#unless budgetInfo}}
@@ -301,149 +438,130 @@
       </div>
       {{/unless}}
 
-      {{#if budgetInfo}}
-      <div style="background: rgba(0,0,0,0.2); padding: 8px; margin-bottom: 12px; border-radius: 4px; font-size: 12px;">
-        <div style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 8px;">
-          <div><strong>Total Wealth:</strong> {{budgetInfo.totalWealth}} gp</div>
-          <div><strong>Mundane Cost:</strong> {{budgetInfo.mundaneCost}} gp</div>
-          <div><strong>Magic Budget:</strong> {{budgetInfo.magicBudget}} gp</div>
-        </div>
-      </div>
-      {{/if}}
-
-      <div class="abilities-grid">
-        {{#if budgetInfo}}
-        <div style="grid-column: 1 / -1; background: rgba(0,100,200,0.3); padding: 8px; border-left: 3px solid rgba(0,150,255,0.8); margin-bottom: 8px; border-radius: 4px;">
-          <div style="font-weight: bold; font-size: 11px; color: #ffffff; margin-bottom: 4px; text-shadow: 0 1px 2px rgba(0,0,0,0.5);">ARMOR BUDGET: {{budgetInfo.armorBudgetTotal}} gp</div>
-          <div style="font-size: 10px; color: #ffffff; opacity: 0.9;">Split between shield and armor enhancements</div>
-        </div>
-        {{/if}}
-
-        <div class="ability-input">
-          <label for="budget-shield" title="% of armor budget allocated to shield enhancement">
-            Shield {{#if budgetInfo}}<span style="font-weight: normal; font-size: 9px; opacity: 0.7;">(of armor budget)</span>{{/if}}
-            {{#if budgetInfo}}<span style="display: block; font-size: 10px; font-weight: normal; color: #005f9e;">{{budgetInfo.shieldGP}} gp</span>{{/if}}
-          </label>
-          <input type="number" 
-                 id="budget-shield" 
-                 data-budget="shieldPercent" 
-                 value="{{formData.magicItemBudgets.shieldPercent}}" 
-                 min="0" 
-                 max="100"
-                 step="5">
-        </div>
-
-        <div class="ability-input">
-          <label for="budget-armor" title="% of armor budget allocated to armor enhancement">
-            Armor {{#if budgetInfo}}<span style="font-weight: normal; font-size: 9px; opacity: 0.7;">(of armor budget)</span>{{/if}}
-            {{#if budgetInfo}}<span style="display: block; font-size: 10px; font-weight: normal; color: #005f9e;">{{budgetInfo.armorGP}} gp</span>{{/if}}
-          </label>
-          <input type="number" 
-                 id="budget-armor" 
-                 data-budget="armorPercent" 
-                 value="{{formData.magicItemBudgets.armorPercent}}" 
-                 min="0" 
-                 max="100"
-                 step="5">
-        </div>
-
-        {{#if budgetInfo}}
-        <div style="grid-column: 1 / -1; background: rgba(150,50,0,0.3); padding: 8px; border-left: 3px solid rgba(255,150,0,0.8); margin-top: 8px; margin-bottom: 8px; border-radius: 4px;">
-          <div style="font-weight: bold; font-size: 11px; color: #ffffff; margin-bottom: 4px; text-shadow: 0 1px 2px rgba(0,0,0,0.5);">WEAPON BUDGET: {{budgetInfo.weaponBudgetTotal}} gp</div>
-          <div style="font-size: 10px; color: #ffffff; opacity: 0.9;">Split between primary and secondary weapon enhancements</div>
-          <div style="font-size: 10px; color: #ffffff; opacity: 0.85; margin-top: 2px;">Primary ({{budgetInfo.weaponPrimaryPercent}}%): {{budgetInfo.weaponPrimaryGP}} gp</div>
-        </div>
-        {{/if}}
-
-        <div class="ability-input">
-          <label for="budget-secondary" title="% of weapon budget allocated to secondary/off-hand weapon">
-            Secondary Weapon {{#if budgetInfo}}<span style="font-weight: normal; font-size: 9px; opacity: 0.7;">(of weapon budget)</span>{{/if}}
-            {{#if budgetInfo}}<span style="display: block; font-size: 10px; font-weight: normal; color: #005f9e;">{{budgetInfo.secondaryWeaponGP}} gp</span>{{/if}}
-          </label>
-          <input type="number" 
-                 id="budget-secondary" 
-                 data-budget="secondaryWeaponPercent" 
-                 value="{{formData.magicItemBudgets.secondaryWeaponPercent}}" 
-                 min="0" 
-                 max="100"
-                 step="5">
-        </div>
-
-        {{#if budgetInfo}}
-        <div style="grid-column: 1 / -1; background: rgba(100,0,150,0.3); padding: 8px; border-left: 3px solid rgba(200,0,255,0.8); margin-top: 8px; margin-bottom: 8px; border-radius: 4px;">
-          <div style="font-weight: bold; font-size: 11px; color: #ffffff; margin-bottom: 4px; text-shadow: 0 1px 2px rgba(0,0,0,0.5);">PROTECTION BUDGET: {{budgetInfo.protectionBudgetTotal}} gp</div>
-          <div style="font-size: 10px; color: #ffffff; opacity: 0.9;">Split between Ring of Protection and Amulet of Natural Armor</div>
-        </div>
-        {{/if}}
-
-        <div class="ability-input">
-          <label for="budget-ring" title="% of protection budget allocated to Ring of Protection">
-            Ring of Protection {{#if budgetInfo}}<span style="font-weight: normal; font-size: 9px; opacity: 0.7;">(of protection budget)</span>{{/if}}
-            {{#if budgetInfo}}<span style="display: block; font-size: 10px; font-weight: normal; color: #005f9e;">{{budgetInfo.ringGP}} gp</span>{{/if}}
-          </label>
-          <input type="number" 
-                 id="budget-ring" 
-                 data-budget="ringPercent" 
-                 value="{{formData.magicItemBudgets.ringPercent}}" 
-                 min="0" 
-                 max="100"
-                 step="5">
-        </div>
-
-        <div class="ability-input">
-          <label for="budget-amulet" title="% of protection budget allocated to Amulet of Natural Armor">
-            Amulet of Nat. Armor {{#if budgetInfo}}<span style="font-weight: normal; font-size: 9px; opacity: 0.7;">(of protection budget)</span>{{/if}}
-            {{#if budgetInfo}}<span style="display: block; font-size: 10px; font-weight: normal; color: #005f9e;">{{budgetInfo.amuletGP}} gp</span>{{/if}}
-          </label>
-          <input type="number" 
-                 id="budget-amulet" 
-                 data-budget="amuletPercent" 
-                 value="{{formData.magicItemBudgets.amuletPercent}}" 
-                 min="0" 
-                 max="100"
-                 step="5">
-        </div>
-
-        <div class="ability-input" style="display: flex; align-items: flex-end;">
-          <button data-action="reset-budgets" style="width: 100%; height: 36px;" title="Reset all values to current defaults (based on level and template)">
-            <i class="fas fa-undo"></i> Reset
-          </button>
-        </div>
+      <div class="budget-presets" role="group" aria-label="Spending strategy">
+        {{#each spendingPresets}}
+        <button type="button" data-action="select-spending-preset" data-preset="{{id}}" class="budget-preset {{#if selected}}selected{{/if}}">
+          {{label}}
+        </button>
+        {{/each}}
       </div>
 
       {{#if budgetInfo}}
-      <div style="background: rgba(0,0,0,0.2); padding: 8px; margin-top: 12px; border-radius: 4px; font-size: 12px;">
-        <div style="display: grid; grid-template-columns: 1fr; gap: 6px;">
-          <div>
-            <strong>Armor Allocated:</strong> {{budgetInfo.armorAllocatedPercent}}% (Unallocated: {{budgetInfo.armorUnallocatedPercent}}% / {{budgetInfo.armorUnallocatedGP}} gp)
-          </div>
-          <div>
-            <strong>Weapon Allocated:</strong> {{budgetInfo.weaponAllocatedPercent}}% (Unallocated: {{budgetInfo.weaponUnallocatedPercent}}% / {{budgetInfo.weaponUnallocatedGP}} gp)
-          </div>
-          <div>
-            <strong>Protection Allocated:</strong> {{budgetInfo.protectionAllocatedPercent}}% (Unallocated: {{budgetInfo.protectionUnallocatedPercent}}% / {{budgetInfo.protectionUnallocatedGP}} gp)
-          </div>
-          <div style="font-weight: bold; color: #005f9e;">
-            <strong>Total Unallocated:</strong> {{budgetInfo.unallocatedGP}} gp
-          </div>
-        </div>
-        <div style="margin-top: 8px; padding-top: 8px; border-top: 1px solid rgba(0,0,0,0.2); font-size: 11px; color: var(--color-text-dark-2, #1f232a);">
-          <strong>Note:</strong> These percentages are sub-allocations within their parent budgets (Armor, Weapon, Protection). If an allocated budget cannot afford a valid item, that gold returns to the unallocated pool.
-        </div>
+      <div class="budget-ledger">
+        <div><span>Total wealth</span><strong>{{budgetInfo.totalWealth}} gp</strong></div>
+        <div><span>Mundane kit</span><strong>{{budgetInfo.mundaneCost}} gp</strong></div>
+        <div><span>Reserved cash</span><strong>{{budgetInfo.reservedGp}} gp</strong></div>
+        <div class="budget-ledger__total"><span>Magic-item budget</span><strong>{{budgetInfo.spendableGp}} gp</strong></div>
       </div>
+
+      <button type="button" data-action="toggle-advanced-spending" class="budget-advanced-toggle">
+        <i class="fas fa-sliders-h"></i>
+        {{#if budgetInfo.showAdvanced}}Hide detailed plan{{else}}Show detailed plan{{/if}}
+      </button>
+
+      {{#if budgetInfo.showAdvanced}}
+      <section class="budget-scale-section">
+        <div>
+          <strong>Wealth Scale</strong>
+          <span>Scales total wealth before equipment allocation. It is not part of a 100% mix.</span>
+        </div>
+        <label>
+          Wealth multiplier
+          <span><input type="number" data-spending-multiplier min="0" max="200" step="5" value="{{budgetInfo.multiplierPercent}}">%</span>
+        </label>
+      </section>
+
+      <div class="budget-subheading">Item Mixes <span>Each group independently divides one parent category.</span></div>
+      <div class="budget-split-groups">
+        {{#each budgetInfo.splitGroups}}
+        <section class="budget-split-group {{#unless valid}}incomplete{{/unless}}">
+          <header>
+            <div>
+              <strong>{{label}}</strong>
+              <span>% of {{parent}}</span>
+            </div>
+            <div class="budget-split-total {{#unless valid}}invalid{{/unless}}">
+              {{totalPercent}}% total
+              {{#unless valid}}<span>{{remainingPercent}}% unassigned</span>{{/unless}}
+            </div>
+          </header>
+          <div class="budget-split-members">
+            {{#each members}}
+            <label class="budget-split-member {{#if invalid}}invalid{{/if}}">
+              <span>{{label}}</span>
+              <span class="budget-split-input">
+                <input type="number"
+                       data-spending-split="{{key}}"
+                       data-spending-group="{{../key}}"
+                       min="0"
+                       max="{{maxPercent}}"
+                       step="1"
+                       value="{{percent}}"
+                       {{#if invalid}}aria-invalid="true"{{/if}}>%
+              </span>
+              {{#if message}}<small>{{message}}</small>{{/if}}
+            </label>
+            {{/each}}
+          </div>
+        </section>
+        {{/each}}
+      </div>
+
+      <div class="budget-subheading budget-overall-heading">
+        {{budgetInfo.categoryHeading}}
+        <span>All enabled category shares total {{budgetInfo.overallCategoryTotal}}%.</span>
+      </div>
+      <div class="budget-category-list">
+        <div class="budget-category-list__header">
+          <span>Use</span><span>Priority</span><span>Category</span><span>Share</span><span>Rollover cap</span><span>Item limit</span><span>Budget</span>
+        </div>
+        {{#each budgetInfo.categories}}
+        <div class="budget-category-row">
+          <input type="checkbox" data-spending-enabled="{{key}}" {{#if enabled}}checked{{/if}} aria-label="Use {{label}}">
+          <span class="budget-priority-controls">
+            <button type="button" data-action="move-spending-category" data-category="{{key}}" data-direction="up" title="Move {{label}} earlier"><i class="fas fa-chevron-up"></i></button>
+            <button type="button" data-action="move-spending-category" data-category="{{key}}" data-direction="down" title="Move {{label}} later"><i class="fas fa-chevron-down"></i></button>
+          </span>
+          <strong>{{label}}</strong>
+          <span><input type="number" data-spending-share="{{key}}" min="0" max="100" step="1" value="{{percent}}">%</span>
+          <span><input type="number" data-spending-cap="{{key}}" min="0" max="100" step="5" value="{{maxPercent}}">%</span>
+          <input type="number" data-spending-item-limit="{{key}}" min="0" max="100" step="1" value="{{itemLimit}}" placeholder="Auto" aria-label="{{label}} item limit">
+          <span>{{allocatedGp}} gp</span>
+        </div>
+        {{/each}}
+      </div>
+      <p class="budget-rollover-note">Unused money follows this priority order. Each category accepts rollover up to its cap; anything left after the final category becomes cash.</p>
       {{/if}}
       {{/if}}
+      {{/unless}}
     </div>
   </div>
 
-  <!-- Action Buttons -->
-  <footer class="button-group" style="padding: 12px 16px; border-top: 1px solid var(--color-border-light-2, #2c2f3a);">
-    <button class="primary" data-action="create-npc">
-      <i class="fas fa-user-plus"></i> Create NPC
-    </button>
-    <button data-action="cancel">
+  <footer class="wizard-footer">
+    <div class="wizard-footer-slot wizard-footer-left">
+      <button type="button" data-action="cancel" data-footer-action="cancel" {{#unless wizardFooter.showCancel}}hidden{{/unless}}>
       <i class="fas fa-times"></i> Cancel
-    </button>
+      </button>
+      <button type="button" data-action="wizard-back" data-footer-action="back" {{#unless wizardFooter.showBack}}hidden{{/unless}}>
+        <i class="fas fa-arrow-left"></i> Back
+      </button>
+    </div>
+    <div class="wizard-footer-slot wizard-footer-center">
+      <button type="button" data-action="create-npc" data-footer-action="createNow" {{#unless wizardFooter.showCreateNow}}hidden{{/unless}}>
+        <i class="fas fa-user-plus"></i> Create Now
+      </button>
+    </div>
+    <div class="wizard-footer-slot wizard-footer-right">
+      <button type="button" class="primary" data-action="wizard-next" data-footer-action="next" {{#if wizardFooter.nextDisabled}}disabled{{/if}} {{#unless wizardFooter.showNext}}hidden{{/unless}}>
+        Next <i class="fas fa-arrow-right"></i>
+      </button>
+      <button type="button" class="primary" data-action="create-npc" data-footer-action="finalCreate" {{#unless wizardFooter.showFinalCreate}}hidden{{/unless}}>
+        <i class="fas fa-user-plus"></i> Create Townie
+      </button>
+      <button type="button" data-action="return-to-flow" data-footer-action="returnToFlow" {{#unless wizardFooter.showReturnToFlow}}hidden{{/unless}}>
+        <i class="fas fa-arrow-left"></i> <span data-return-label>{{wizardFooter.returnLabel}}</span>
+      </button>
+    </div>
   </footer>
 
   <!-- Loading Overlay -->

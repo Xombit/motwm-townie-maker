@@ -8,6 +8,15 @@
     "build": "vite build",
     "watch": "vite build --watch",
     "dev": "vite build --watch",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "test:coverage": "vitest run --coverage",
+    "test:audit": "vitest run tests/audit tests/unit tests/integration",
+    "test:audit:json": "vitest run tests/audit tests/unit tests/integration --reporter=json --outputFile=artifacts/audit-results.json",
+    "audit:scenarios": "tsx ./scripts/generate-scenario-results.ts artifacts/scenario-run-results.json",
+    "audit:triage": "node ./scripts/triage-scenario-report.mjs",
+    "audit:pipeline": "npm run audit:scenarios && npm run audit:triage -- artifacts/scenario-run-results.json --json-out artifacts/subsystem-triage.json",
+    "ci:check": "npm run test && npm run build",
     "deploy": "powershell -ExecutionPolicy Bypass -File ./scripts/deploy.ps1",
     "dev:foundry": "powershell -ExecutionPolicy Bypass -File ./scripts/dev.ps1",
     "pack-win": "powershell -ExecutionPolicy Bypass -File ./scripts/pack.ps1"
@@ -15,7 +24,10 @@
   "author": "Xombit",
   "license": "MIT",
   "devDependencies": {
+    "@vitest/coverage-v8": "^4.1.10",
+    "tsx": "^4.23.1",
     "typescript": "^5.6.3",
-    "vite": "^5.4.8"
+    "vite": "^5.4.8",
+    "vitest": "^4.1.10"
   }
 }

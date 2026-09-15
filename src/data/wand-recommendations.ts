@@ -8,6 +8,7 @@
 
 import { SpellDefinition, calculateWandCost } from './spells.js';
 import * as Spells from './spells.js';
+import { getPrimaryClassToken, isDivineClass } from './class-utils';
 
 /**
  * Wand recommendation for a specific spell
@@ -87,7 +88,7 @@ export function getWandRecommendations(
   characterLevel: number,
   budget: number
 ): WandRecommendation[] {
-  const className = characterClass.toLowerCase();
+  const className = getPrimaryClassToken(characterClass);
   const priorities = WAND_PRIORITIES_BY_CLASS[className] || [];
   
   console.log(`DEBUG: Wand selection for ${characterClass} (${className}), priorities: ${priorities.length}, budget: ${budget} gp`);
@@ -102,7 +103,7 @@ export function getWandRecommendations(
   // Collect all available spells
   const allArcaneSpells = Spells.getAllArcaneSpells();
   const allDivineSpells = Spells.getAllDivineSpells();
-  const isDivine = ['cleric', 'druid', 'paladin', 'ranger'].includes(className);
+  const isDivine = isDivineClass(className) || ['paladin', 'ranger'].includes(className);
   const spellList = isDivine ? allDivineSpells : allArcaneSpells;
   
   // Create a map of spell keys to spells

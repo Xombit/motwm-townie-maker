@@ -6,6 +6,18 @@
 import { PotionRecommendation } from './magic-item-system';
 import { POTION_DEFINITIONS } from './potion-recommendations';
 
+export interface ItemCreateFailure {
+  name: string;
+  reason: string;
+  plannedCost: number;
+}
+
+export interface ItemCreateResult {
+  createdIds: string[];
+  createdCost: number;
+  failed: ItemCreateFailure[];
+}
+
 /**
  * Create a potion item from a potion name
  * 
@@ -25,7 +37,7 @@ export function createPotionFromName(potionName: string, quantity: number = 1, i
     return null;
   }
   
-  const [potionId, potion] = potionEntry;
+  const [, potion] = potionEntry;
   
   // Determine aura strength based on caster level
   const auraStrength = getAuraStrength(potion.casterLevel);
@@ -95,27 +107,55 @@ function getAuraStrength(casterLevel: number): string {
  * @param potions - Array of potion recommendations
  * @param identifyItems - Whether to create items as identified
  */
-export async function createPotionsForActor(actor: any, potions: PotionRecommendation[], identifyItems: boolean = true): Promise<string[]> {
+export async function createPotionsForActor(actor: any, potions: PotionRecommendation[], identifyItems: boolean = true): Promise<ItemCreateResult> {
   if (!potions || potions.length === 0) {
-    return [];
+    return { createdIds: [], createdCost: 0, failed: [] };
   }
   
   console.log(`Creating ${potions.length} different types of potions for ${actor.name}:`);
   
-  const potionItems = [];
+  const preparedPotions: Array<{ data: any; recommendation: PotionRecommendation }> = [];
+  const failed: ItemCreateFailure[] = [];
   for (const potion of potions) {
     const potionData = createPotionFromName(potion.name, potion.quantity, identifyItems);
     if (potionData) {
       console.log(`  - ${potion.quantity}x ${potionData.name} (${potion.cost} gp each, ${potion.cost * potion.quantity} gp total)`);
-      potionItems.push(potionData);
+      preparedPotions.push({ data: potionData, recommendation: potion });
+    } else {
+      failed.push({
+        name: `Potion of ${potion.name}`,
+        reason: 'definition_not_found',
+        plannedCost: potion.cost * potion.quantity,
+      });
     }
   }
-  
-  if (potionItems.length > 0) {
-    const created = await actor.createEmbeddedDocuments('Item', potionItems);
-    console.log(`Successfully added ${potionItems.length} types of potions to ${actor.name}`);
-    return (created || []).map((i: any) => i.id).filter(Boolean);
+
+  const createdIds: string[] = [];
+  let createdCost = 0;
+
+  for (const prepared of preparedPotions) {
+    try {
+      const created = await actor.createEmbeddedDocuments('Item', [prepared.data]);
+      const createdId = created?.[0]?.id;
+      if (createdId) {
+        createdIds.push(createdId);
+        createdCost += prepared.recommendation.cost * prepared.recommendation.quantity;
+      } else {
+        failed.push({
+          name: prepared.data?.name || `Potion of ${prepared.recommendation.name}`,
+          reason: 'create_returned_no_id',
+          plannedCost: prepared.recommendation.cost * prepared.recommendation.quantity,
+        });
+      }
+    } catch (error: any) {
+      failed.push({
+        name: prepared.data?.name || `Potion of ${prepared.recommendation.name}`,
+        reason: String(error?.message || error || 'create_failed'),
+        plannedCost: prepared.recommendation.cost * prepared.recommendation.quantity,
+      });
+    }
   }
 
-  return [];
+  console.log(`Successfully added ${createdIds.length} of ${preparedPotions.length} potion item types to ${actor.name}`);
+  return { createdIds, createdCost, failed };
 }

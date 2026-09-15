@@ -7,6 +7,18 @@
 
 import type { ScrollRecommendation } from './scroll-recommendations.js';
 
+export interface ItemCreateFailure {
+  name: string;
+  reason: string;
+  plannedCost: number;
+}
+
+export interface ItemCreateResult {
+  createdIds: string[];
+  createdCost: number;
+  failed: ItemCreateFailure[];
+}
+
 // Declare global game object
 declare const game: any;
 
@@ -178,15 +190,16 @@ export async function createScrollsForActor(
   actor: any,
   scrolls: ScrollRecommendation[],
   identifyItems: boolean = true
-): Promise<string[]> {
+): Promise<ItemCreateResult> {
   if (scrolls.length === 0) {
     console.log('No scrolls to create');
-    return [];
+    return { createdIds: [], createdCost: 0, failed: [] };
   }
   
   console.log(`Creating ${scrolls.length} scrolls for ${actor.name}...`);
   
-  const scrollItems = [];
+  const preparedScrolls: Array<{ data: any; recommendation: ScrollRecommendation }> = [];
+  const failed: ItemCreateFailure[] = [];
   
   for (const scrollRec of scrolls) {
     const scrollData = await createScrollFromSpell(
@@ -198,17 +211,43 @@ export async function createScrollsForActor(
     );
     
     if (scrollData) {
-      scrollItems.push(scrollData);
+      preparedScrolls.push({ data: scrollData, recommendation: scrollRec });
       console.log(`Created scroll: Scroll of ${scrollRec.spell.name} (${scrollRec.scrollType}, CL ${scrollRec.casterLevel}, ${scrollRec.cost} gp)`);
+    } else {
+      failed.push({
+        name: `Scroll of ${scrollRec.spell.name}`,
+        reason: 'spell_lookup_failed',
+        plannedCost: scrollRec.cost,
+      });
     }
   }
-  
-  // Add all scrolls to the actor at once
-  if (scrollItems.length > 0) {
-    const created = await actor.createEmbeddedDocuments('Item', scrollItems);
-    console.log(`Added ${scrollItems.length} scrolls to ${actor.name}`);
-    return (created || []).map((i: any) => i.id).filter(Boolean);
+
+  const createdIds: string[] = [];
+  let createdCost = 0;
+
+  for (const prepared of preparedScrolls) {
+    try {
+      const created = await actor.createEmbeddedDocuments('Item', [prepared.data]);
+      const createdId = created?.[0]?.id;
+      if (createdId) {
+        createdIds.push(createdId);
+        createdCost += prepared.recommendation.cost;
+      } else {
+        failed.push({
+          name: prepared.data?.name || `Scroll of ${prepared.recommendation.spell.name}`,
+          reason: 'create_returned_no_id',
+          plannedCost: prepared.recommendation.cost,
+        });
+      }
+    } catch (error: any) {
+      failed.push({
+        name: prepared.data?.name || `Scroll of ${prepared.recommendation.spell.name}`,
+        reason: String(error?.message || error || 'create_failed'),
+        plannedCost: prepared.recommendation.cost,
+      });
+    }
   }
 
-  return [];
+  console.log(`Added ${createdIds.length} of ${preparedScrolls.length} prepared scrolls to ${actor.name}`);
+  return { createdIds, createdCost, failed };
 }

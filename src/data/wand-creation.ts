@@ -12,6 +12,18 @@ import { WandRecommendation } from './wand-recommendations.js';
 // @ts-ignore - game is global in Foundry
 declare const game: any;
 
+export interface ItemCreateFailure {
+  name: string;
+  reason: string;
+  plannedCost: number;
+}
+
+export interface ItemCreateResult {
+  createdIds: string[];
+  createdCost: number;
+  failed: ItemCreateFailure[];
+}
+
 /**
  * Create a wand item from a spell
  * 
@@ -127,18 +139,27 @@ export async function addWandsToActor(
   actor: any,
   wands: WandRecommendation[],
   identifyItems: boolean = true
-): Promise<string[]> {
+): Promise<ItemCreateResult> {
   const createdIds: string[] = [];
+  let createdCost = 0;
+  const failed: ItemCreateFailure[] = [];
   
   for (const wandRec of wands) {
     const wand = await createWandFromSpell(actor, wandRec.spell, wandRec.casterLevel, identifyItems);
     if (wand) {
       createdIds.push(wand.id);
+      createdCost += wandRec.cost;
+    } else {
+      failed.push({
+        name: `Wand of ${wandRec.spell.name}`,
+        reason: 'create_failed',
+        plannedCost: wandRec.cost,
+      });
     }
   }
   
   console.log(`Added ${createdIds.length} of ${wands.length} wands to ${actor.name}`);
-  return createdIds;
+  return { createdIds, createdCost, failed };
 }
 
 /**

@@ -7,10 +7,63 @@
  * 3. Adding spell items to actor with proper linking
  */
 
-import { SpellSelection, SpellItem, isCasterClass } from './spell-selection';
+import { SpellSelection, SpellItem } from './spell-selection';
+import { shouldConfigureSpells } from './spell-gating';
 
 // Declare global game object (Foundry VTT runtime)
 declare const game: any;
+
+const SPELL_LIST_WARNING_SNIPPET = 'spell added despite not being in a spell list for class';
+
+function warningArgsToText(args: any[]): string {
+  return args
+    .map((arg) => {
+      if (typeof arg === 'string') return arg;
+      if (arg instanceof Error) return arg.message;
+      if (arg && typeof arg === 'object' && typeof arg.message === 'string') return arg.message;
+      try {
+        return String(arg ?? '');
+      } catch {
+        return '';
+      }
+    })
+    .join(' ')
+    .toLowerCase();
+}
+
+async function withSuppressedSpellListWarning<T>(operation: () => Promise<T>): Promise<T> {
+  const originalWarn = console.warn;
+  const hooks = (globalThis as any).Hooks;
+  const hookCallback = (...args: any[]) => {
+    const message = warningArgsToText(args);
+    // Returning false on a Foundry hook prevents downstream handling.
+    if (message.includes(SPELL_LIST_WARNING_SNIPPET)) return false;
+    return undefined;
+  };
+
+  let hookId: number | null = null;
+  if (hooks?.on && hooks?.off) {
+    hookId = hooks.on('warn', hookCallback);
+  }
+
+  console.warn = (...args: any[]) => {
+    const message = warningArgsToText(args);
+    if (message.includes(SPELL_LIST_WARNING_SNIPPET)) {
+      return;
+    }
+
+    originalWarn(...args);
+  };
+
+  try {
+    return await operation();
+  } finally {
+    if (hookId !== null && hooks?.off) {
+      hooks.off('warn', hookId);
+    }
+    console.warn = originalWarn;
+  }
+}
 
 /**
  * Configure an actor's spellbook
@@ -304,7 +357,13 @@ export async function addSpellsToActor(actor: any, spellSelection: SpellSelectio
   
   // Add all spells to actor
   if (spellItems.length > 0) {
-    await actor.createEmbeddedDocuments('Item', spellItems);
+    await withSuppressedSpellListWarning(async () => {
+      await actor.createEmbeddedDocuments('Item', spellItems, {
+        ignoreSpellbookAndLevel: true,
+        stopUpdates: true,
+        nameUnique: true,
+      });
+    });
     console.log(`✓ Successfully added ${foundCount} spells to ${actor.name}`);
     
     // Log spell breakdown by level
@@ -336,15 +395,13 @@ export async function configureSpellsForActor(
   level: number,
   abilityScores: { int: number; wis: number; cha: number }
 ): Promise<void> {
-  // Check if this is a caster class
-  if (!isCasterClass(characterClass)) {
-    console.log(`${actor.name} (${characterClass}) is not a spellcaster`);
-    return;
-  }
-  
-  // Paladin and Ranger don't cast until level 4
-  if ((characterClass === 'paladin' || characterClass === 'ranger') && level < 4) {
-    console.log(`${actor.name} (${characterClass} ${level}) doesn't cast spells yet (needs level 4+)`);
+  const gating = shouldConfigureSpells(characterClass, level);
+  if (!gating.shouldConfigure) {
+    if (gating.reason === 'not-caster') {
+      console.log(`${actor.name} (${characterClass}) is not a spellcaster`);
+    } else if (gating.reason === 'too-low-level') {
+      console.log(`${actor.name} (${characterClass} ${level}) doesn't cast spells yet (needs level 4+)`);
+    }
     return;
   }
   
